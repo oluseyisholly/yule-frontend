@@ -1,0 +1,46 @@
+import type { Metadata } from "next";
+import { Raleway, Geist } from "next/font/google";
+import localFont from "next/font/local";
+import Header from "@/layouts/Header";
+import Footer from "@/layouts/Footer";
+import "./globals.css";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+const raleway = Raleway({
+  variable: "--font-raleway",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const oambe = localFont({
+  src: "../../public/fonts/Oambe-Wpqlv.otf",
+  variable: "--font-oambe",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "Yule",
+  description: "Celebrate Life's Moments without Missing a Beat",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      className={cn("h-full", "antialiased", raleway.variable, oambe.variable, "font-sans", geist.variable)}
+    >
+      <body className={`${raleway.className} min-h-full flex flex-col`}>
+        <Header />
+        <div className="flex-1">{children}</div>
+        <Footer />
+      </body>
+    </html>
+  );
+}
