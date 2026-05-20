@@ -55,28 +55,28 @@ function PauseIcon() {
 
 export default function TestimonialsSection() {
   return (
-    <section className="bg-gradient-to-b from-[#3300C9] to-[#1F007D] px-6 py-14 md:py-20">
+    <section className="bg-gradient-to-b from-[#3300C9] to-[#1F007D] px-5 sm:px-6 py-8 sm:py-10 md:py-12 lg:py-15">
       <div className="max-w-6xl mx-auto">
         {/* Section header */}
-        <div className="flex flex-col items-center text-center mb-12">
-          <span className="inline-block border border-white/50 text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide">
+        <div className="flex flex-col items-center text-center mb-10 sm:mb-12 lg:mb-14">
+          <span className="inline-block border border-white text-white text-[12px] sm:text-[14px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-[12px] mb-3 sm:mb-4 tracking-wide">
             Reviews
           </span>
-          <h2 className="font-title text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight mb-4">
+          <h2 className="font-title text-[26px] sm:text-[32px] md:text-[36px] lg:text-[40px] text-white leading-tight mb-3 sm:mb-4">
             See what Users are saying
           </h2>
-          <p className="text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
+          <p className="text-white/80 text-[14px] sm:text-[15px] lg:text-[16px] font-medium leading-relaxed max-w-xl">
             Discover how video testimonial has helped in celebrating there loved
             ones specially
           </p>
         </div>
 
         {/* Cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 justify-items-center">
           {testimonials.map((t) => (
             <div
               key={t.id}
-              className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-700"
+              className="relative w-full max-w-[288px] aspect-[288/450] rounded-[24px] overflow-hidden bg-gray-700 lg:w-[288px] lg:h-[450px] lg:max-w-none lg:aspect-auto"
             >
               {/* Image placeholder — replace with <Image /> */}
               <div className="absolute inset-0 flex items-center justify-center">

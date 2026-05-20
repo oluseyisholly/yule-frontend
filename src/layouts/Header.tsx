@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Button from "@/components/Button";
 import Image from "next/image";
-import Logo from "@/assets/images/logo.png";
+import Logo from "@/assets/images/logoblue.svg";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -21,7 +21,7 @@ export default function Header() {
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header className="w-full bg-white border-b border-gray-100 relative z-50">
+    <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-[30px] py-5.5 flex items-center justify-between gap-14">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">

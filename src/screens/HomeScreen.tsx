@@ -18,8 +18,8 @@ export default function HomeScreen() {
       </div>
       <FeaturesSection />
       <TestimonialsSection />
-      <CtaBannerSection />
       <FAQSection />
+      <CtaBannerSection />
     </main>
   );
 }

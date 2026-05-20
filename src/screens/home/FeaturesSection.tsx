@@ -1,4 +1,12 @@
-import Link from "next/link";
+import Button from "@/components/Button";
+import Image from "next/image";
+import pics1 from "@/assets/icons/featureImg1.svg";
+import pics2 from "@/assets/icons/featureImg2.svg";
+import pics3 from "@/assets/icons/featureImg3.svg";
+import pics4 from "@/assets/icons/featureImg4.svg";
+import pics5 from "@/assets/icons/featureImg5.svg";
+import pics6 from "@/assets/icons/featureImg6.svg";
+
 
 const features = [
   {
@@ -9,7 +17,7 @@ const features = [
     cta: "Set Up Automatic Wishes",
     href: "/automated-messages",
     highlight: true,
-    image: "Person using phone",
+    image: pics1,
   },
   {
     id: 2,
@@ -19,7 +27,7 @@ const features = [
     cta: "Send a Wish Now",
     href: "/instant-message",
     highlight: false,
-    image: "Hand holding phone with message",
+    image: pics2,
   },
   {
     id: 3,
@@ -29,7 +37,7 @@ const features = [
     cta: "Create Your Wish lists",
     href: "/wish-lists",
     highlight: false,
-    image: "Birthday wish card",
+    image: pics3,
   },
   {
     id: 4,
@@ -39,7 +47,7 @@ const features = [
     cta: "Start a Secret Santa",
     href: "/secret-santa",
     highlight: false,
-    image: "Christmas gifts and cookies",
+    image: pics4,
   },
   {
     id: 5,
@@ -49,7 +57,7 @@ const features = [
     cta: "Set Up Automatic Wishes",
     href: "/find-gifts",
     highlight: false,
-    image: "Gift box with ribbon",
+    image: pics5,
   },
   {
     id: 6,
@@ -59,56 +67,57 @@ const features = [
     cta: "Find Places to Celebrate",
     href: "/find-hangouts",
     highlight: false,
-    image: "Friends celebrating together",
+    image: pics6,
   },
 ];
 
 export default function FeaturesSection() {
   return (
-    <section className="bg-white px-6 py-5 md:py-15">
+    <section className="bg-white px-5 sm:px-6 md:px-8 py-8 sm:py-10 md:py-12 lg:py-15">
       <div className="max-w-5xl mx-auto">
         {/* Section header */}
-        <div className="flex flex-col items-center text-center mb-16">
-          <span className="inline-block bg-[#FF660014] border border-[#FF6600] text-[#FF6600] text-[14px]  px-4 py-2 rounded-[12px] mb-4 tracking-wide">
+        <div className="flex flex-col items-center text-center mb-10 sm:mb-12 md:mb-14 lg:mb-16">
+          <span className="inline-block bg-[#FF660014] border border-[#FF6600] text-[#FF6600] text-[12px] sm:text-[14px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-[12px] mb-3 sm:mb-4 tracking-wide">
             Main Features
           </span>
-          <h2 className="font-title text-[36px] leading-[1.18] tracking-[0.05em] text-dark mb-3">
+          <h2 className="font-title text-[24px] sm:text-[28px] md:text-[32px] lg:text-[36px] leading-[1.18] tracking-[0.05em] text-dark mb-3">
             One Celebration. Endless Moments.
           </h2>
-          <p className="text-muted text-[16px] font-medium ">
+          <p className="text-muted text-[14px] sm:text-[15px] lg:text-[16px] font-medium max-w-xl">
             Experience curated gifting, vibrant hangouts, and live name draws
             designed to bring everyone together.
           </p>
         </div>
 
         {/* Feature cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-25">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-25">
           {features.map((feature) => (
             <div
               key={feature.id}
-              className="rounded-[16px] px-6 py-12.5 flex flex-col gap-4 border-2 transition-colors hover:border-primary border-gray-200"
+              className="rounded-[16px] cursor-pointer px-5 sm:px-6 py-8 sm:py-10 md:py-11 lg:py-12.5 flex flex-col gap-4 border-2 transition-colors hover:border-primary border-gray-200"
             >
-              {/* Image placeholder */}
-              <div className="w-full aspect-video rounded-xl bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-400 text-sm text-center px-3">
-                  {feature.image}
-                </span>
+              <div className="w-full aspect-video rounded-[8px] overflow-hidden">
+                <Image
+                  src={feature.image}
+                  alt={feature.title}
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               {/* Content */}
               <div className="flex flex-col gap-3 flex-1">
-                <h3 className="font-title text-xl font-bold text-dark">
+                <h3 className="font-title text-[20px] sm:text-[22px] lg:text-[24px] text-dark">
                   {feature.title}
                 </h3>
-                <p className="text-muted text-sm leading-relaxed flex-1">
+                <p className="text-muted text-[14px] sm:text-[15px] lg:text-[16px] leading-relaxed flex-1">
                   {feature.description}
                 </p>
-                <Link
+                <Button
                   href={feature.href}
-                  className="mt-1 w-full text-center border border-primary text-primary text-sm font-semibold py-2.5 rounded-xl hover:bg-primary/5 transition-colors"
-                >
-                  {feature.cta}
-                </Link>
+                  label={feature.cta}
+                  variant="outlined"
+                  className="mt-2 w-full rounded-xl"
+                />
               </div>
             </div>
           ))}
