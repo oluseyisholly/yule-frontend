@@ -65,32 +65,28 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="bg-white px-6 py-14 md:py-20">
+    <section className="bg-white px-6 py-5 md:py-15">
       <div className="max-w-5xl mx-auto">
         {/* Section header */}
-        <div className="flex flex-col items-center text-center mb-14">
-          <span className="inline-block border border-[#F5A623] text-[#F5A623] text-xs font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide">
+        <div className="flex flex-col items-center text-center mb-16">
+          <span className="inline-block bg-[#FF660014] border border-[#FF6600] text-[#FF6600] text-[14px]  px-4 py-2 rounded-[12px] mb-4 tracking-wide">
             Main Features
           </span>
-          <h2 className="font-title text-3xl sm:text-4xl md:text-5xl font-bold text-dark leading-tight mb-4">
+          <h2 className="font-title text-[36px] leading-[1.18] tracking-[0.05em] text-dark mb-3">
             One Celebration. Endless Moments.
           </h2>
-          <p className="text-muted text-base max-w-xl leading-relaxed">
+          <p className="text-muted text-[16px] font-medium ">
             Experience curated gifting, vibrant hangouts, and live name draws
             designed to bring everyone together.
           </p>
         </div>
 
         {/* Feature cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-25">
           {features.map((feature) => (
             <div
               key={feature.id}
-              className={`rounded-2xl p-5 flex flex-col gap-4 border ${
-                feature.highlight
-                  ? "border-2 border-primary"
-                  : "border border-gray-200"
-              }`}
+              className="rounded-[16px] px-6 py-12.5 flex flex-col gap-4 border-2 transition-colors hover:border-primary border-gray-200"
             >
               {/* Image placeholder */}
               <div className="w-full aspect-video rounded-xl bg-gray-200 flex items-center justify-center">
