@@ -2,6 +2,7 @@
 
 import { useField } from "formik";
 import { useState, type InputHTMLAttributes } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,7 @@ type InputProps = {
   label?: string;
   name: string;
   hint?: string;
+  inputClassName?: string;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "name">;
 
 export default function Input({
@@ -17,6 +19,7 @@ export default function Input({
   type = "text",
   hint,
   className,
+  inputClassName,
   ...rest
 }: InputProps) {
   const [field, meta] = useField(name);
@@ -29,7 +32,7 @@ export default function Input({
   return (
     <div className={cn("flex flex-col gap-1.5 w-full", className)}>
       {label && (
-        <label htmlFor={name} className="text-sm font-medium text-dark">
+        <label htmlFor={name} className="text-[14px] font-medium text-dark">
           {label}
         </label>
       )}
@@ -42,8 +45,9 @@ export default function Input({
           {...field}
           {...rest}
           className={cn(
-            "h-auto bg-white text-dark text-sm px-4 py-3 rounded-lg border-gray-300 placeholder:text-gray-400 focus-visible:border-primary focus-visible:ring-primary/20",
-            isPassword && "pr-12"
+            "h-12 bg-white text-dark text-[14px] px-4 py-3 rounded-lg border-gray-300 placeholder:text-gray-400 focus-visible:border-primary focus-visible:ring-primary/20",
+            isPassword && "pr-11",
+            inputClassName
           )}
         />
 
@@ -51,9 +55,14 @@ export default function Input({
           <button
             type="button"
             onClick={() => setShowPassword((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary cursor-pointer"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-dark cursor-pointer"
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword ? (
+              <Eye className="w-5 h-5" />
+            ) : (
+              <EyeOff className="w-5 h-5" />
+            )}
           </button>
         )}
       </div>

@@ -65,7 +65,7 @@ export default function TestimonialsSection() {
           <h2 className="font-title text-[26px] sm:text-[32px] md:text-[36px] lg:text-[40px] text-white leading-tight mb-3 sm:mb-4">
             See what Users are saying
           </h2>
-          <p className="text-white/80 text-[14px] sm:text-[15px] lg:text-[16px] font-medium leading-relaxed max-w-xl">
+          <p className="text-white/80 text-[14px] sm:text-[15px] lg:text-[16px] font-medium leading-relaxed">
             Discover how video testimonial has helped in celebrating there loved
             ones specially
           </p>

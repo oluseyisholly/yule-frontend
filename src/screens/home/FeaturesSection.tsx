@@ -83,7 +83,7 @@ export default function FeaturesSection() {
           <h2 className="font-title text-[24px] sm:text-[28px] md:text-[32px] lg:text-[36px] leading-[1.18] tracking-[0.05em] text-dark mb-3">
             One Celebration. Endless Moments.
           </h2>
-          <p className="text-muted text-[14px] sm:text-[15px] lg:text-[16px] font-medium max-w-xl">
+          <p className="text-muted text-[14px] sm:text-[15px] lg:text-[16px] font-medium">
             Experience curated gifting, vibrant hangouts, and live name draws
             designed to bring everyone together.
           </p>
