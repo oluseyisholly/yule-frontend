@@ -7,11 +7,16 @@
 @theme inline {
   --font-body: var(--font-raleway), sans-serif;
   --font-title: var(--font-oambe), var(--font-raleway), sans-serif;
+  --font-inter: var(--font-inter), sans-serif;
+  --font-nunito: var(--font-nunito), sans-serif;
 
   --color-primary: #3300c9;
   --color-muted: #7D7D7D;
+  --color-charcoal: #434343;
   --color-dark: #1e1e1e;
   --color-surface: #f5f4fa;
+  --color-neutral: #4D4D4D;
+  --color-darker:#4B4B4D
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);

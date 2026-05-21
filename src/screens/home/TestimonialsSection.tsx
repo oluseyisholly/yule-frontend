@@ -1,30 +1,37 @@
+import Image from "next/image";
+import pics1 from "@/assets/icons/video(1).svg";
+import pics2 from "@/assets/icons/video(2).svg";
+import pics3 from "@/assets/icons/video(3).svg";
+import pics4 from "@/assets/icons/video(4).svg";
+
+
 const testimonials = [
   {
     id: 1,
     name: "Jalen kyle",
     role: "Founder of Mediahouse",
-    image: "Jalen kyle portrait",
+    image: pics1,
     playing: false,
   },
   {
     id: 2,
     name: "Alexander",
     role: "Content Writer",
-    image: "Alexander portrait",
+    image: pics2,
     playing: true,
   },
   {
     id: 3,
     name: "Emily Grace",
     role: "Marketing Head",
-    image: "Emily Grace portrait",
+    image: pics3,
     playing: false,
   },
   {
     id: 4,
     name: "Daniel Ethan",
     role: "Product Designer",
-    image: "Daniel Ethan portrait",
+    image: pics4,
     playing: false,
   },
 ];
@@ -79,11 +86,12 @@ export default function TestimonialsSection() {
               className="relative w-full max-w-[288px] aspect-[288/450] rounded-[24px] overflow-hidden bg-gray-700 lg:w-[288px] lg:h-[450px] lg:max-w-none lg:aspect-auto"
             >
               {/* Image placeholder — replace with <Image /> */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-gray-400 text-xs text-center px-2">
-                  {t.image}
-                </span>
-              </div>
+              <Image
+                src={t.image}
+                alt={`${t.name} testimonial`}
+                fill
+                className="object-cover"
+              />
 
               {/* Bottom gradient for text contrast */}
               <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -91,16 +99,16 @@ export default function TestimonialsSection() {
               {/* Name + role + play/pause */}
               <div className="absolute inset-x-0 bottom-0 p-4 flex items-end justify-between gap-3">
                 <div className="text-white min-w-0">
-                  <h3 className="font-title font-bold text-sm md:text-base truncate">
+                  <h3 className="font-inter font-semibold text-sm md:text-[18px] truncate leading-[24.01px] tracking-[-0.5px]">
                     {t.name}
                   </h3>
-                  <p className="text-xs text-white/80 truncate">{t.role}</p>
+                  <p className="text-[14px] text-[#D4D4D8] truncate">{t.role}</p>
                 </div>
 
                 <button
                   type="button"
                   aria-label={t.playing ? "Pause testimonial" : "Play testimonial"}
-                  className="shrink-0 w-10 h-10 rounded-lg border border-white/70 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                  className="shrink-0 w-12 h-12 rounded-lg border border-white/70 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   {t.playing ? <PauseIcon /> : <PlayIcon />}
                 </button>

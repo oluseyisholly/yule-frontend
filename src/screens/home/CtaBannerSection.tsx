@@ -1,5 +1,5 @@
 import Button from "@/components/Button";
-import bgImage from "@/assets/icons/featureImg3.svg";
+import bgImage from "@/assets/images/ctaBg.png";
 
 export default function CtaBannerSection() {
   return (
