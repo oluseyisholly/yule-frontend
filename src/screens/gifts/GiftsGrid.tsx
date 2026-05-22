@@ -90,7 +90,7 @@ function GiftCard({ gift, image }: { gift: Gift; image: typeof pic1 }) {
           <Button
             label="Get Gift"
             variant="filled"
-            className="rounded-[16px] px-3 py-1.5 text-[10px] font-medium h-auto"
+            className="rounded-[16px] px-7 py-2.5 text-[10px] font-medium h-auto"
           />
         </div>
       </div>

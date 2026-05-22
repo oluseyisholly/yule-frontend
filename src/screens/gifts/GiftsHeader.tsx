@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import FilterDropdown from "@/screens/gifts/FilterDropdown";
 import filterIcon from "@/assets/icons/filter.svg";
 import Image from "next/image";
+import SearchIcon from "@/assets/icons/search.svg";
 
 const dropdowns: { label: string; options: string[] }[] = [
   {
@@ -73,7 +74,7 @@ export default function GiftsHeader() {
         </div>
 
         <div className="relative flex-1 gap-2">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Image src={SearchIcon} alt="Search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
           <Input
             type="search"
             placeholder="Search for Gift"
@@ -89,11 +90,3 @@ export default function GiftsHeader() {
 
 
 
-function SearchIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden className={className}>
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-      <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}

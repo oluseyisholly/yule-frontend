@@ -6,7 +6,7 @@ import Footer from "@/layouts/Footer";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const inter = Inter({
   variable: "--font-inter",
@@ -46,12 +46,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", raleway.variable, oambe.variable, inter.variable, nunito.variable, "font-sans", geist.variable)}
+      className={cn("h-full", "antialiased", 
+        raleway.variable, oambe.variable, 
+        inter.variable, nunito.variable, "font-sans", geist.variable)}
+     
     >
       <body className={`${raleway.className} min-h-full flex flex-col`}>
-        <Header />
-        <div className="flex-1">{children}</div>
-        <Footer />
+        {children}
       </body>
     </html>
   );
