@@ -87,6 +87,8 @@ export default function GiftsHeader() {
 
 
 
+
+
 function SearchIcon({ className = "" }: { className?: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden className={className}>
