@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import dropIcon from "@/assets/icons/dropIcon.svg";
 
 const faqs = [
   {
@@ -35,54 +37,51 @@ const faqs = [
   },
 ];
 
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <span
-      className={`inline-block w-2.5 h-2.5 border-r-2 border-b-2 border-gray-400 transition-transform duration-200 ${
-        open ? "rotate-[225deg]" : "rotate-45 -translate-y-0.5"
-      }`}
-    />
-  );
-}
-
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <section className="bg-white px-6 py-14 md:py-20">
+    <section className="bg-white px-6 py-8 md:pt-19 pb-13">
       <div className="max-w-3xl mx-auto">
         {/* Section header */}
         <div className="flex flex-col items-center text-center mb-12">
-          <span className="inline-block border border-[#F5A623] text-[#F5A623] text-xs font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide">
+          <span className="inline-block border border-[#FF6600] text-[#FF6600] bg-[#FF660014] text-[12px] px-4 py-2 rounded-[12px] mb-3.5 tracking-wide">
             FAQ
           </span>
-          <h2 className="font-title text-3xl sm:text-4xl md:text-5xl font-bold text-dark leading-tight mb-3">
+          <h2 className="font-title text-[40px]  text-[#000000] leading-tight mb-3.5">
             Frequently Asked Questions
           </h2>
-          <p className="text-muted text-sm">
+          <p className="text-muted text-[16px] font-medium  ">
             See frequent questions ask from our users
           </p>
         </div>
 
         {/* Accordion */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
               <div
                 key={i}
-                className="border border-gray-200 rounded-xl bg-white overflow-hidden"
+                className="border border-gray-200 rounded-[10px] bg-white overflow-hidden shadow-[0_0_0_4px_#FFFFFF]"
               >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   aria-expanded={isOpen}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-between gap-4 px-5 py-7 text-left cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <span className="text-sm md:text-base text-dark">
                     {faq.question}
                   </span>
-                  <Chevron open={isOpen} />
+                  <Image
+                    src={dropIcon}
+                    alt=""
+                    aria-hidden
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4 text-sm text-muted leading-relaxed">

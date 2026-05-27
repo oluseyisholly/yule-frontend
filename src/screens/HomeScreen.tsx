@@ -10,7 +10,7 @@ export default function HomeScreen() {
   return (
     <main className="overflow-x-hidden">
       <div
-        className="bg-surface bg-no-repeat bg-cover bg-[position:center_26%]"
+        className="bg-surface bg-no-repeat bg-cover bg-[position:center_22%]"
         style={{ backgroundImage: `url(${heroBg.src})` }}
       >
         <HeroSection />
@@ -18,8 +18,8 @@ export default function HomeScreen() {
       </div>
       <FeaturesSection />
       <TestimonialsSection />
-      <CtaBannerSection />
       <FAQSection />
+      <CtaBannerSection />
     </main>
   );
 }
