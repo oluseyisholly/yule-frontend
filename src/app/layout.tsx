@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import AppProviders from "@/components/providers/AppProviders";
 import { cn } from "@/lib/utils";
+import { ThemeProvider, themeNoFlashScript } from "@/components/ThemeProvider";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -56,9 +57,15 @@ export default function RootLayout({
         "font-sans",
         geist.variable,
       )}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
+      </head>
       <body className={`${raleway.className} min-h-full flex flex-col`}>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AppProviders>
       </body>
     </html>
   );

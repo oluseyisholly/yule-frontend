@@ -38,10 +38,10 @@ export default function StartCelebratingForm() {
     <div className="w-full max-w-[440px] mx-auto flex flex-col">
       {/* Title */}
       <div className="text-center mb-7 md:mb-9">
-        <h1 className="font-title text-[30px] sm:text-[34px] md:text-[40px] text-dark leading-tight">
+        <h1 className="font-muted text-[#17191C] font-semibold text-[36px] text-dark leading-tight">
           Start Celebrating
         </h1>
-        <p className="text-muted text-[13px] sm:text-[14px] mt-1">
+        <p className="text-muted text-[12px]  ">
           Be Part of the Moment
         </p>
       </div>
@@ -134,7 +134,7 @@ export default function StartCelebratingForm() {
               Log with Google
             </button>
 
-            <p className="text-center text-[13px] text-muted mt-1">
+            <p className="text-center text-[14px] text-muted mt-1">
               Not Registered Yet?{" "}
               <Link
                 href="/signup"

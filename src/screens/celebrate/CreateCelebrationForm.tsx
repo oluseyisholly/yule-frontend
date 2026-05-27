@@ -48,10 +48,10 @@ export default function CreateCelebrationForm() {
     <div className="w-full max-w-[500px] mx-auto flex flex-col">
       {/* Title */}
       <div className="text-center mb-6 md:mb-8">
-        <h1 className="font-title text-[30px] sm:text-[36px] md:text-[40px] text-dark leading-tight">
+        <h1 className="font-muted font-semibold text-[36px] text-dark leading-tight">
           Create your first celebration
         </h1>
-        <p className="text-muted text-[13px] sm:text-[14px] mt-1.5">
+        <p className="text-muted text-[12px] mt-1.5">
           Join the Celebration 🎉
         </p>
       </div>
@@ -129,7 +129,7 @@ export default function CreateCelebrationForm() {
                   type="checkbox"
                   checked={Boolean(values.marketing)}
                   onChange={(e) => setFieldValue("marketing", e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded-[4px] accent-primary cursor-pointer shrink-0"
+                  className="mt-0.5 w-4 h-4 rounded-[4px] accent-primary cursor-pointer shrink-0 text-[#434343]"
                 />
                 <span>I agree to receive marketing messages from Tenda</span>
               </label>
@@ -142,7 +142,7 @@ export default function CreateCelebrationForm() {
               className="w-full h-12 rounded-lg text-[15px] mt-1"
             />
 
-            <p className="text-center text-[13px] text-muted">
+            <p className="text-center text-[#000000] text-[14px] text-muted">
               Already have an account?{" "}
               <Link
                 href="/start"

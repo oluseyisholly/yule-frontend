@@ -13,6 +13,7 @@ type DashboardPageHeaderProps = {
   actionHref?: string;
   onAction?: () => void;
   actionIcon?: ReactNode;
+  actions?: ReactNode;
   className?: string;
 };
 
@@ -23,6 +24,7 @@ export default function DashboardPageHeader({
   actionHref,
   onAction,
   actionIcon,
+  actions,
   className,
 }: DashboardPageHeaderProps) {
   const buttonContent = (
@@ -52,7 +54,9 @@ export default function DashboardPageHeader({
         ) : null}
       </div>
 
-      {actionLabel ? (
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+      ) : actionLabel ? (
         actionHref ? (
           <Button
             asChild

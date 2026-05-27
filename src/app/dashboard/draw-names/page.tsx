@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import DrawNamesScreen from "@/screens/DrawNamesScreen";
 
 export const metadata: Metadata = {
   title: "Draw Names",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function DrawNamesPage() {
-  return <DashboardWorkspace tab="draw-names" />;
+  return <DrawNamesScreen />;
 }

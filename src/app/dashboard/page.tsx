@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import DashboardScreen from "@/screens/DashboardScreen";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  return <DashboardWorkspace tab="dashboard" />;
+  return <DashboardScreen />;
 }
