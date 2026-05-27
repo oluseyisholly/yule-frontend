@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Button from "@/components/Button";
+import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
 
@@ -57,16 +58,19 @@ export default function Header() {
             href="/start"
             variant="filled"
           />
+          <ThemeToggle />
         </div>
 
-        {/* Mobile hamburger */}
+        {/* Mobile toggle + hamburger */}
+        <div className="lg:hidden flex items-center gap-2">
+          <ThemeToggle />
         <Button
           type="button"
           variant="ghost"
           aria-label={isOpen ? "Close menu" : "Open menu"}
           aria-expanded={isOpen}
           onClick={() => setIsOpen((s) => !s)}
-          className="lg:hidden relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
+          className="relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
         >
           <span
             className={`block w-6 h-0.5 bg-dark transition-all ${
@@ -84,6 +88,7 @@ export default function Header() {
             }`}
           />
         </Button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

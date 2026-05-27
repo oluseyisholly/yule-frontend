@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   getDashboardNavItemByPathname,
 } from "@/components/dashboard/navigation";
@@ -177,6 +178,7 @@ export default function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle className="size-9" />
             <Button
               type="button"
               variant="ghost"
@@ -231,6 +233,7 @@ export default function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle className="size-10" />
             <button
               type="button"
               className="flex items-center gap-3 rounded-full  bg-white py-1.5 pl-1.5 pr-4 text-left transition-colors hover:bg-[#faf8ff]"

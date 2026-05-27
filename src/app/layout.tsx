@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Raleway, Geist, Inter, Nunito } from "next/font/google";
 import localFont from "next/font/local";
-import Header from "@/layouts/Header";
-import Footer from "@/layouts/Footer";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { ThemeProvider, themeNoFlashScript } from "@/components/ThemeProvider";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -46,13 +45,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", 
-        raleway.variable, oambe.variable, 
+      className={cn("h-full", "antialiased",
+        raleway.variable, oambe.variable,
         inter.variable, nunito.variable, "font-sans", geist.variable)}
-     
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
+      </head>
       <body className={`${raleway.className} min-h-full flex flex-col`}>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
