@@ -48,6 +48,8 @@ export const dashboardNavItems: DashboardNavItem[] = [
     href: "/dashboard/wish-list",
     Icon: WishListIcon,
   },
+
+  
   {
     label: "Gifts",
     tab: "gifts",

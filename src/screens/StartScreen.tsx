@@ -3,6 +3,8 @@ import StartCelebratingForm from "@/screens/start/StartCelebratingForm";
 import sideImage from "@/assets/images/start.png";
 
 export default function StartScreen() {
+
+  
   return (
     <main className="bg-white">
       <section className="max-w-7xl mx-auto px-[30px] py-8 md:py-12 lg:py-16">
