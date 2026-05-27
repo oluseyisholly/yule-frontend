@@ -3,6 +3,7 @@ import { Raleway, Geist, Inter, Nunito } from "next/font/google";
 import localFont from "next/font/local";
 
 import "./globals.css";
+import AppProviders from "@/components/providers/AppProviders";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -57,7 +58,7 @@ export default function RootLayout({
       )}
     >
       <body className={`${raleway.className} min-h-full flex flex-col`}>
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Form, Formik } from "formik";
+import toast from "react-hot-toast";
 import * as Yup from "yup";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
+import { useSignInMutation } from "@/features/auth/hooks/useSignInMutation";
+import { ApiRequestError } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 
 const validationSchema = Yup.object({
   email: Yup.string()
@@ -25,6 +30,10 @@ const initialValues: FormValues = {
 };
 
 export default function StartCelebratingForm() {
+  const router = useRouter();
+  const setAuthSession = useAuthStore((state) => state.setAuthSession);
+  const signInMutation = useSignInMutation();
+
   return (
     <div className="w-full max-w-[440px] mx-auto flex flex-col">
       {/* Title */}
@@ -40,11 +49,33 @@ export default function StartCelebratingForm() {
       <Formik
         initialValues={initialValues}
         validationSchema={validationSchema}
-        onSubmit={(values) => {
-          console.log("login", values);
+        onSubmit={async (values, { setSubmitting }) => {
+          try {
+            const response = await signInMutation.mutateAsync({
+              email: values.email,
+              password: values.password,
+            });
+
+            setAuthSession(response.data);
+            toast.success(response.message || "Login successful");
+            router.replace("/dashboard");
+          } catch (error) {
+            if (error instanceof ApiRequestError && error.isNetworkError) {
+              return;
+            }
+
+            const message =
+              error instanceof ApiRequestError || error instanceof Error
+                ? error.message
+                : "Unable to login right now. Please try again.";
+
+            toast.error(message);
+          } finally {
+            setSubmitting(false);
+          }
         }}
       >
-        {({ values, setFieldValue }) => (
+        {({ values, setFieldValue, isSubmitting }) => (
           <Form className="flex flex-col gap-5">
             <Input
               label="Email"
@@ -85,9 +116,14 @@ export default function StartCelebratingForm() {
 
             <Button
               type="submit"
-              label="Login"
+              label={
+                signInMutation.isPending || isSubmitting
+                  ? "Logging in..."
+                  : "Login"
+              }
               variant="filled"
               className="w-full h-12 rounded-lg text-[15px] mt-1"
+              disabled={signInMutation.isPending || isSubmitting}
             />
 
             <button
@@ -116,7 +152,13 @@ export default function StartCelebratingForm() {
 
 function GoogleIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
         fill="#4285F4"
