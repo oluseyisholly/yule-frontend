@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import GiftsScreen from "@/screens/GiftsScreen";
 
 export const metadata: Metadata = {
   title: "Gifts",
-  description: "Track gift ideas and thoughtful picks",
+  description: "Track gifts sent and received",
 };
 
 export default function GiftsPage() {
-  return <DashboardWorkspace tab="gifts" />;
+  return <GiftsScreen />;
 }

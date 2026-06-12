@@ -28,7 +28,7 @@ export default function DashboardLayout({
     <div
       className={cn(
         manrope.className,
-        "min-h-screen bg-[#F5F6FA] lg:flex",
+        "min-h-screen bg-[#F5F6FA] lg:flex lg:h-screen lg:overflow-hidden",
       )}
     >
       <MobileSidebar
@@ -36,7 +36,7 @@ export default function DashboardLayout({
         onClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      <aside className="hidden bg-white px-6 py-10 lg:block lg:min-h-screen lg:w-[288px] lg:px-7 lg:py-12">
+      <aside className="hidden bg-white px-6 py-10 lg:block lg:h-screen lg:w-[288px] lg:shrink-0 lg:overflow-y-auto lg:px-7 lg:py-12">
         <Link href="/" className="mb-10 ml-[32px] block w-fit">
           <YuleWordmarkIcon
             className="h-auto w-[66px]"
@@ -47,19 +47,17 @@ export default function DashboardLayout({
 
         <DashboardSidebarNav />
       </aside>
-      <main className="flex-1">
-        <div>
-          <DashboardHeader
-            onMobileMenuToggle={() => setIsMobileSidebarOpen(true)}
-          />
+      <main className="flex-1 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden">
+        <DashboardHeader
+          onMobileMenuToggle={() => setIsMobileSidebarOpen(true)}
+        />
 
-          <div className="px-6 py-4  space-y-6">
+        <div className="px-6 py-4 space-y-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <TopAlert
               title="Lorem ipsum dolor sit amet consectetur. Auctor aliquet sem vulputate diam."
               externalLink="/"
             />
             {children}
-          </div>
         </div>
       </main>
     </div>

@@ -1,11 +1,16 @@
 "use client";
 
 import Image, { type ImageProps } from "next/image";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import {
+  isValidElement,
+  useEffect,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import ShieldIcon from "@/assets/icons/shield.svg";
 
 type ContentModalProps = {
   open: boolean;
@@ -14,13 +19,67 @@ type ContentModalProps = {
   children: ReactNode;
   dialogClassName?: string;
   bodyClassName?: string;
+  bodyScrollable?: boolean;
   showCloseButton?: boolean;
   closeAriaLabel?: string;
-  icon?: ImageProps["src"];
+  icon?: ImageProps["src"] | ReactNode;
   showHeader?: boolean;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
 };
+
+function DefaultModalIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="size-4 shrink-0"
+    >
+      <path
+        d="M8 1.33301L13.3333 3.33301V7.29301C13.3333 10.6597 11.0533 13.7997 8 14.6663C4.94667 13.7997 2.66667 10.6597 2.66667 7.29301V3.33301L8 1.33301Z"
+        stroke="#315C07"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.66667 8.00033L7.33334 9.66699L10.6667 6.33301"
+        stroke="#315C07"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function renderModalHeaderIcon(icon?: ImageProps["src"] | ReactNode) {
+  if (!icon) {
+    return <DefaultModalIcon />;
+  }
+
+  if (isValidElement(icon)) {
+    return icon;
+  }
+
+  if (typeof icon !== "string" && typeof icon !== "object") {
+    return <DefaultModalIcon />;
+  }
+
+  return (
+    <Image
+      src={icon as ImageProps["src"]}
+      alt=""
+      width={16}
+      height={16}
+      className="size-4 shrink-0"
+    />
+  );
+}
 
 export default function ContentModal({
   open,
@@ -29,9 +88,10 @@ export default function ContentModal({
   children,
   dialogClassName,
   bodyClassName,
+  bodyScrollable = true,
   showCloseButton = true,
   closeAriaLabel = "Close",
-  icon = ShieldIcon,
+  icon,
   showHeader = true,
   closeOnOverlayClick = true,
   closeOnEscape = true,
@@ -103,7 +163,9 @@ export default function ContentModal({
       >
         <div
           className={cn(
-            "relative max-h-[95vh] overflow-y-auto px-6 pt-10 pb-6 md:px-8",
+            bodyScrollable
+              ? "relative max-h-[95vh] overflow-y-auto px-6 pt-10 pb-6 md:px-8"
+              : "relative flex max-h-[95vh] min-h-0 flex-col overflow-hidden px-6 pt-10 pb-6 md:px-8",
             bodyClassName,
           )}
         >
@@ -118,21 +180,15 @@ export default function ContentModal({
             </button>
           ) : null}
 
-          <h2 id={titleId} className={showHeader ? "sr-only" : "mb-6 text-xl font-semibold text-[#2D2E35]"}>
+          {/* <h2 id={titleId} className={showHeader ? "sr-only" : "mb-6 text-xl font-semibold text-[#2D2E35]"}>
             {title}
-          </h2>
+          </h2> */}
 
           {showHeader ? (
             <div className="flex justify-center">
               <div className="mx-auto mb-8 inline-flex items-center justify-center gap-2 rounded-full bg-[#D7FFB3] pe-5">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#66C10A]">
-                  <Image
-                    src={icon}
-                    alt=""
-                    width={16}
-                    height={16}
-                    className="size-4 shrink-0"
-                  />
+                  {renderModalHeaderIcon(icon)}
                 </span>
                 <p className="text-base font-semibold text-[#315C07] md:text-xl">
                   {title}

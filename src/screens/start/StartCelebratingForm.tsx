@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Form, Formik } from "formik";
 import toast from "react-hot-toast";
 import * as Yup from "yup";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
 import { useSignInMutation } from "@/features/auth/hooks/useSignInMutation";
+import { useMyContactIdMutation } from "@/features/contacts/hooks/useMyContactIdMutation";
 import { ApiRequestError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -23,16 +25,23 @@ const validationSchema = Yup.object({
 
 type FormValues = Yup.InferType<typeof validationSchema>;
 
-const initialValues: FormValues = {
-  email: "",
-  password: "",
-  remember: true,
-};
-
 export default function StartCelebratingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuthSession = useAuthStore((state) => state.setAuthSession);
+  const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
   const signInMutation = useSignInMutation();
+  const myContactIdMutation = useMyContactIdMutation();
+  const redirectPath = searchParams.get("redirect")?.trim() || "/dashboard";
+  const prefilledEmail = searchParams.get("email")?.trim() || "";
+  const initialValues = useMemo<FormValues>(
+    () => ({
+      email: prefilledEmail,
+      password: "",
+      remember: true,
+    }),
+    [prefilledEmail],
+  );
 
   return (
     <div className="w-full max-w-[440px] mx-auto flex flex-col">
@@ -48,6 +57,7 @@ export default function StartCelebratingForm() {
 
       <Formik
         initialValues={initialValues}
+        enableReinitialize
         validationSchema={validationSchema}
         onSubmit={async (values, { setSubmitting }) => {
           try {
@@ -57,8 +67,17 @@ export default function StartCelebratingForm() {
             });
 
             setAuthSession(response.data);
+            try {
+              const currentContactIdResponse =
+                await myContactIdMutation.mutateAsync();
+              setCurrentContactId(
+                currentContactIdResponse.data?.contactId ?? null,
+              );
+            } catch {
+              setCurrentContactId(null);
+            }
             toast.success(response.message || "Login successful");
-            router.replace("/dashboard");
+            router.replace(redirectPath);
           } catch (error) {
             if (error instanceof ApiRequestError && error.isNetworkError) {
               return;

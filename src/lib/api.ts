@@ -288,3 +288,28 @@ export async function postApi<TResponse, TPayload = unknown>(
   const response = await apiClient.post<TResponse>(url, payload, config);
   return response.data;
 }
+
+export async function getApi<TResponse>(
+  url: string,
+  config?: ApiRequestConfig,
+) {
+  const response = await apiClient.get<TResponse>(url, config);
+  return response.data;
+}
+
+export async function patchApi<TResponse, TPayload = unknown>(
+  url: string,
+  payload?: TPayload,
+  config?: ApiRequestConfig<TPayload>,
+) {
+  const response = await apiClient.patch<TResponse>(url, payload, config);
+  return response.data;
+}
+
+export async function deleteApi<TResponse>(
+  url: string,
+  config?: ApiRequestConfig,
+) {
+  const response = await apiClient.delete<TResponse>(url, config);
+  return response.data;
+}

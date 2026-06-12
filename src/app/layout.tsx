@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Raleway, Geist, Inter, Nunito } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script";
 
 import "./globals.css";
 import AppProviders from "@/components/providers/AppProviders";
@@ -60,9 +61,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
+        <Script id="theme-no-flash" strategy="beforeInteractive">
+          {themeNoFlashScript}
+        </Script>
       </head>
-      <body className={`${raleway.className} min-h-full flex flex-col`}>
+      <body
+        className={`${raleway.className} min-h-full flex flex-col`}
+        suppressHydrationWarning
+      >
         <AppProviders>
           <ThemeProvider>{children}</ThemeProvider>
         </AppProviders>

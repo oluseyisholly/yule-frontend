@@ -9,16 +9,22 @@ export const AUTH_STORAGE_KEY = "yule-auth-storage";
 type AuthStoreState = {
   user: Omit<AuthUser, "token"> | null;
   token: string | null;
+  currentContactId: string | null;
   isAuthenticated: boolean;
   setAuthSession: (authUser: AuthUser) => void;
+  setCurrentContactId: (contactId: string | null) => void;
   clearAuthSession: () => void;
 };
 
 const initialAuthState = {
   user: null,
   token: null,
+  currentContactId: null,
   isAuthenticated: false,
-} satisfies Pick<AuthStoreState, "user" | "token" | "isAuthenticated">;
+} satisfies Pick<
+  AuthStoreState,
+  "user" | "token" | "currentContactId" | "isAuthenticated"
+>;
 
 export const useAuthStore = create<AuthStoreState>()(
   persist(
@@ -34,8 +40,10 @@ export const useAuthStore = create<AuthStoreState>()(
             email: authUser.email,
           },
           token: authUser.token,
+          currentContactId: null,
           isAuthenticated: true,
         }),
+      setCurrentContactId: (contactId) => set({ currentContactId: contactId }),
       clearAuthSession: () => set(initialAuthState),
     }),
     {
@@ -44,6 +52,7 @@ export const useAuthStore = create<AuthStoreState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        currentContactId: state.currentContactId,
         isAuthenticated: state.isAuthenticated,
       }),
     },
@@ -51,7 +60,10 @@ export const useAuthStore = create<AuthStoreState>()(
 );
 
 type PersistedAuthSnapshot = {
-  state?: Pick<AuthStoreState, "user" | "token" | "isAuthenticated">;
+  state?: Pick<
+    AuthStoreState,
+    "user" | "token" | "currentContactId" | "isAuthenticated"
+  >;
 };
 
 function getPersistedAuthSnapshot() {
@@ -74,6 +86,14 @@ function getPersistedAuthSnapshot() {
 
 export function getStoredAuthToken() {
   return useAuthStore.getState().token ?? getPersistedAuthSnapshot()?.state?.token ?? null;
+}
+
+export function getStoredCurrentContactId() {
+  return (
+    useAuthStore.getState().currentContactId ??
+    getPersistedAuthSnapshot()?.state?.currentContactId ??
+    null
+  );
 }
 
 export function clearStoredAuthSession() {

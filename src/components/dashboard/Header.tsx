@@ -10,6 +10,7 @@ import {
   getDashboardNavItemByPathname,
 } from "@/components/dashboard/navigation";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 function CompanyBranchIcon() {
   return (
@@ -123,11 +124,6 @@ function CompanyBranchSeparatorIcon() {
   );
 }
 
-const dashboardHeaderProfile = {
-  name: "Ada Yule",
-  email: "ada@yule.app",
-};
-
 function getInitials(name: string) {
   const parts = name.split(" ").filter(Boolean);
 
@@ -145,10 +141,17 @@ export default function DashboardHeader({
   onMobileMenuToggle,
 }: DashboardHeaderProps) {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
   const activeItem = getDashboardNavItemByPathname(pathname);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const activeBusinessName = "Yule";
   const activeBranchName = activeItem.label;
+  const dashboardHeaderProfile = {
+    name:
+      [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+      "Yule User",
+    email: user?.email?.trim() || "No email",
+  };
 
   return (
     <header className="overflow-hidden  border border-white/70 bg-white px-4 py-4  sm:px-6 sm:py-5">

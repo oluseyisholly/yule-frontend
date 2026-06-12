@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import WishListScreen from "@/screens/WishListScreen";
 
 export const metadata: Metadata = {
   title: "Create Wish List",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function WishListPage() {
-  return <DashboardWorkspace tab="wish-list" />;
+  return <WishListScreen />;
 }
