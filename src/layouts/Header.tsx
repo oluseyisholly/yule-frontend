@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Button from "@/components/Button";
+import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
-import Logo from "@/assets/images/logo.png";
+import Logo from "@/assets/images/logoblue.svg";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -21,7 +22,7 @@ export default function Header() {
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header className="w-full bg-white border-b border-gray-100 relative z-50">
+    <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-[30px] py-5.5 flex items-center justify-between gap-14">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">
@@ -57,16 +58,19 @@ export default function Header() {
             href="/start"
             variant="filled"
           />
+          <ThemeToggle />
         </div>
 
-        {/* Mobile hamburger */}
+        {/* Mobile toggle + hamburger */}
+        <div className="lg:hidden flex items-center gap-2">
+          <ThemeToggle />
         <Button
           type="button"
           variant="ghost"
           aria-label={isOpen ? "Close menu" : "Open menu"}
           aria-expanded={isOpen}
           onClick={() => setIsOpen((s) => !s)}
-          className="lg:hidden relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
+          className="relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
         >
           <span
             className={`block w-6 h-0.5 bg-dark transition-all ${
@@ -84,6 +88,7 @@ export default function Header() {
             }`}
           />
         </Button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

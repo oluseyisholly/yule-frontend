@@ -18,9 +18,9 @@ export default function Button({
 }: ButtonProps) {
   const variantClasses = {
     filled:
-      "bg-primary text-white hover:opacity-90 rounded-full px-6 py-2.5",
+      "!bg-[#3300C9] text-white hover:opacity-90 rounded-full px-6 py-2.5",
     outlined:
-      "bg-transparent border border-primary text-primary hover:bg-primary/5 rounded-full px-6 py-2.5",
+      "bg-transparent border border-primary text-primary hover:opacity-90 rounded-full px-6 py-2.5",
     ghost:
       "bg-transparent text-current hover:bg-transparent rounded-none border-0",
   };

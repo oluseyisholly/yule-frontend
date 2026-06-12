@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import { Raleway, Geist } from "next/font/google";
+import { Raleway, Geist, Inter, Nunito } from "next/font/google";
 import localFont from "next/font/local";
-import Header from "@/layouts/Header";
-import Footer from "@/layouts/Footer";
-import "./globals.css";
-import { cn } from "@/lib/utils";
+import Script from "next/script";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+import "./globals.css";
+import AppProviders from "@/components/providers/AppProviders";
+import { cn } from "@/lib/utils";
+import { ThemeProvider, themeNoFlashScript } from "@/components/ThemeProvider";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -34,12 +48,30 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", raleway.variable, oambe.variable, "font-sans", geist.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        raleway.variable,
+        oambe.variable,
+        inter.variable,
+        nunito.variable,
+        "font-sans",
+        geist.variable,
+      )}
+      suppressHydrationWarning
     >
-      <body className={`${raleway.className} min-h-full flex flex-col`}>
-        <Header />
-        <div className="flex-1">{children}</div>
-        <Footer />
+      <head>
+        <Script id="theme-no-flash" strategy="beforeInteractive">
+          {themeNoFlashScript}
+        </Script>
+      </head>
+      <body
+        className={`${raleway.className} min-h-full flex flex-col`}
+        suppressHydrationWarning
+      >
+        <AppProviders>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AppProviders>
       </body>
     </html>
   );

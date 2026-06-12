@@ -10,9 +10,9 @@ const avatars = [pics1, pics2, pics3, pics3, pics5];
 
 export default function HeroSection() {
   return (
-    <section className="flex flex-col items-center text-center px-5 sm:px-6 md:px-10 lg:px-28 pt-9 md:pt-19 pb-8 md:pb-18 ">
+    <section className="flex flex-col items-center text-center px-5 sm:px-6 md:px-10 lg:px-28 pt-9 md:pt-19 pb-8 md:pb-18">
       {/* Social proof */}
-      <div className="flex items-center gap-4 mb-7">
+      <div className="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-6 lg:mb-7">
         <div className="flex -space-x-2">
           {avatars.map((avatar, i) => (
             <Image
@@ -21,17 +21,17 @@ export default function HeroSection() {
               alt={`user avatar ${i + 1}`}
               width={36}
               height={36}
-              className="w-9 h-9 rounded-full border-[0.3px] border-white"
+              className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full border-[0.3px] border-white"
             />
           ))}
         </div>
-        <span className="text-[12px] text-text-dark text-muted">
+        <span className="text-[11px] sm:text-[12px] text-text-dark text-muted">
           Over 200 thousand users
         </span>
       </div>
 
       {/* Heading */}
-      <h1 className="font-title text-[30px] sm:text-[38px] md:text-[44px] lg:text-[48px] leading-[1.15] tracking-[0.04em] mb-6 lg:max-w-[854px] lg:mx-auto ">
+      <h1 className="font-title text-[26px] sm:text-[34px] md:text-[42px] lg:text-[48px] leading-[1.15] tracking-[0.04em] mb-4 sm:mb-5 lg:mb-6 lg:max-w-[854px] lg:mx-auto">
         <span className="text-primary">Celebrate </span>
         <span className="text-dark">
           Life&apos;s Moment&apos;s
@@ -41,7 +41,7 @@ export default function HeroSection() {
       </h1>
 
       {/* Subtitle */}
-      <p className="text-muted text-base md:text-[20px] mb-5 leading-relaxed lg:mx-auto">
+      <p className="text-muted text-[14px] sm:text-base md:text-[20px] mb-5 sm:mb-6 leading-relaxed lg:mx-auto">
         Life is full of moments worth celebrating. Yule helps you turn them into meaningful gestures through effortless messages, thoughtful
         <br className="hidden lg:inline" />
         {" "}gifts, and memorable experiences so no special moment ever goes
@@ -54,15 +54,14 @@ export default function HeroSection() {
         <Button
           label="Start Celebrating"
           variant="filled"
-          className="px-8 py-3.5 text-base"
+          className="px-6 sm:px-7 lg:px-8 py-3 sm:py-3.5 text-[14px] lg:text-base"
         />
         <Button
           label="Create your first celebration"
           variant="outlined"
-          className="px-8 py-3.5 text-base"
+          className="px-6 sm:px-7 lg:px-8 py-3 sm:py-3.5 text-[14px] lg:text-base"
         />
       </div>
-      
     </section>
   );
 }

@@ -7,11 +7,16 @@
 @theme inline {
   --font-body: var(--font-raleway), sans-serif;
   --font-title: var(--font-oambe), var(--font-raleway), sans-serif;
+  --font-inter: var(--font-inter), sans-serif;
+  --font-nunito: var(--font-nunito), sans-serif;
 
   --color-primary: #3300c9;
   --color-muted: #7D7D7D;
+  --color-charcoal: #434343;
   --color-dark: #1e1e1e;
   --color-surface: #f5f4fa;
+  --color-neutral: #4D4D4D;
+  --color-darker:#4B4B4D
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -136,4 +141,142 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/* =========================================================================
+   DARK MODE OVERRIDES
+   All rules below are scoped to `html.dark` and never apply in light mode.
+   Light mode visuals remain byte-identical to before.
+   ========================================================================= */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #0f1115;
+  color: #e6e7ea;
+}
+
+/* ---- Base Tailwind utilities ---- */
+html.dark .bg-white { background-color: #1a1d23 !important; }
+html.dark .bg-black { background-color: #000 !important; }
+html.dark .text-white { color: #e6e7ea !important; }
+html.dark .text-black { color: #e6e7ea !important; }
+
+html.dark .bg-gray-50  { background-color: #15181d !important; }
+html.dark .bg-gray-100 { background-color: #1a1d23 !important; }
+html.dark .bg-gray-200 { background-color: #22262d !important; }
+html.dark .bg-gray-300 { background-color: #2a2d34 !important; }
+
+html.dark .text-gray-400 { color: #8b8e95 !important; }
+html.dark .text-gray-500 { color: #a0a3ab !important; }
+html.dark .text-gray-600 { color: #c5c7cc !important; }
+html.dark .text-gray-700 { color: #d8dadd !important; }
+html.dark .text-gray-800 { color: #e6e7ea !important; }
+html.dark .text-gray-900 { color: #f1f2f4 !important; }
+
+html.dark .border-gray-50,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 { border-color: #2a2d34 !important; }
+
+/* ---- Theme tokens used in app: bg-dark, text-dark, text-charcoal, text-muted, text-neutral, bg-surface ---- */
+html.dark .bg-dark       { background-color: #e6e7ea !important; } /* hamburger bars need to flip */
+html.dark .text-dark     { color: #e6e7ea !important; }
+html.dark .text-charcoal { color: #c5c7cc !important; }
+html.dark .text-muted    { color: #a0a3ab !important; }
+html.dark .text-neutral  { color: #c5c7cc !important; }
+html.dark .text-darker   { color: #c5c7cc !important; }
+html.dark .bg-surface    { background-color: #15181d !important; }
+
+/* Keep primary brand colors as-is (intentionally no override for .bg-primary / .text-primary) */
+
+/* ---- Arbitrary hex values used throughout the codebase ---- */
+
+/* Page / dashboard surfaces */
+html.dark .bg-\[\#F5F6FA\] { background-color: #0f1115 !important; }
+html.dark .bg-\[\#FCFBFF\],
+html.dark .bg-\[\#fcfbff\] { background-color: #1a1d23 !important; }
+html.dark .bg-\[\#FAF8FF\],
+html.dark .bg-\[\#faf8ff\] { background-color: #1f1b2d !important; }
+html.dark .bg-\[\#FAF9FE\] { background-color: #1f1b2d !important; }
+html.dark .bg-\[\#F4F0FF\] { background-color: #221d36 !important; }
+html.dark .bg-\[\#F8F5FF\],
+html.dark .bg-\[\#f8f5ff\] { background-color: #1f1b2d !important; }
+html.dark .bg-\[\#f8f6ff\] { background-color: #1f1b2d !important; }
+html.dark .bg-\[\#F1ECFF\] { background-color: #251f3c !important; }
+html.dark .bg-\[\#F6F2FF\],
+html.dark .bg-\[\#f6f2ff\] { background-color: #221d36 !important; }
+html.dark .bg-\[\#f1ebff\] { background-color: #251f3c !important; }
+html.dark .bg-\[\#EFE6FD\],
+html.dark .bg-\[\#efe6fd\] { background-color: #2a2440 !important; }
+html.dark .bg-\[\#FFFFFF\] { background-color: #1a1d23 !important; }
+html.dark .bg-\[\#fff8f2\] { background-color: #2a1f17 !important; }
+html.dark .bg-\[\#FFF1DD\] { background-color: #2e2517 !important; }
+html.dark .bg-\[\#E6F7EC\] { background-color: #14241b !important; }
+html.dark .bg-\[\#E4E9ED\] { background-color: #2a2d34 !important; }
+
+/* Already-dark Footer (#1A1A1A, #2A2A2A) - leave alone */
+
+/* Borders that are light/lavender */
+html.dark .border-\[\#EEEAF7\] { border-color: #2a2d34 !important; }
+html.dark .border-\[\#ECE8F7\] { border-color: #2a2d34 !important; }
+html.dark .border-\[\#d5cff0\] { border-color: #3a3550 !important; }
+html.dark .border-\[\#d6ccf5\] { border-color: #3a3550 !important; }
+html.dark .border-\[\#f1eef8\] { border-color: #2a2d34 !important; }
+html.dark .border-\[\#D3D3D3\] { border-color: #3a3d44 !important; }
+html.dark .border-\[\#9F9F9F\] { border-color: #4a4d54 !important; }
+html.dark .border-\[\#3A3A3A\] { border-color: #3a3a3a !important; } /* footer input border, keep */
+
+/* Dark text on light bg -> light text on dark bg */
+html.dark .text-\[\#1e1e1e\],
+html.dark .text-\[\#1E1E1E\],
+html.dark .text-\[\#1A1A1A\],
+html.dark .text-\[\#17191C\],
+html.dark .text-\[\#000000\] { color: #e6e7ea !important; }
+html.dark .text-\[\#434343\],
+html.dark .text-\[\#4D4D4D\],
+html.dark .text-\[\#4E4C4D\],
+html.dark .text-\[\#615F76\],
+html.dark .text-\[\#716F6F\] { color: #c5c7cc !important; }
+html.dark .text-\[\#7d7d7d\],
+html.dark .text-\[\#7D7D7D\],
+html.dark .text-\[\#9A97A5\],
+html.dark .text-\[\#9a97a5\],
+html.dark .text-\[\#97989A\],
+html.dark .text-\[\#D4D4D8\] { color: #8b8e95 !important; }
+
+/* Light-tinted text/badges that should stay legible (keep brand-ish but slight adjust) */
+html.dark .text-\[\#3300C9\] { color: #8a6dff !important; } /* primary text on dark surface needs lift */
+
+/* Ring colors used on focus */
+html.dark .ring-\[\#d6ccf5\] { --tw-ring-color: rgba(138, 109, 255, 0.4) !important; }
+
+/* Header sticky bar (uses bg-white + border-gray-100) handled above */
+
+/* Sidebar nav active/hover pills */
+html.dark .hover\:bg-\[\#f6f2ff\]:hover { background-color: #221d36 !important; }
+html.dark .hover\:bg-\[\#faf8ff\]:hover { background-color: #1f1b2d !important; }
+html.dark .hover\:bg-\[\#f8f5ff\]:hover { background-color: #1f1b2d !important; }
+html.dark .hover\:bg-gray-50:hover    { background-color: #1f2229 !important; }
+html.dark .hover\:bg-gray-100:hover   { background-color: #22262d !important; }
+
+/* Inputs: shadcn input uses bg-transparent + border-input - already adapts via tokens */
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #6b6e76; }
+
+/* Theme toggle button cosmetic adjust in dark */
+html.dark .yule-theme-toggle {
+  background-color: #1f2229 !important;
+  border-color: #2a2d34 !important;
+  color: #e6e7ea !important;
+}
+html.dark .yule-theme-toggle:hover {
+  background-color: #2a2d34 !important;
+}
+
+/* Make the blue landing logo readable on dark sticky header */
+html.dark header img[alt="Yule logo"] {
+  filter: brightness(0) invert(1);
 }
