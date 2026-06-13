@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import WishListScreen from "@/screens/WishListScreen";
@@ -23,5 +24,9 @@ export default async function WishListFlowPage({
     redirect("/dashboard/wish-list");
   }
 
-  return <WishListScreen />;
+  return (
+    <Suspense fallback={null}>
+      <WishListScreen />
+    </Suspense>
+  );
 }

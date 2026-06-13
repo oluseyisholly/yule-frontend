@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import DrawNamesScreen from "@/screens/DrawNamesScreen";
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function DrawNamesPage() {
-  return <DrawNamesScreen />;
+  return (
+    <Suspense fallback={null}>
+      <DrawNamesScreen />
+    </Suspense>
+  );
 }

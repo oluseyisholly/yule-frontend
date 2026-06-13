@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import DrawNamesScreen from "@/screens/DrawNamesScreen";
@@ -23,5 +24,9 @@ export default async function DrawNameFlowPage({
     redirect("/dashboard/draw-names");
   }
 
-  return <DrawNamesScreen />;
+  return (
+    <Suspense fallback={null}>
+      <DrawNamesScreen />
+    </Suspense>
+  );
 }
