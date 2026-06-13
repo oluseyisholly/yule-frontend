@@ -1,6 +1,7 @@
 import type { ParticipantGiftRow } from "@/features/gifts/types";
 
 export type WishlistEventVisibility = "private" | "public" | string;
+export type WishlistEventStatus = "draft" | "ongoing" | "completed" | string;
 
 export type WishlistEventCreatePayload = {
   event: {
@@ -11,6 +12,13 @@ export type WishlistEventCreatePayload = {
   };
   allowMultipleItems: boolean;
   visibility: WishlistEventVisibility;
+};
+
+export type WishlistEventPatchPayload = Partial<
+  Omit<WishlistEventCreatePayload, "event">
+> & {
+  eventDeadline?: string | null;
+  event?: Partial<WishlistEventCreatePayload["event"]>;
 };
 
 export type WishlistEventParticipantActor = {
@@ -39,7 +47,9 @@ export type WishlistEventRecord = {
   createdById?: string | null;
   eventId: string;
   allowMultipleItems: boolean;
+  eventDeadline?: string | null;
   visibility: WishlistEventVisibility;
+  items?: unknown[];
   event: {
     id: string;
     createdAt?: string;
@@ -48,7 +58,7 @@ export type WishlistEventRecord = {
     description: string | null;
     eventTypeId: string;
     eventDate: string;
-    status?: string;
+    status?: WishlistEventStatus;
     createdBy?: WishlistEventParticipantActor | null;
     participants?: WishlistEventParticipant[];
   };
@@ -63,6 +73,26 @@ export type WishlistEventMutationResponse = {
 export type WishlistEventGiftsParams = {
   page?: number;
   per_page?: number;
+};
+
+export type WishlistEventsParams = {
+  page?: number;
+  per_page?: number;
+  searchQuery?: string;
+};
+
+export type WishlistEventsPage = {
+  data: WishlistEventRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type WishlistEventsResponse = {
+  code: number;
+  message: string;
+  data: WishlistEventsPage;
 };
 
 export type WishlistEventGiftRow = ParticipantGiftRow;

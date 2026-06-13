@@ -15,6 +15,7 @@ export async function getDrawNameEvents(params: DrawNameEventsParams = {}) {
     params: {
       per_page: params.per_page ?? 10,
       page: params.page ?? 1,
+      searchQuery: params.searchQuery ?? "",
     },
   });
 }

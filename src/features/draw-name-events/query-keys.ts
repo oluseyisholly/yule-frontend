@@ -9,6 +9,7 @@ export const drawNameEventQueryKeys = {
       ...drawNameEventQueryKeys.lists(),
       params.per_page ?? 10,
       params.page ?? 1,
+      params.searchQuery ?? "",
     ] as const,
   detail: (id: string) => [...drawNameEventQueryKeys.details(), id] as const,
 };

@@ -9,7 +9,12 @@ type GroupNameStepProps = {
   onChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
-  onGoToEventName: () => void;
+  onGoToEventName?: () => void;
+  title?: string;
+  description?: string;
+  placeholder?: string;
+  nextLabel?: string;
+  nextDisabled?: boolean;
 };
 
 export default function GroupNameStep({
@@ -18,17 +23,21 @@ export default function GroupNameStep({
   onBack,
   onNext,
   onGoToEventName,
+  title = "Your group is almost set up.",
+  description = "We thought to suggest the name below for your group. Feel free to edit as you see fit.",
+  placeholder = "Write group name",
+  nextLabel = "Next",
+  nextDisabled = false,
 }: GroupNameStepProps) {
   return (
     <div className="space-y-10 pt-1">
       <div className="space-y-8">
         <div className="space-y-3">
           <p className="text-[24px] font-semibold leading-[1.35] text-[#434343] sm:text-[28px]">
-            Your group is almost set up.
+            {title}
           </p>
           <p className="max-w-[420px] text-[14px]] leading-[1.45] text-[#666666]">
-            We thought to suggest the name below for your group. Feel free to
-            edit as you see fit.
+            {description}
           </p>
         </div>
 
@@ -37,7 +46,7 @@ export default function GroupNameStep({
             type="text"
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            placeholder="Write group name"
+            placeholder={placeholder}
             className="h-[42px] rounded-[8px] border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] shadow-none placeholder:text-[#B5B0C8] focus-visible:ring-0"
           />
 
@@ -71,9 +80,10 @@ export default function GroupNameStep({
         <ModalButton
           type="button"
           onClick={onNext}
+          disabled={nextDisabled}
           className="max-w-[152px] !h-[38px] "
         >
-          Next
+          {nextLabel}
         </ModalButton>
       </div>
     </div>

@@ -459,6 +459,7 @@ export default function DrawNamesActivity() {
   const currentContactId = useAuthStore((state) => state.currentContactId);
   const [page, setPage] = useState(1);
   const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [pendingDeleteRow, setPendingDeleteRow] = useState<DrawActivityRow | null>(
     null,
@@ -474,7 +475,16 @@ export default function DrawNamesActivity() {
   } = useDrawNameEventsQuery({
     per_page: perPage,
     page,
+    searchQuery: debouncedSearchValue,
   });
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchValue(searchValue.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchValue]);
 
   const rows = useMemo(() => {
     const drawNameEvents = drawNameEventsResponse?.data.data ?? [];
@@ -488,33 +498,15 @@ export default function DrawNamesActivity() {
     );
   }, [authUser?.id, currentContactId, drawNameEventsResponse]);
 
-  const filteredRows = useMemo(() => {
-    const normalizedQuery = searchValue.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return rows;
-    }
-
-    return rows.filter((row) => {
-      const participantNames = row.participants.map((participant) => participant.name);
-      const haystack = [row.eventName, row.createdBy, ...participantNames]
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(normalizedQuery);
-    });
-  }, [rows, searchValue]);
-
   useEffect(() => {
     setSelected((current) =>
       current.filter((selectedId) =>
-        filteredRows.some((row) => row.id === selectedId),
+        rows.some((row) => row.id === selectedId),
       ),
     );
-  }, [filteredRows]);
+  }, [rows]);
 
-  const allChecked =
-    filteredRows.length > 0 && selected.length === filteredRows.length;
+  const allChecked = rows.length > 0 && selected.length === rows.length;
 
   const toggleAll = () => {
     if (allChecked) {
@@ -522,7 +514,7 @@ export default function DrawNamesActivity() {
       return;
     }
 
-    setSelected(filteredRows.map((row) => row.id));
+    setSelected(rows.map((row) => row.id));
   };
 
   const toggleRow = (id: string) => {
@@ -645,7 +637,7 @@ export default function DrawNamesActivity() {
         ),
       },
     ],
-    rows: filteredRows,
+    rows,
     getRowKey: (row) => row.id,
     headerRowClassName: "text-[12px] font-medium text-[#7d7d7d]",
     headerCellClassName: "bg-transparent",
@@ -688,7 +680,10 @@ export default function DrawNamesActivity() {
             <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#9A97A5]" />
             <Input
               value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+                setPage(1);
+              }}
               placeholder="Search name......."
               className="h-[48px] rounded-[16px] border-[#F0EEFF] pl-9 text-xs text-[#434343] placeholder:text-[#9A97A5] focus-visible:border-[#d6ccf5] focus-visible:ring-[#d6ccf5]/40"
             />

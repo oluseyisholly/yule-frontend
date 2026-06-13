@@ -117,6 +117,7 @@ export type DrawNameEventListItem = {
 export type DrawNameEventsParams = {
   per_page?: number;
   page?: number;
+  searchQuery?: string;
 };
 
 export type DrawNameEventsPage = {
