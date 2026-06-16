@@ -98,15 +98,15 @@ export default function EventDateStep({
   const isHeadingLeftAligned = headingAlign === "left";
 
   return (
-    <div className="space-y-10 pt-1">
+    <div className="space-y-8 pt-1 sm:space-y-10">
       <div
-        className={isHeadingLeftAligned ? "space-y-6 text-left" : "space-y-8 text-center"}
+        className={isHeadingLeftAligned ? "space-y-5 text-left" : "space-y-6 text-center sm:space-y-8"}
       >
         <p
           className={
             isHeadingLeftAligned
-              ? "text-[20px] font-medium leading-tight text-[#434343]"
-              : "mx-auto max-w-[680px] text-[21px] font-semibold leading-[1.35] text-[#434343] sm:text-[24px]"
+              ? "text-[18px] font-medium leading-tight text-[#434343] sm:text-[20px]"
+              : "mx-auto max-w-[680px] text-[18px] font-semibold leading-[1.35] text-[#434343] sm:text-[21px] lg:text-[24px]"
           }
         >
           {heading ? (
@@ -124,7 +124,7 @@ export default function EventDateStep({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex h-[42px] w-full items-center justify-between rounded-[8px] border border-[#ECE8F7] bg-white px-5 text-left text-[16px] font-normal text-[#434343]"
+                className="flex h-[46px] w-full items-center justify-between rounded-[8px] border border-[#ECE8F7] bg-white px-4 text-left text-[15px] font-normal text-[#434343] sm:h-[42px] sm:px-5 sm:text-[16px]"
                 aria-expanded={isCalendarOpen}
                 aria-haspopup="dialog"
               >
@@ -155,7 +155,7 @@ export default function EventDateStep({
           </Popover>
 
           {showGoToEventNameLink && onGoToEventName ? (
-            <div className="flex items-center justify-center gap-3 text-[#3300C9]">
+            <div className="flex flex-col items-center justify-center gap-3 text-[#3300C9] sm:flex-row">
               <button
                 type="button"
                 onClick={onGoToEventName}
@@ -176,7 +176,7 @@ export default function EventDateStep({
         </div>
       </div>
 
-      <div className="flex  items-center justify-center gap-3 pt-4">
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
         <BackButton
           onClick={onBack}
           className="flex min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"

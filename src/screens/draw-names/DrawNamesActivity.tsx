@@ -585,7 +585,7 @@ export default function DrawNamesActivity() {
       },
       {
         id: "budget",
-        header: "Budget",
+        header: "Maximum Spend",
         accessor: "budget",
         headerClassName: "min-w-[110px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
@@ -675,8 +675,8 @@ export default function DrawNamesActivity() {
           Recent Activity
         </h2>
 
-        <div className="flex items-center gap-2">
-          <div className="relative w-full sm:w-[260px]">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
             <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#9A97A5]" />
             <Input
               value={searchValue}

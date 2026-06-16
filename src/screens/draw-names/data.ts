@@ -95,7 +95,7 @@ export const drawActivities: DrawActivity[] = [
       status: "Drawn",
     },
     rules: [
-      "Budget ₦230,000",
+      "Maximum Spend ₦230,000",
       "Event has been completed successfully",
     ],
   },
@@ -145,7 +145,7 @@ export const drawActivities: DrawActivity[] = [
     ],
     pairedWith: null,
     rules: [
-      "Budget ₦230,000",
+      "Maximum Spend ₦230,000",
       "Draw has not been executed yet",
     ],
   },
@@ -195,7 +195,7 @@ export const drawActivities: DrawActivity[] = [
     ],
     pairedWith: null,
     rules: [
-      "Budget ₦230,000",
+      "Maximum Spend ₦230,000",
       "Awaiting organizer review",
     ],
   },
@@ -245,7 +245,7 @@ export const drawActivities: DrawActivity[] = [
     ],
     pairedWith: null,
     rules: [
-      "Budget ₦230,000",
+      "Maximum Spend ₦230,000",
       "Awaiting participant confirmation",
     ],
   },
@@ -302,7 +302,7 @@ export const drawActivities: DrawActivity[] = [
       status: "Drawn",
     },
     rules: [
-      "Budget ₦230,000",
+      "Maximum Spend ₦230,000",
       "Event has been completed successfully",
     ],
   },

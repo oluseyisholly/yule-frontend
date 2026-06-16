@@ -30,13 +30,13 @@ export default function GroupNameStep({
   nextDisabled = false,
 }: GroupNameStepProps) {
   return (
-    <div className="space-y-10 pt-1">
-      <div className="space-y-8">
+    <div className="space-y-8 pt-1 sm:space-y-10">
+      <div className="space-y-6 sm:space-y-8">
         <div className="space-y-3">
-          <p className="text-[24px] font-semibold leading-[1.35] text-[#434343] sm:text-[28px]">
+          <p className="text-[20px] font-semibold leading-[1.35] text-[#434343] sm:text-[24px] lg:text-[28px]">
             {title}
           </p>
-          <p className="max-w-[420px] text-[14px]] leading-[1.45] text-[#666666]">
+          <p className="max-w-[420px] text-[14px] leading-[1.45] text-[#666666]">
             {description}
           </p>
         </div>
@@ -47,7 +47,7 @@ export default function GroupNameStep({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            className="h-[42px] rounded-[8px] border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] shadow-none placeholder:text-[#B5B0C8] focus-visible:ring-0"
+            className="h-[46px] rounded-[8px] border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] shadow-none placeholder:text-[#B5B0C8] focus-visible:ring-0 sm:h-[42px]"
           />
 
           {/* <div className="flex items-center justify-center gap-3 text-[#3300C9]">
@@ -70,7 +70,7 @@ export default function GroupNameStep({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 pt-4">
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
         <BackButton
           onClick={onBack}
           className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"

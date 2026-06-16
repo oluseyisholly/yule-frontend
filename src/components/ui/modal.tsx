@@ -138,7 +138,7 @@ export default function ContentModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4"
       aria-hidden={false}
     >
       <button
@@ -157,15 +157,15 @@ export default function ContentModal({
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          "relative z-[101] w-full max-w-[640px] overflow-hidden rounded-[26px] bg-[#F5F5F8] shadow-[0_24px_80px_rgba(14,18,35,0.18)]",
+          "relative z-[101] w-full max-w-[640px] overflow-hidden rounded-[22px] bg-[#F5F5F8] shadow-[0_24px_80px_rgba(14,18,35,0.18)] sm:rounded-[26px]",
           dialogClassName,
         )}
       >
         <div
           className={cn(
             bodyScrollable
-              ? "relative max-h-[95vh] overflow-y-auto px-6 pt-10 pb-6 md:px-8"
-              : "relative flex max-h-[95vh] min-h-0 flex-col overflow-hidden px-6 pt-10 pb-6 md:px-8",
+              ? "relative max-h-[95vh] overflow-y-auto px-4 pt-8 pb-5 sm:px-6 sm:pt-10 sm:pb-6 md:px-8"
+              : "relative flex max-h-[95vh] min-h-0 flex-col overflow-hidden px-4 pt-8 pb-5 sm:px-6 sm:pt-10 sm:pb-6 md:px-8",
             bodyClassName,
           )}
         >

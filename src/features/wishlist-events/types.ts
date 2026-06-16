@@ -64,10 +64,51 @@ export type WishlistEventRecord = {
   };
 };
 
+export type PublicWishlistEventRecord = {
+  id: string;
+  eventId: string;
+  title: string;
+  description?: string | null;
+  eventDate: string;
+  visibility: WishlistEventVisibility;
+  allowMultipleItems: boolean;
+  eventDeadline?: string | null;
+  redirectPath?: string | null;
+};
+
 export type WishlistEventMutationResponse = {
   code: number;
   message: string;
   data: WishlistEventRecord;
+};
+
+export type WishlistEventCompleteResponse = {
+  code: number;
+  message: string;
+  data: {
+    id: string;
+    eventId: string;
+    allowMultipleItems: boolean;
+    eventDeadline?: string | null;
+    visibility: WishlistEventVisibility;
+    event: {
+      id: string;
+      title: string;
+      status: WishlistEventStatus;
+    };
+  };
+};
+
+export type PublicWishlistEventResponse = {
+  code: number;
+  message: string;
+  data: PublicWishlistEventRecord;
+};
+
+export type WishlistEventDeleteResponse = {
+  code: number;
+  message: string;
+  data?: unknown;
 };
 
 export type WishlistEventGiftsParams = {
@@ -109,4 +150,10 @@ export type WishlistEventGiftsResponse = {
   code: number;
   message: string;
   data: WishlistEventGiftsPage;
+};
+
+export type WishlistEventClaimedGiftIdsResponse = {
+  code: number;
+  message: string;
+  data: string[];
 };

@@ -1,16 +1,30 @@
 "use client";
 
-import { BellIcon, MenuIcon, SearchIcon } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import {
+  BellIcon,
+  BriefcaseBusinessIcon,
+  CameraIcon,
+  LogOutIcon,
+  MenuIcon,
+  SearchIcon,
+  SettingsIcon,
+  UserRoundPlusIcon,
+  XIcon,
+} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import ThemeToggle from "@/components/ThemeToggle";
 import {
-  getDashboardNavItemByPathname,
-} from "@/components/dashboard/navigation";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import ThemeToggle from "@/components/ThemeToggle";
+import { getDashboardNavItemByPathname } from "@/components/dashboard/navigation";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth-store";
+import { clearStoredAuthSession, useAuthStore } from "@/stores/auth-store";
 
 function CompanyBranchIcon() {
   return (
@@ -133,6 +147,148 @@ function getInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+function ProfileMenuRow({
+  icon,
+  label,
+  onClick,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-3 px-6 py-1 text-left text-[15px] font-medium transition-colors hover:bg-[#FAF8FF]",
+        tone === "danger" ? "text-[#FF3B30]" : "text-[#434343]",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center",
+          tone === "danger" ? "text-[#7D7D7D]" : "text-[#7D7D7D]",
+        )}
+      >
+        {icon}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function DashboardProfileMenu({
+  trigger,
+  profileName,
+  profileEmail,
+  activeBusinessName,
+}: {
+  trigger: React.ReactNode;
+  profileName: string;
+  profileEmail: string;
+  activeBusinessName: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const greetingName =
+    profileName.split(" ").filter(Boolean)[0]?.trim() || "there";
+
+  const handleNavigate = (href: string) => {
+    setOpen(false);
+    router.push(href);
+  };
+
+  const handleLogout = () => {
+    setOpen(false);
+    clearStoredAuthSession();
+    window.location.assign("/start");
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={12}
+        className="w-[min(400px,calc(100vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
+      >
+        <div className="relative px-6 pb-7 pt-4 text-center">
+          <p className="px-10 text-[14px] font-medium text-[#616777]">
+            {profileEmail}
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close profile menu"
+            className="absolute right-6 top-4 rounded-full p-1 text-[#7E8495] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
+          >
+            <XIcon className="size-4" />
+          </button>
+
+          <div className="relative mx-auto mt-5 flex size-[92px] items-center justify-center rounded-full bg-[#EFE6FD] text-[38px] font-semibold text-[#3300C9]">
+            {getInitials(profileName)}
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+              }}
+              aria-label="Profile photo"
+              className="absolute bottom-0 right-1 flex size-8 items-center justify-center rounded-full border-[3px] border-white bg-black text-white shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+            >
+              <CameraIcon className="size-3.5" />
+            </button>
+          </div>
+
+          <h3 className="mt-4 text-[18px] font-semibold text-[#1E1E1E]">
+            Hi, {greetingName}!
+          </h3>
+
+          <p className="mt-2 flex items-center justify-center gap-2 text-[15px] text-[#6F7483]">
+            <BriefcaseBusinessIcon className="size-4" />
+            <span>{profileName}</span>
+          </p>
+
+          <button
+            type="button"
+            onClick={() => handleNavigate("/dashboard/profile")}
+            className="mt-3 inline-flex h-[40px] items-center justify-center rounded-full border border-[#D9DDEA] px-6 text-[16px] font-medium text-[#434343] transition-colors hover:bg-[#FAF8FF]"
+          >
+            Manage your Viktri account
+          </button>
+        </div>
+
+        <div className="border-t border-[#ECE8F7] py-2">
+          <ProfileMenuRow
+            icon={<LogOutIcon className="size-4.5" />}
+            label="Log out"
+            onClick={handleLogout}
+            tone="danger"
+          />
+        </div>
+
+        <div className="border-t border-[#ECE8F7] px-6 py-4 text-center text-[14px] text-[#8B90A0]">
+          <Link
+            href="/privacy"
+            className="transition-colors hover:text-[#3300C9]"
+          >
+            Privacy Policy
+          </Link>
+          <span className="px-2">·</span>
+          <Link
+            href="/terms"
+            className="transition-colors hover:text-[#3300C9]"
+          >
+            Terms of Service
+          </Link>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 type DashboardHeaderProps = {
   onMobileMenuToggle?: () => void;
 };
@@ -202,13 +358,20 @@ export default function DashboardHeader({
               <span className="absolute right-2.5 top-2.5 size-1.5 rounded-full bg-[#ff6600]" />
             </button>
 
-            <button
-              type="button"
-              aria-label="Profile"
-              className="flex size-9 items-center justify-center rounded-full bg-[#efe6fd] text-xs font-semibold text-[#3300C9]"
-            >
-              {getInitials(dashboardHeaderProfile.name)}
-            </button>
+            <DashboardProfileMenu
+              profileName={dashboardHeaderProfile.name}
+              profileEmail={dashboardHeaderProfile.email}
+              activeBusinessName={activeBusinessName}
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Profile"
+                  className="flex size-9 items-center justify-center rounded-full bg-[#efe6fd] text-xs font-semibold text-[#3300C9]"
+                >
+                  {getInitials(dashboardHeaderProfile.name)}
+                </button>
+              }
+            />
           </div>
         </div>
       </div>
@@ -237,22 +400,29 @@ export default function DashboardHeader({
 
           <div className="flex items-center gap-3">
             <ThemeToggle className="size-10" />
-            <button
-              type="button"
-              className="flex items-center gap-3 rounded-full  bg-white py-1.5 pl-1.5 pr-4 text-left transition-colors hover:bg-[#faf8ff]"
-            >
-              <span className="flex size-10 items-center justify-center rounded-full bg-[#efe6fd] text-sm font-semibold text-[#3300C9]">
-                {getInitials(dashboardHeaderProfile.name)}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-[#1e1e1e]">
-                  {dashboardHeaderProfile.name}
-                </span>
-                <span className="block truncate text-xs text-[#7d7d7d]">
-                  {dashboardHeaderProfile.email}
-                </span>
-              </span>
-            </button>
+            <DashboardProfileMenu
+              profileName={dashboardHeaderProfile.name}
+              profileEmail={dashboardHeaderProfile.email}
+              activeBusinessName={activeBusinessName}
+              trigger={
+                <button
+                  type="button"
+                  className="flex items-center gap-3 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-left transition-colors hover:bg-[#faf8ff]"
+                >
+                  <span className="flex size-10 items-center justify-center rounded-full bg-[#efe6fd] text-sm font-semibold text-[#3300C9]">
+                    {getInitials(dashboardHeaderProfile.name)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#1e1e1e]">
+                      {dashboardHeaderProfile.name}
+                    </span>
+                    <span className="block truncate text-xs text-[#7d7d7d]">
+                      {dashboardHeaderProfile.email}
+                    </span>
+                  </span>
+                </button>
+              }
+            />
 
             <button
               type="button"

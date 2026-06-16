@@ -17,12 +17,12 @@ export default function DrawNameReadyStep({
   isDrawing = false,
 }: DrawNameReadyStepProps) {
   return (
-    <div className="space-y-10 pt-1">
+    <div className="space-y-8 pt-1 sm:space-y-10">
       <div className="space-y-3">
-        <p className="max-w-[640px] text-[24px] font-semibold leading-[1.35] text-[#434343] sm:text-[28px]">
+        <p className="max-w-[640px] text-[20px] font-semibold leading-[1.35] text-[#434343] sm:text-[24px] lg:text-[28px]">
           {eventName} is all set up! 😊
         </p>
-        <p className="text-[20px] font-normal leading-[1.3] text-[#434343] sm:text-[24px]">
+        <p className="text-[18px] font-normal leading-[1.3] text-[#434343] sm:text-[20px] lg:text-[24px]">
           Now, proceed to draw name.
         </p>
       </div>

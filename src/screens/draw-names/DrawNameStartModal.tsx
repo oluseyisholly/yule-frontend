@@ -2820,7 +2820,7 @@ export default function DrawNameStartModal({
               className="absolute inset-0 bg-[#191A1F]/45 backdrop-blur-[2px]"
             />
 
-            <div className="relative z-[101] w-full max-w-[394px]">
+            <div className="relative z-[101] w-full max-w-[494px]">
               <SearchableRecordPicker
                 title="Search for colleague"
                 items={selectedRecordOptions}
@@ -2898,7 +2898,7 @@ export default function DrawNameStartModal({
           </p>
         </div>
 
-        <div className="mx-auto max-w-[394px] space-y-4">
+        <div className="mx-auto max-w-[494px] space-y-4">
           <ModalButton
             variant="secondary"
             onClick={handleSourceNext}
@@ -2935,7 +2935,7 @@ export default function DrawNameStartModal({
           </p>
         </div>
 
-        <div className="mx-auto max-w-[394px]">
+        <div className="mx-auto max-w-[494px]">
           <OverlayRecordPicker
             items={recordOptions}
             selectedIds={selectedRecordIds}
@@ -3213,15 +3213,15 @@ export default function DrawNameStartModal({
         closeOnOverlayClick={false}
         dialogClassName={
           isLargeGiftStep
-            ? "max-w-[1148px] max-h-[calc(100vh-2rem)] rounded-[20px] bg-white"
-            : "max-w-[536px] rounded-[20px] bg-white"
+            ? "max-w-[1148px] max-h-[calc(100vh-1.5rem)] rounded-[18px] bg-white sm:rounded-[20px]"
+            : "max-w-[536px] rounded-[18px] bg-white sm:rounded-[20px]"
         }
         bodyClassName={
           isDrawResultStep
             ? "overflow-hidden p-0"
             : isLargeGiftStep
-              ? "!max-h-[calc(100vh-2rem)] h-[calc(100vh-2rem)] px-8 py-8 sm:px-10 sm:py-8"
-              : "px-8 py-10 sm:px-10 sm:py-10"
+              ? "!max-h-[calc(100vh-1.5rem)] h-[calc(100vh-1.5rem)] px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
+              : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
         }
       >
         {modalContent}

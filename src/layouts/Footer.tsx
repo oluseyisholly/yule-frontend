@@ -46,9 +46,9 @@ const socials = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[#1A1A1A] text-white px-6 md:px-29 py-5 md:py-15">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12">
+    <footer className="bg-[#1A1A1A] px-4 py-8 text-white sm:px-6 md:px-10 lg:px-20 xl:px-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-12">
           {/* Left: Brand + Newsletter + Social */}
           <div className="flex flex-col gap-6">
             {/* Logo */}
@@ -58,22 +58,22 @@ export default function Footer() {
 
             {/* Newsletter */}
             <div>
-              <p className="text-[24px]  mb-0.5 text-white">
+              <p className="mb-0.5 text-[22px] text-white sm:text-[24px]">
                 Subscribe to our Newsletter!
               </p>
-              <p className="text-sm text-white mb-2.5">
+              <p className="mb-2.5 text-sm text-white">
                 Stay informed with our latest updates
               </p>
-              <form className="relative w-full max-w-md">
+              <form className="flex w-full max-w-md flex-col gap-3 sm:relative sm:block">
                 <Input
                   type="email"
                   placeholder="Email address"
-                  className="w-full h-12 pr-32 bg-[#2A2A2A] border-[#3A3A3A] text-white placeholder:text-gray-500 focus-visible:border-primary focus-visible:ring-primary/20"
+                  className="h-12 w-full border-[#3A3A3A] bg-[#2A2A2A] text-white placeholder:text-gray-500 focus-visible:border-primary focus-visible:ring-primary/20 sm:pr-32"
                 />
                 <Button
                   label="Subscribe"
                   variant="filled"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 rounded-lg h-12"
+                  className="h-12 w-full justify-center rounded-lg sm:absolute sm:right-0 sm:top-1/2 sm:w-auto sm:-translate-y-1/2"
                 />
               </form>
             </div>
@@ -98,7 +98,7 @@ export default function Footer() {
           </div>
 
           {/* Right: Link columns */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
             {linkColumns.map((column) => (
               <div key={column.title} className="flex flex-col gap-4">
                 <h4 className="font-bold text-white text-[16px]">
@@ -122,7 +122,7 @@ export default function Footer() {
         </div>
 
         {/* Copyright */}
-        <div className="text-center text-white text-[12px] mt-12 md:mt-16">
+        <div className="mt-10 text-center text-[12px] text-white md:mt-16">
           Copyright © Tenda All Right Reserved
         </div>
       </div>

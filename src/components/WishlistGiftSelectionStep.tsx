@@ -211,7 +211,7 @@ function WishlistFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex h-10 items-center gap-2 rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors",
+          "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors sm:w-auto sm:justify-start",
           disabled
             ? "cursor-not-allowed border-gray-200 bg-[#F1F3F5] text-[#B0B4BA]"
             : "border-gray-200 bg-[#E4E9ED] text-[#716F6F] hover:bg-[#DCE2E7]",
@@ -234,7 +234,7 @@ function WishlistFilterDropdown({
         <ul
           role="listbox"
           aria-label={label}
-          className="absolute left-0 z-20 mt-1.5 min-w-[200px] max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 z-20 mt-1.5 max-h-64 w-full min-w-[200px] overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg sm:w-auto"
         >
           {options.map((option) => (
             <li key={`${label}-${option.value || "all"}`}>
@@ -275,8 +275,8 @@ function GiftCard({
   const primaryImage = product.images[0] || "";
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-[12px] border border-gray-100 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="relative h-[100px] w-full overflow-hidden rounded-[6px] bg-gray-100">
+    <div className="flex h-full flex-col gap-2.5 rounded-[12px] border border-gray-100 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="relative h-[140px] w-full overflow-hidden rounded-[6px] bg-gray-100 sm:h-[100px]">
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -292,7 +292,7 @@ function GiftCard({
 
       <div className="flex flex-col gap-1.5 px-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="truncate font-nunito text-[16px] font-semibold text-[#4E4C4D]">
+          <h3 className="truncate font-nunito text-[15px] font-semibold text-[#4E4C4D] sm:text-[16px]">
             {product.title}
           </h3>
           <Image
@@ -491,12 +491,12 @@ export default function WishlistGiftSelectionStep({
   return (
     <ModalStepLayout
       header={
-        <div className="space-y-5 pb-5">
+        <div className="space-y-4 pb-4 sm:space-y-5 sm:pb-5">
           <div>
-            <h2 className="mb-2 max-w-[700px] font-body text-[32px] font-semibold leading-tight text-charcoal">
+            <h2 className="mb-2 max-w-[700px] font-body text-[26px] font-semibold leading-tight text-charcoal sm:text-[32px]">
               Gifts speak louder than words.
             </h2>
-            <p className="max-w-[720px] text-[14px] text-charcoal">
+            <p className="max-w-[720px] text-[13px] text-charcoal sm:text-[14px]">
               While you&apos;re typing that heartfelt message, let us help you
               find the perfect surprise to brighten their day.
             </p>
@@ -524,6 +524,7 @@ export default function WishlistGiftSelectionStep({
                 options={categoryOptions}
                 onChange={handleCategoryChange}
                 loading={isCategoriesLoading}
+                className="w-full sm:w-auto"
               />
 
               <WishlistFilterDropdown
@@ -532,6 +533,7 @@ export default function WishlistGiftSelectionStep({
                 options={subCategoryOptions}
                 onChange={handleSubCategoryChange}
                 disabled={!selectedCategorySlug || isCategoriesLoading}
+                className="w-full sm:w-auto"
               />
 
               <WishlistFilterDropdown
@@ -539,6 +541,7 @@ export default function WishlistGiftSelectionStep({
                 value={selectedCondition}
                 options={CONDITION_OPTIONS}
                 onChange={handleConditionChange}
+                className="w-full sm:w-auto"
               />
 
               <WishlistFilterDropdown
@@ -546,6 +549,7 @@ export default function WishlistGiftSelectionStep({
                 value=""
                 options={[{ label: "Sex", value: "" }]}
                 disabled
+                className="w-full sm:w-auto"
               />
 
               <WishlistFilterDropdown
@@ -553,9 +557,10 @@ export default function WishlistGiftSelectionStep({
                 value=""
                 options={[{ label: "Gift", value: "" }]}
                 disabled
+                className="w-full sm:w-auto"
               />
 
-              <div className="relative min-w-[140px]">
+              <div className="relative min-w-0 w-full sm:w-[140px]">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
                   ₦
                 </span>
@@ -568,7 +573,7 @@ export default function WishlistGiftSelectionStep({
                 />
               </div>
 
-              <div className="relative min-w-[140px]">
+              <div className="relative min-w-0 w-full sm:w-[140px]">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
                   ₦
                 </span>
@@ -667,7 +672,7 @@ export default function WishlistGiftSelectionStep({
             </Button>
           </div>
 
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             {onBack ? (
               <ModalButton
                 type="button"
@@ -693,7 +698,7 @@ export default function WishlistGiftSelectionStep({
           </div>
         </div>
       }
-      contentClassName="pr-1"
+      contentClassName="pr-0 sm:pr-1"
     >
       {showLoading ? (
         <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] text-[14px] text-[#7D7D7D]">
@@ -704,7 +709,7 @@ export default function WishlistGiftSelectionStep({
           No gifts matched your current filters.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           {products.map((product) => (
             <GiftCard
               key={product._id}

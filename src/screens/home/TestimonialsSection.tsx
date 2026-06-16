@@ -4,7 +4,6 @@ import pics2 from "@/assets/icons/video(2).svg";
 import pics3 from "@/assets/icons/video(3).svg";
 import pics4 from "@/assets/icons/video(4).svg";
 
-
 const testimonials = [
   {
     id: 1,
@@ -62,28 +61,28 @@ function PauseIcon() {
 
 export default function TestimonialsSection() {
   return (
-    <section className="bg-gradient-to-b from-[#3300C9] to-[#1F007D] px-5 sm:px-6 py-8 sm:py-10 md:py-12 lg:py-15">
-      <div className="max-w-6xl mx-auto">
+    <section className="bg-gradient-to-b from-[#3300C9] to-[#1F007D] px-5 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12 lg:py-15">
+      <div className="mx-auto max-w-6xl">
         {/* Section header */}
-        <div className="flex flex-col items-center text-center mb-10 sm:mb-12 lg:mb-14">
-          <span className="inline-block border border-white text-white text-[12px] sm:text-[14px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-[12px] mb-3 sm:mb-4 tracking-wide">
+        <div className="mb-10 flex flex-col items-center text-center sm:mb-12 lg:mb-14">
+          <span className="mb-3 inline-block rounded-[12px] border border-white px-3 py-1.5 text-[12px] tracking-wide text-white sm:mb-4 sm:px-4 sm:py-2 sm:text-[14px]">
             Reviews
           </span>
-          <h2 className="font-title text-[26px] sm:text-[32px] md:text-[36px] lg:text-[40px] text-white leading-tight mb-3 sm:mb-4">
+          <h2 className="mb-3 font-title text-[26px] leading-tight text-white sm:mb-4 sm:text-[32px] md:text-[36px] lg:text-[40px]">
             See what Users are saying
           </h2>
-          <p className="text-white/80 text-[14px] sm:text-[15px] lg:text-[16px] font-medium leading-relaxed">
+          <p className="max-w-[680px] text-[14px] font-medium leading-relaxed text-white/80 sm:text-[15px] lg:text-[16px]">
             Discover how video testimonial has helped in celebrating there loved
             ones specially
           </p>
         </div>
 
         {/* Cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 justify-items-center">
+        <div className="grid grid-cols-1 gap-4 justify-items-center sm:grid-cols-2 lg:grid-cols-4">
           {testimonials.map((t) => (
             <div
               key={t.id}
-              className="relative w-full max-w-[288px] aspect-[288/450] rounded-[24px] overflow-hidden bg-gray-700 lg:w-[288px] lg:h-[450px] lg:max-w-none lg:aspect-auto"
+              className="relative aspect-[288/450] w-full max-w-[320px] overflow-hidden rounded-[24px] bg-gray-700 sm:max-w-[288px] lg:h-[450px] lg:w-[288px] lg:max-w-none lg:aspect-auto"
             >
               {/* Image placeholder — replace with <Image /> */}
               <Image
@@ -97,9 +96,9 @@ export default function TestimonialsSection() {
               <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
               {/* Name + role + play/pause */}
-              <div className="absolute inset-x-0 bottom-0 p-4 flex items-end justify-between gap-3">
-                <div className="text-white min-w-0">
-                  <h3 className="font-inter font-semibold text-sm md:text-[18px] truncate leading-[24.01px] tracking-[-0.5px]">
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
+                <div className="min-w-0 text-white">
+                  <h3 className="truncate font-inter text-sm font-semibold leading-[24.01px] tracking-[-0.5px] md:text-[18px]">
                     {t.name}
                   </h3>
                   <p className="text-[14px] text-[#D4D4D8] truncate">{t.role}</p>
@@ -108,7 +107,7 @@ export default function TestimonialsSection() {
                 <button
                   type="button"
                   aria-label={t.playing ? "Pause testimonial" : "Play testimonial"}
-                  className="shrink-0 w-12 h-12 rounded-lg border border-white/70 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                  className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/70 transition-colors hover:bg-white/10"
                 >
                   {t.playing ? <PauseIcon /> : <PlayIcon />}
                 </button>

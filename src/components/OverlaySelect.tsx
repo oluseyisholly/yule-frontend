@@ -72,6 +72,7 @@ export default function OverlaySelect({
   const PANEL_GAP = 18;
   const VIEWPORT_PADDING = 24;
   const FALLBACK_PANEL_HEIGHT = 520;
+  const MIN_PANEL_WIDTH = 494;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +164,11 @@ export default function OverlaySelect({
       const triggerRect = triggerRef.current.getBoundingClientRect();
       const panelHeight =
         panelRef.current?.offsetHeight ?? FALLBACK_PANEL_HEIGHT;
+      const maxPanelWidth = window.innerWidth - VIEWPORT_PADDING * 2;
+      const panelWidth = Math.min(
+        Math.max(triggerRect.width, MIN_PANEL_WIDTH),
+        maxPanelWidth,
+      );
       const availableBelow =
         window.innerHeight - triggerRect.bottom - PANEL_GAP - VIEWPORT_PADDING;
       const availableAbove = triggerRect.top - PANEL_GAP - VIEWPORT_PADDING;
@@ -175,12 +181,19 @@ export default function OverlaySelect({
         VIEWPORT_PADDING,
         Math.min(idealTop, window.innerHeight - VIEWPORT_PADDING - panelHeight),
       );
+      const clampedLeft = Math.max(
+        VIEWPORT_PADDING,
+        Math.min(
+          triggerRect.left,
+          window.innerWidth - VIEWPORT_PADDING - panelWidth,
+        ),
+      );
 
       setPanelStyle({
         position: "fixed",
         top: clampedTop,
-        left: triggerRect.left,
-        width: triggerRect.width,
+        left: clampedLeft,
+        width: panelWidth,
         maxHeight: window.innerHeight - VIEWPORT_PADDING * 2,
       });
     };

@@ -58,13 +58,13 @@ export default function DrawNameSpinStep({
   };
 
   return (
-    <div className="space-y-10 pt-1">
+    <div className="space-y-8 pt-1 sm:space-y-10">
       <div className="space-y-5">
-        <p className="text-[20px] font-normal leading-[1.3] text-[#434343] sm:text-[24px]">
+        <p className="text-[18px] font-normal leading-[1.3] text-[#434343] sm:text-[24px]">
           Now go ahead and draw name.
         </p>
 
-        <div className="rounded-[16px] border border-[#ECE8F7] bg-white px-5 py-1">
+        <div className="rounded-[16px] border border-[#ECE8F7] bg-white px-3 py-1 sm:px-5">
           <div className="h-[50px] overflow-hidden">
             <div
               className="draw-name-spin-reel flex flex-col"
@@ -81,7 +81,7 @@ export default function DrawNameSpinStep({
                   key={`${name}-${index}`}
                   className="flex h-[50px] items-center justify-center"
                 >
-                  <p className="truncate text-center text-[22px] font-semibold uppercase tracking-[0.02em] text-[#111111] sm:text-[24px]">
+                  <p className="truncate text-center text-[24px] font-[900] uppercase tracking-[0.02em] text-[#434343] sm:text-[40px]">
                     {name}
                   </p>
                 </div>
@@ -91,7 +91,7 @@ export default function DrawNameSpinStep({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 pt-4">
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
         <BackButton
           onClick={onBack}
           className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"

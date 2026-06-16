@@ -78,7 +78,7 @@ export default function DrawNameInviteStep({
   onSearchValueChange,
 }: DrawNameInviteStepProps) {
   return (
-    <div className="space-y-12 pt-2">
+    <div className="space-y-8 pt-2 sm:space-y-12">
       <div className="space-y-4 text-center">
         <p className="text-[20px] font-normal leading-[1.35] text-[#434343] sm:text-[24px]">
           Invite members of the group to draw
@@ -87,8 +87,8 @@ export default function DrawNameInviteStep({
         </p>
       </div>
 
-      <div className="rounded-[8px] bg-[#3300C9] px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+      <div className="rounded-[10px] bg-[#3300C9] px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:flex-nowrap sm:justify-between">
           {inviteOptions.map((option) => (
             <button
               key={option.label}

@@ -7,7 +7,6 @@ import pics4 from "@/assets/icons/featureImg4.svg";
 import pics5 from "@/assets/icons/featureImg5.svg";
 import pics6 from "@/assets/icons/featureImg6.svg";
 
-
 const features = [
   {
     id: 1,
@@ -73,8 +72,8 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section className="bg-white px-5 sm:px-6 md:px-8 py-8 sm:py-10 md:py-12 lg:py-15">
-      <div className="max-w-5xl mx-auto">
+    <section className="bg-white px-5 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12 lg:py-15">
+      <div className="mx-auto max-w-6xl">
         {/* Section header */}
         <div className="flex flex-col items-center text-center mb-10 sm:mb-12 md:mb-14 lg:mb-16">
           <span className="inline-block bg-[#FF660014] border border-[#FF6600] text-[#FF6600] text-[12px] sm:text-[14px] px-3 sm:px-4 py-1.5 sm:py-2 rounded-[12px] mb-3 sm:mb-4 tracking-wide">
@@ -90,11 +89,11 @@ export default function FeaturesSection() {
         </div>
 
         {/* Feature cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-25">
+        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:gap-10 xl:gap-12">
           {features.map((feature) => (
             <div
               key={feature.id}
-              className="rounded-[16px] cursor-pointer px-5 sm:px-6 py-8 sm:py-10 md:py-11 lg:py-12.5 flex flex-col gap-4 border-2 transition-colors hover:border-primary border-gray-200"
+              className="flex cursor-pointer flex-col gap-4 rounded-[16px] border-2 border-gray-200 px-5 py-8 transition-colors hover:border-primary sm:px-6 sm:py-10 md:py-11 lg:py-12"
             >
               <div className="w-full aspect-video rounded-[8px] overflow-hidden">
                 <Image

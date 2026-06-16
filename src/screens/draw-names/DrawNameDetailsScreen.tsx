@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
+  Link2Icon,
   MoreHorizontal,
   PencilIcon,
   Trash2Icon,
@@ -12,6 +13,7 @@ import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import DetailHeader from "@/components/DetailHeader";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,12 +27,14 @@ import BirthdayIcon from "@/components/icons/BirthdayIcon";
 import { canManageDrawNameEvent } from "@/features/draw-name-events/access";
 import { useDeleteDrawNameEventMutation } from "@/features/draw-name-events/hooks/useDeleteDrawNameEventMutation";
 import { useDrawNameEventQuery } from "@/features/draw-name-events/hooks/useDrawNameEventQuery";
+import { useParticipantGiftsQuery } from "@/features/gifts/hooks/useParticipantGiftsQuery";
 import { useGiftRecipientQuery } from "@/features/participants/hooks/useGiftRecipientQuery";
 import { useMyParticipantQuery } from "@/features/participants/hooks/useMyParticipantQuery";
 import type {
   DrawNameEventListParticipant,
   DrawNameEventRecord,
 } from "@/features/draw-name-events/types";
+import type { ParticipantGiftRow } from "@/features/gifts/types";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -231,6 +235,41 @@ function ViewGiftMenuIcon() {
   );
 }
 
+function DrawNameActionIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M3.333 9.167v6.666c0 .442.176.866.488 1.179.313.312.737.488 1.179.488h10c.442 0 .866-.176 1.178-.488.313-.313.489-.737.489-1.179V9.167"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 4.583c0-.773-.308-1.515-.854-2.061a2.917 2.917 0 0 0-2.063-.855c-.552 0-1.082.22-1.473.61a2.083 2.083 0 0 0-.61 1.473A2.083 2.083 0 0 0 7.083 5.833H10m0-1.25v1.25m0-1.25c0-.773.307-1.515.854-2.061a2.917 2.917 0 0 1 2.063-.855c.552 0 1.082.22 1.473.61.39.391.61.921.61 1.473 0 .273-.053.544-.158.794s-.26.477-.452.668c-.193.193-.422.346-.674.45-.252.105-.523.158-.795.158H10"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 9.167V17.5M2.5 5.833h15v3.334h-15V5.833Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ParticipantAvatar({ participant }: { participant: DetailParticipant }) {
   return (
     <span
@@ -245,11 +284,133 @@ function ParticipantAvatar({ participant }: { participant: DetailParticipant }) 
   );
 }
 
+function PairedAvatarBadge({
+  participant,
+}: {
+  participant: DetailParticipant;
+}) {
+  return (
+    <span className="relative flex size-[46px] items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white shadow-[0_10px_26px_rgba(26,19,61,0.18)] sm:size-[54px] sm:border-[4px]">
+      <span
+        className="flex size-full items-center justify-center rounded-full text-[15px] font-semibold"
+        style={{
+          backgroundColor: participant.bg,
+          color: participant.color,
+        }}
+        title={participant.name}
+        aria-label={`Paired with ${participant.name}`}
+      >
+        {participant.initials}
+      </span>
+
+      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[#191A1F]/45">
+        <Link2Icon className="size-4 text-white" strokeWidth={2.1} />
+      </span>
+    </span>
+  );
+}
+
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[10px] bg-[#FFFFFF] px-5 py-4">
+    <div className="rounded-[10px] bg-[#FFFFFF] px-4 py-4 sm:px-5">
       <p className="text-[14px] font-[500] text-[#434343]">{label}</p>
-      <p className="mt-5 text-[16px] font-[600] text-[#1E1E1E]">{value}</p>
+      <p className="mt-4 text-[16px] font-[600] text-[#1E1E1E] sm:mt-5">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatCompactPrice(amount?: string | number | null) {
+  const numericValue =
+    typeof amount === "number" ? amount : Number(amount?.toString() ?? 0);
+
+  if (!Number.isFinite(numericValue)) {
+    return "0";
+  }
+
+  return new Intl.NumberFormat("en-NG", {
+    maximumFractionDigits: 0,
+  }).format(numericValue);
+}
+
+function formatConditionLabel(condition?: string | null) {
+  if (!condition?.trim()) {
+    return "Selected gift";
+  }
+
+  return condition
+    .split("_")
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
+}
+
+function getGiftImage(gift: ParticipantGiftRow) {
+  const firstGalleryImage = gift.images?.find((image) => Boolean(image?.trim()));
+
+  return firstGalleryImage || gift.imageUrl?.trim() || "";
+}
+
+function PairedGiftPreviewCard({
+  gift,
+  onViewGift,
+}: {
+  gift: ParticipantGiftRow;
+  onViewGift: () => void;
+}) {
+  const primaryImage = getGiftImage(gift);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onViewGift}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onViewGift();
+        }
+      }}
+      className="group flex cursor-pointer flex-col gap-3 rounded-[16px] border border-[#EEEAF7] bg-[#FCFBFF] p-3 transition-all hover:border-[#D8CEF8] hover:shadow-[0_10px_28px_rgba(51,0,201,0.08)]"
+    >
+      <div className="relative h-[130px] w-full overflow-hidden rounded-[12px] bg-[#F4F2FA]">
+        {primaryImage ? (
+          <img
+            src={primaryImage}
+            alt={gift.title?.trim() || "Selected gift"}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A8892]">
+            No image
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-semibold text-[#1E1E1E]">
+              {gift.title?.trim() || "Selected gift"}
+            </p>
+            <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#7D7D7D]">
+              {gift.description?.trim() || "No description available yet."}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full border border-[#E8DDFE] bg-white px-2 py-1 text-[10px] font-medium text-[#3300C9]">
+            {formatConditionLabel(gift.condition)}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[16px] font-semibold text-[#3300C9]">
+            ₦{formatCompactPrice(gift.amount)}
+          </span>
+          <span className="rounded-full bg-[#F3EFFB] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
+            View gift
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -465,6 +626,28 @@ export default function DrawNameDetailsScreen({
       status: matchedParticipant?.status ?? "Pending",
     };
   }, [detail?.participants, giftRecipientResponse]);
+  const pairedParticipantId = giftRecipientResponse?.data?.id?.trim() || null;
+  const {
+    data: pairedParticipantGiftsResponse,
+    isLoading: isPairedParticipantGiftsLoading,
+    isFetching: isPairedParticipantGiftsFetching,
+    isError: isPairedParticipantGiftsError,
+    refetch: refetchPairedParticipantGifts,
+  } = useParticipantGiftsQuery(
+    pairedParticipantId,
+    detail?.eventId ?? null,
+    {
+      page: 1,
+      per_page: 5,
+    },
+    {
+      enabled: Boolean(pairedParticipantId) && Boolean(detail?.eventId),
+    },
+  );
+  const pairedParticipantGiftPreview = useMemo(
+    () => pairedParticipantGiftsResponse?.data?.data ?? [],
+    [pairedParticipantGiftsResponse?.data?.data],
+  );
 
   const isCompletedInviteState = detail?.status === "Completed";
   const isOngoingInviteState = detail?.status === "Ongoing";
@@ -607,6 +790,91 @@ export default function DrawNameDetailsScreen({
             }}
           />
         </div>
+
+        <div className="mt-6 border-t border-[#F1EDF8] pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#1E1E1E]">
+                Gift Selections
+              </h3>
+              <p className="mt-1 text-[12px] text-[#7D7D7D]">
+                A quick look at what {pairedParticipant.name.split(" ")[0] || "your pair"} has picked.
+              </p>
+            </div>
+            {pairedParticipantGiftPreview.length > 0 ? (
+              <span className="rounded-full bg-[#F3EFFB] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
+                {pairedParticipantGiftPreview.length} of{" "}
+                {pairedParticipantGiftsResponse?.data?.total ?? pairedParticipantGiftPreview.length}
+              </span>
+            ) : null}
+          </div>
+
+          {isPairedParticipantGiftsLoading || isPairedParticipantGiftsFetching ? (
+            <div className="mt-4 rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
+              Loading gift selections...
+            </div>
+          ) : isPairedParticipantGiftsError ? (
+            <div className="mt-4 rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
+              <p>Unable to load gift selections right now.</p>
+              <button
+                type="button"
+                onClick={() => void refetchPairedParticipantGifts()}
+                className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+              >
+                Retry
+              </button>
+            </div>
+          ) : pairedParticipantGiftPreview.length > 0 ? (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {pairedParticipantGiftPreview.map((gift) => {
+                  const selectedGiftId =
+                    gift.participantGiftId?.trim() || gift.id?.trim();
+
+                  return (
+                    <PairedGiftPreviewCard
+                      key={gift.id}
+                      gift={gift}
+                      onViewGift={() => {
+                        if (!pairedParticipantId || !selectedGiftId) {
+                          toast.error("Unable to open this gift right now.");
+                          return;
+                        }
+
+                        router.push(
+                          `/dashboard/draw-names/${drawNameEventId}/gift/${selectedGiftId}?participantId=${pairedParticipantId}`,
+                        );
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!pairedParticipantId) {
+                      toast.error("Unable to open these gifts right now.");
+                      return;
+                    }
+
+                    router.push(
+                      `/dashboard/draw-names/${drawNameEventId}/gift?participantId=${pairedParticipantId}`,
+                    );
+                  }}
+                  className="inline-flex items-center justify-center rounded-full border border-[#DCD4F6] bg-white px-5 py-2.5 text-sm font-medium text-[#3300C9] transition-colors hover:bg-[#F6F2FF]"
+                >
+                  View more
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="mt-4 rounded-[14px] border border-dashed border-[#DDD7F1] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
+              No gift selections have been added here yet.
+            </div>
+          )}
+        </div>
       </>
     ) : (
       <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
@@ -651,6 +919,11 @@ export default function DrawNameDetailsScreen({
               color: "#3300C9",
               bg: "#EFE6FD",
             }}
+            avatarBadge={
+              pairedParticipant ? (
+                <PairedAvatarBadge participant={pairedParticipant} />
+              ) : null
+            }
             actions={
               <>
                 <Button
@@ -659,7 +932,13 @@ export default function DrawNameDetailsScreen({
                   disabled={!canOpenPrimaryAction}
                   className="h-10 rounded-full bg-[#3300C9] px-5 text-sm font-medium text-white hover:bg-[#2D00B4]"
                 >
-                  <PencilIcon className="size-4" />
+                  {primaryActionLabel === "Draw Name" ? (
+                    <DrawNameActionIcon className="size-4 shrink-0" />
+                  ) : primaryActionLabel === "Send Invite" ? (
+                    <InviteEmailIcon className="size-4 shrink-0" />
+                  ) : (
+                    <PencilIcon className="size-4 shrink-0" />
+                  )}
                   {primaryActionLabel}
                 </Button>
                 <Button
@@ -688,7 +967,7 @@ export default function DrawNameDetailsScreen({
           />
 
           <div className="overflow-hidden rounded-[20px]">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 md:gap-15">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
               <SummaryStat label="Gift Exchange Date" value={detail.eventDate} />
               <SummaryStat label="Maximum Spend" value={detail.budget} />
               <SummaryStat label="Draw Date" value={detail.drawDate} />
@@ -700,8 +979,8 @@ export default function DrawNameDetailsScreen({
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.9fr)]">
-            <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-5">
-              <div className="flex items-center gap-6 border-b border-[#F1EDF8]">
+            <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
+              <div className="-mx-1 flex items-center gap-4 overflow-x-auto border-b border-[#F1EDF8] px-1 sm:gap-6">
                 {canManageDetail ? (
                   <button
                     type="button"
@@ -771,7 +1050,7 @@ export default function DrawNameDetailsScreen({
               </div>
             </div>
 
-            <aside className="rounded-[20px] border border-[#EEEAF7] bg-white p-5">
+            <aside className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
               <h2 className="text-[16px] font-semibold text-[#000000]">
                 Other Information
               </h2>

@@ -7,12 +7,11 @@ import pics5 from "@/assets/icons/fifthHead.svg";
 
 const avatars = [pics1, pics2, pics3, pics3, pics5];
 
-
 export default function HeroSection() {
   return (
-    <section className="flex flex-col items-center text-center px-5 sm:px-6 md:px-10 lg:px-28 pt-9 md:pt-19 pb-8 md:pb-18">
+    <section className="flex flex-col items-center px-5 pb-8 pt-9 text-center sm:px-6 md:px-10 md:pb-18 md:pt-19 lg:px-20 xl:px-28">
       {/* Social proof */}
-      <div className="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-6 lg:mb-7">
+      <div className="mb-5 flex flex-wrap items-center justify-center gap-3 sm:mb-6 sm:gap-4 lg:mb-7">
         <div className="flex -space-x-2">
           {avatars.map((avatar, i) => (
             <Image
@@ -31,17 +30,17 @@ export default function HeroSection() {
       </div>
 
       {/* Heading */}
-      <h1 className="font-title text-[26px] sm:text-[34px] md:text-[42px] lg:text-[48px] leading-[1.15] tracking-[0.04em] mb-4 sm:mb-5 lg:mb-6 lg:max-w-[854px] lg:mx-auto">
+      <h1 className="mb-4 max-w-[340px] font-title text-[28px] leading-[1.12] tracking-[0.04em] sm:mb-5 sm:max-w-[560px] sm:text-[38px] md:max-w-[720px] md:text-[46px] lg:mb-6 lg:max-w-[854px] lg:text-[52px] lg:mx-auto">
         <span className="text-primary">Celebrate </span>
         <span className="text-dark">
           Life&apos;s Moment&apos;s
-          <br />
-          without Missing a Beat
+          <br className="hidden sm:block" />
+          <span className="sm:ml-2">without Missing a Beat</span>
         </span>
       </h1>
 
       {/* Subtitle */}
-      <p className="text-muted text-[14px] sm:text-base md:text-[20px] mb-5 sm:mb-6 leading-relaxed lg:mx-auto">
+      <p className="text-muted mb-5 max-w-[320px] text-[14px] leading-relaxed sm:mb-6 sm:max-w-[620px] sm:text-base md:max-w-[860px] md:text-[20px] lg:mx-auto">
         Life is full of moments worth celebrating. Yule helps you turn them into meaningful gestures through effortless messages, thoughtful
         <br className="hidden lg:inline" />
         {" "}gifts, and memorable experiences so no special moment ever goes
@@ -50,16 +49,16 @@ export default function HeroSection() {
       </p>
 
       {/* CTAs */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full sm:w-auto">
+      <div className="flex w-full max-w-[420px] flex-col justify-center gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-4">
         <Button
           label="Start Celebrating"
           variant="filled"
-          className="px-6 sm:px-7 lg:px-8 py-3 sm:py-3.5 text-[14px] lg:text-base"
+          className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
         />
         <Button
           label="Create your first celebration"
           variant="outlined"
-          className="px-6 sm:px-7 lg:px-8 py-3 sm:py-3.5 text-[14px] lg:text-base"
+          className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
         />
       </div>
     </section>

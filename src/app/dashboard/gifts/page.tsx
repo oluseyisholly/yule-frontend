@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import GiftsScreen from "@/screens/GiftsScreen";
+import DashboardGiftsScreen from "@/screens/DashboardGiftsScreen";
 
 export const metadata: Metadata = {
   title: "Gifts",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function GiftsPage() {
-  return <GiftsScreen />;
+  return <DashboardGiftsScreen />;
 }

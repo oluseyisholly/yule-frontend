@@ -1,6 +1,9 @@
-import { getApi, patchApi, postApi } from "@/lib/api";
+import { deleteApi, getApi, patchApi, postApi } from "@/lib/api";
 import type {
+  WishlistEventClaimedGiftIdsResponse,
+  WishlistEventCompleteResponse,
   WishlistEventCreatePayload,
+  WishlistEventDeleteResponse,
   WishlistEventGiftsParams,
   WishlistEventGiftsResponse,
   WishlistEventPatchPayload,
@@ -21,6 +24,10 @@ export async function getWishlistEvents(params: WishlistEventsParams = {}) {
   });
 }
 
+export async function getWishlistEvent(id: string) {
+  return getApi<WishlistEventMutationResponse>(`${WISHLIST_EVENTS_ENDPOINT}/${id}`);
+}
+
 export async function createWishlistEvent(payload: WishlistEventCreatePayload) {
   return postApi<WishlistEventMutationResponse, WishlistEventCreatePayload>(
     WISHLIST_EVENTS_ENDPOINT,
@@ -38,6 +45,18 @@ export async function updateWishlistEvent(
   );
 }
 
+export async function completeWishlistEvent(id: string) {
+  return patchApi<WishlistEventCompleteResponse>(
+    `${WISHLIST_EVENTS_ENDPOINT}/${id}/complete`,
+  );
+}
+
+export async function deleteWishlistEvent(id: string) {
+  return deleteApi<WishlistEventDeleteResponse>(
+    `${WISHLIST_EVENTS_ENDPOINT}/${id}`,
+  );
+}
+
 export async function getWishlistEventGifts(
   wishlistEventId: string,
   params: WishlistEventGiftsParams = {},
@@ -50,5 +69,11 @@ export async function getWishlistEventGifts(
         per_page: params.per_page ?? 25,
       },
     },
+  );
+}
+
+export async function getWishlistEventClaimedGiftIds(wishlistEventId: string) {
+  return getApi<WishlistEventClaimedGiftIdsResponse>(
+    `${WISHLIST_EVENTS_ENDPOINT}/${wishlistEventId}/gifts/claimed-ids`,
   );
 }

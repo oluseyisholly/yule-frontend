@@ -41,50 +41,50 @@ export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <section className="bg-white px-6 py-8 md:pt-19 pb-13">
-      <div className="max-w-3xl mx-auto">
+    <section className="bg-white px-4 py-8 pb-13 sm:px-6 md:px-8 md:pt-19">
+      <div className="mx-auto max-w-3xl">
         {/* Section header */}
-        <div className="flex flex-col items-center text-center mb-12">
-          <span className="inline-block border border-[#FF6600] text-[#FF6600] bg-[#FF660014] text-[12px] px-4 py-2 rounded-[12px] mb-3.5 tracking-wide">
+        <div className="mb-10 flex flex-col items-center text-center sm:mb-12">
+          <span className="mb-3.5 inline-block rounded-[12px] border border-[#FF6600] bg-[#FF660014] px-4 py-2 text-[12px] tracking-wide text-[#FF6600]">
             FAQ
           </span>
-          <h2 className="font-title text-[40px]  text-[#000000] leading-tight mb-3.5">
+          <h2 className="mb-3.5 font-title text-[28px] leading-tight text-[#000000] sm:text-[34px] md:text-[40px]">
             Frequently Asked Questions
           </h2>
-          <p className="text-muted text-[16px] font-medium  ">
+          <p className="text-muted max-w-[620px] text-[14px] font-medium sm:text-[16px]">
             See frequent questions ask from our users
           </p>
         </div>
 
         {/* Accordion */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:gap-6">
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
               <div
                 key={i}
-                className="border border-gray-200 rounded-[10px] bg-white overflow-hidden shadow-[0_0_0_4px_#FFFFFF]"
+                className="overflow-hidden rounded-[10px] border border-gray-200 bg-white shadow-[0_0_0_4px_#FFFFFF]"
               >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   aria-expanded={isOpen}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-7 text-left cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-5 text-left transition-colors hover:bg-gray-50 sm:px-5 sm:py-7"
                 >
-                  <span className="text-sm md:text-base text-dark">
+                  <span className="text-sm text-dark md:text-base">
                     {faq.question}
                   </span>
                   <Image
                     src={dropIcon}
                     alt=""
                     aria-hidden
-                    className={`w-4 h-4 transition-transform duration-200 ${
+                    className={`h-4 w-4 transition-transform duration-200 ${
                       isOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-5 pb-4 text-sm text-muted leading-relaxed">
+                  <div className="px-4 pb-4 text-sm leading-relaxed text-muted sm:px-5">
                     {faq.answer}
                   </div>
                 )}

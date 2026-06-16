@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Form, Formik, useField } from "formik";
+import toast from "react-hot-toast";
 import * as Yup from "yup";
 import { ChevronDown } from "lucide-react";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
+import { useCreateUserMutation } from "@/features/auth/hooks/useCreateUserMutation";
+import { ApiRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const validationSchema = Yup.object({
@@ -44,6 +48,9 @@ const initialValues: FormValues = {
 };
 
 export default function CreateCelebrationForm() {
+  const router = useRouter();
+  const createUserMutation = useCreateUserMutation();
+
   return (
     <div className="w-full max-w-[500px] mx-auto flex flex-col">
       {/* Title */}
@@ -59,11 +66,41 @@ export default function CreateCelebrationForm() {
       <Formik
         initialValues={initialValues}
         validationSchema={validationSchema}
-        onSubmit={(values) => {
-          console.log("create celebration", values);
+        onSubmit={async (values, { setSubmitting }) => {
+          try {
+            const normalizedPhone = values.phone.replace(/\s+/g, "").trim();
+            const response = await createUserMutation.mutateAsync({
+              firstName: values.firstName.trim(),
+              lastName: values.lastName.trim(),
+              email: values.email.trim(),
+              phoneNumber: normalizedPhone
+                ? `+234${normalizedPhone}`
+                : "",
+              password: values.password,
+              confirmPassword: values.confirmPassword,
+            });
+
+            toast.success(response.message || "Account created successfully");
+            router.push(
+              `/start?email=${encodeURIComponent(values.email.trim())}`,
+            );
+          } catch (error) {
+            if (error instanceof ApiRequestError && error.isNetworkError) {
+              return;
+            }
+
+            const message =
+              error instanceof ApiRequestError || error instanceof Error
+                ? error.message
+                : "Unable to create your account right now.";
+
+            toast.error(message);
+          } finally {
+            setSubmitting(false);
+          }
         }}
       >
-        {({ values, setFieldValue }) => (
+        {({ values, setFieldValue, isSubmitting }) => (
           <Form className="flex flex-col gap-5">
             <Input
               label="First Name"
@@ -137,9 +174,14 @@ export default function CreateCelebrationForm() {
 
             <Button
               type="submit"
-              label="Create Account"
+              label={
+                createUserMutation.isPending || isSubmitting
+                  ? "Creating Account..."
+                  : "Create Account"
+              }
               variant="filled"
               className="w-full h-12 rounded-lg text-[15px] mt-1"
+              disabled={createUserMutation.isPending || isSubmitting}
             />
 
             <p className="text-center text-[#000000] text-[14px] text-muted">

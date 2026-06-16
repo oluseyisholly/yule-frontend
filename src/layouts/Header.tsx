@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
+import { useAuthStore } from "@/stores/auth-store";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -14,23 +15,81 @@ const navLinks = [
   { label: "Find Hangouts", href: "/hangouts" },
 ];
 
+function getInitials(firstName?: string | null, lastName?: string | null) {
+  const initials = `${firstName?.trim().charAt(0) ?? ""}${
+    lastName?.trim().charAt(0) ?? ""
+  }`
+    .trim()
+    .toUpperCase();
+
+  return initials || "YU";
+}
+
+function SignedInUserCard({
+  name,
+  email,
+  initials,
+  onClick,
+  className = "",
+}: {
+  name: string;
+  email: string;
+  initials: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <Link
+      href="/dashboard"
+      onClick={onClick}
+      className={`flex min-w-0 items-center gap-3 rounded-full border border-transparent px-4 py-2.5 transition-colors hover:border-[#F1EBFF] ${className}`}
+    >
+      <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#EEE6FF] text-[16px] font-semibold text-[#3300C9]">
+        {initials}
+      </span>
+
+      <span className="min-w-0">
+        <span className="block truncate text-[16px] font-medium leading-tight text-[#3300C9]">
+          {name}
+        </span>
+        <span className="block truncate text-[14px] leading-tight text-[#5F5C67]">
+          {email}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  
+  const authUser = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const fullName =
+    `${authUser?.firstName?.trim() ?? ""} ${authUser?.lastName?.trim() ?? ""}`.trim() ||
+    "Yule User";
+  const email = authUser?.email?.trim() || "No email address";
+  const initials = getInitials(authUser?.firstName, authUser?.lastName);
+  const shouldShowSignedInCard = isAuthenticated && Boolean(authUser);
 
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-[30px] py-5.5 flex items-center justify-between gap-14">
+    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:gap-10 xl:px-8">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">
-          <Image src={Logo} alt="Yule logo" className="h-[35px] w-[65.5px]" priority />
+          <Image
+            src={Logo}
+            alt="Yule logo"
+            className="h-[30px] w-[56px] sm:h-[35px] sm:w-[65.5px]"
+            priority
+          />
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-10">
+        <nav className="hidden items-center gap-8 lg:flex xl:gap-10">
           {navLinks.map(({ label, href }) => (
             <Link
               key={href}
@@ -47,47 +106,58 @@ export default function Header() {
         </nav>
 
         {/* Desktop CTAs */}
-        <div className="hidden lg:flex items-center gap-9 shrink-0">
-          <Button
-            label="Create your first celebration"
-            href="/celebrate"
-            variant="outlined"
-          />
-          <Button
-            label="Start Celebrating"
-            href="/start"
-            variant="filled"
-          />
+        <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-6">
+          {shouldShowSignedInCard ? (
+            <SignedInUserCard
+              name={fullName}
+              email={email}
+              initials={initials}
+              className="max-w-[280px]"
+            />
+          ) : (
+            <>
+              <Button
+                label="Create your first celebration"
+                href="/celebrate"
+                variant="outlined"
+              />
+              <Button
+                label="Start Celebrating"
+                href="/start"
+                variant="filled"
+              />
+            </>
+          )}
           <ThemeToggle />
         </div>
 
         {/* Mobile toggle + hamburger */}
-        <div className="lg:hidden flex items-center gap-2">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle />
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label={isOpen ? "Close menu" : "Open menu"}
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((s) => !s)}
-          className="relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
-        >
-          <span
-            className={`block w-6 h-0.5 bg-dark transition-all ${
-              isOpen ? "rotate-45 translate-y-2" : ""
-            }`}
-          />
-          <span
-            className={`block w-6 h-0.5 bg-dark transition-opacity ${
-              isOpen ? "opacity-0" : ""
-            }`}
-          />
-          <span
-            className={`block w-6 h-0.5 bg-dark transition-all ${
-              isOpen ? "-rotate-45 -translate-y-2" : ""
-            }`}
-          />
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((s) => !s)}
+            className="relative w-10 h-10 flex flex-col items-center justify-center gap-1.5 px-0 py-0"
+          >
+            <span
+              className={`block w-6 h-0.5 bg-dark transition-all ${
+                isOpen ? "rotate-45 translate-y-2" : ""
+              }`}
+            />
+            <span
+              className={`block w-6 h-0.5 bg-dark transition-opacity ${
+                isOpen ? "opacity-0" : ""
+              }`}
+            />
+            <span
+              className={`block w-6 h-0.5 bg-dark transition-all ${
+                isOpen ? "-rotate-45 -translate-y-2" : ""
+              }`}
+            />
+          </Button>
         </div>
       </div>
 
@@ -97,7 +167,7 @@ export default function Header() {
           isOpen ? "max-h-[500px]" : "max-h-0"
         }`}
       >
-        <div className="px-6 py-6 flex flex-col gap-5">
+        <div className="flex flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
           <nav className="flex flex-col gap-1">
             {navLinks.map(({ label, href }) => (
               <Link
@@ -112,20 +182,30 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          <div className="flex flex-col gap-3">
-            <Button
-              label="Create your first celebration"
-              href="/celebrate"
-              variant="outlined"
+          {shouldShowSignedInCard ? (
+            <SignedInUserCard
+              name={fullName}
+              email={email}
+              initials={initials}
+              onClick={closeMenu}
               className="w-full"
             />
-            <Button
-              label="Start Celebrating"
-              href="/start"
-              variant="filled"
-              className="w-full"
-            />
-          </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <Button
+                label="Create your first celebration"
+                href="/celebrate"
+                variant="outlined"
+                className="w-full"
+              />
+              <Button
+                label="Start Celebrating"
+                href="/start"
+                variant="filled"
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
       </div>
     </header>

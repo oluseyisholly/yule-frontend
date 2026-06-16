@@ -156,7 +156,7 @@ export default function StartCelebratingForm() {
             <p className="text-center text-[14px] text-muted mt-1">
               Not Registered Yet?{" "}
               <Link
-                href="/signup"
+                href="/celebrate"
                 className="text-primary font-semibold hover:underline"
               >
                 Create an account
