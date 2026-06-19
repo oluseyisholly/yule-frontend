@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
 import { useAuthStore } from "@/stores/auth-store";
+import { YULE_SIGN_IN_URL, YULE_SIGN_UP_URL } from "@/lib/external-links";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -118,12 +119,12 @@ export default function Header() {
             <>
               <Button
                 label="Create your first celebration"
-                href="/celebrate"
+                href={YULE_SIGN_UP_URL}
                 variant="outlined"
               />
               <Button
                 label="Start Celebrating"
-                href="/start"
+                href={YULE_SIGN_IN_URL}
                 variant="filled"
               />
             </>
@@ -194,13 +195,13 @@ export default function Header() {
             <div className="flex flex-col gap-3">
               <Button
                 label="Create your first celebration"
-                href="/celebrate"
+                href={YULE_SIGN_UP_URL}
                 variant="outlined"
                 className="w-full"
               />
               <Button
                 label="Start Celebrating"
-                href="/start"
+                href={YULE_SIGN_IN_URL}
                 variant="filled"
                 className="w-full"
               />

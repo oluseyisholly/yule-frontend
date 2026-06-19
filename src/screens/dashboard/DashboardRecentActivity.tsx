@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { MoreHorizontal, SearchIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import Pagination from "@/components/Pagination";
 import { cn } from "@/lib/utils";
 
 type Participant = {
@@ -287,8 +286,6 @@ export default function DashboardRecentActivity() {
           </div>
         </div>
       </div>
-
-      <Pagination total={10} className="mt-4" />
     </section>
   );
 }

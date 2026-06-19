@@ -19,6 +19,57 @@ export type AuthUser = {
   phoneNumber: string;
   email: string;
   token: string;
+  refreshToken?: string | null;
+  profileId?: string | null;
+  mode?: "BUSINESS" | "INDIVIDUAL" | string | null;
+  hostBusinessId?: string | null;
+  hostAccountId?: string | null;
+  profile?: ExternalProfileRecord | null;
+};
+
+export type SsoTokenPayload = {
+  id: string;
+  email: string;
+  profileId: string;
+  mode: "BUSINESS" | "INDIVIDUAL" | string;
+  hostBusinessId?: string;
+  hostAccountId?: string;
+  iat: number;
+  exp: number;
+};
+
+export type ExternalAccountProfile = {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  active: boolean;
+  mfaEnabled: boolean;
+  isPasswordSet: boolean;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+};
+
+export type ExternalProfileRecord = {
+  _id: string;
+  accountId: ExternalAccountProfile;
+  default: boolean;
+  host: boolean;
+  type: string;
+  active: boolean;
+  status: string;
+  above18: boolean;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+};
+
+export type ExternalProfileResponse = {
+  success: boolean;
+  data: ExternalProfileRecord;
 };
 
 export type SignInResponse = {

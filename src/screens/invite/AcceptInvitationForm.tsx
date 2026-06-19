@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import * as Yup from "yup";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
+import { InvitationFormSkeleton } from "@/components/ui/context-skeletons";
 import { useInvitationAccountExistsQuery } from "@/features/invitations/hooks/useInvitationAccountExistsQuery";
 import { useClaimInvitationMutation } from "@/features/invitations/hooks/useClaimInvitationMutation";
 import { useInvitationQuery } from "@/features/invitations/hooks/useInvitationQuery";
@@ -70,18 +71,7 @@ export default function AcceptInvitationForm({
   }, [eventContact?.email, invitation?.redirectPathAfterAccept]);
 
   if (invitationQuery.isLoading || invitationQuery.isFetching) {
-    return (
-      <div className="w-full max-w-[500px] mx-auto flex flex-col">
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="font-muted font-semibold text-[36px] text-dark leading-tight">
-            Accept your invitation
-          </h1>
-          <p className="text-muted text-[12px] mt-1.5">
-            Loading invitation details...
-          </p>
-        </div>
-      </div>
-    );
+    return <InvitationFormSkeleton />;
   }
 
   if (
@@ -89,18 +79,7 @@ export default function AcceptInvitationForm({
     eventContact &&
     accountExistsQuery.isLoading
   ) {
-    return (
-      <div className="w-full max-w-[500px] mx-auto flex flex-col">
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="font-muted font-semibold text-[36px] text-dark leading-tight">
-            Accept your invitation
-          </h1>
-          <p className="text-muted text-[12px] mt-1.5">
-            Checking your account details...
-          </p>
-        </div>
-      </div>
-    );
+    return <InvitationFormSkeleton />;
   }
 
   if (invitationQuery.isError || !invitation || !eventContact) {

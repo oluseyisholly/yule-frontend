@@ -204,7 +204,7 @@ function DashboardProfileMenu({
   const handleLogout = () => {
     setOpen(false);
     clearStoredAuthSession();
-    window.location.assign("/start");
+    window.location.assign("/");
   };
 
   return (

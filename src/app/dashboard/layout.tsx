@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { Manrope } from "next/font/google";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/dashboard/Header";
 import MobileSidebar from "@/components/dashboard/MobileSidebar";
 import DashboardSidebarNav from "@/components/dashboard/SidebarNav";
 import TopAlert from "@/components/dashboard/TopAlert";
 import { YuleWordmarkIcon } from "@/components/dashboard/icons";
+import { resetApiLogoutState } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import {
+  clearStoredAuthSession,
+  getStoredAuthToken,
+  useAuthStore,
+} from "@/stores/auth-store";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -23,6 +29,25 @@ export default function DashboardLayout({
   children: ReactNode;
 }>) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const token = useAuthStore((state) => state.token);
+
+  useEffect(() => {
+    const resolvedToken = token ?? getStoredAuthToken();
+
+    if (!resolvedToken) {
+      clearStoredAuthSession();
+      window.location.assign("/");
+      return;
+    }
+
+    resetApiLogoutState();
+    setIsAuthReady(true);
+  }, [token]);
+
+  if (!isAuthReady) {
+    return null;
+  }
 
   return (
     <div
@@ -53,11 +78,11 @@ export default function DashboardLayout({
         />
 
         <div className="px-6 py-4 space-y-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-            <TopAlert
-              title="Lorem ipsum dolor sit amet consectetur. Auctor aliquet sem vulputate diam."
-              externalLink="/"
-            />
-            {children}
+          <TopAlert
+            title="Lorem ipsum dolor sit amet consectetur. Auctor aliquet sem vulputate diam."
+            externalLink="/"
+          />
+          {children}
         </div>
       </main>
     </div>

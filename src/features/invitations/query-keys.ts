@@ -15,4 +15,15 @@ export const invitationQueryKeys = {
       params.page ?? 1,
       params.searchQuery ?? "",
     ] as const,
+  giftingEventList: (
+    giftingEventId: string,
+    params: { per_page?: number; page?: number } = {},
+  ) =>
+    [
+      ...invitationQueryKeys.lists(),
+      "gifting",
+      giftingEventId,
+      params.per_page ?? 25,
+      params.page ?? 1,
+    ] as const,
 };

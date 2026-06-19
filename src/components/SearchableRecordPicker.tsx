@@ -10,8 +10,11 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import ExclusionIcon from "@/components/icons/ExclusionIcon";
-import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
+import {
+  RecordPickerLoadingSkeleton,
+} from "@/components/ui/context-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export type SearchableRecordItem = {
@@ -277,7 +280,7 @@ export default function SearchableRecordPicker({
             className="h-[40px] w-full rounded-[16px] border border-[#ECE8F7] bg-white px-4 pr-12 text-sm text-[#434343] outline-none transition-colors placeholder:text-[#B6B2C4] focus:border-[#D6CCF5]"
           />
           {isLoading ? (
-            <Spinner className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-[#C8C5D2]" />
+            <Skeleton className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 rounded-full" />
           ) : (
             <SearchIcon className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-[#C8C5D2]" />
           )}
@@ -320,7 +323,9 @@ export default function SearchableRecordPicker({
 
         <div className="mt-3 max-h-[318px] overflow-y-auto pr-2">
           <div className="space-y-1">
-            {filteredItems.length > 0 ? (
+            {isLoading ? (
+              <RecordPickerLoadingSkeleton rows={6} />
+            ) : filteredItems.length > 0 ? (
               filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 const isLockedSelected = lockedSelectedIds.includes(item.id);

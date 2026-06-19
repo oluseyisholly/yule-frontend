@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import DashboardGiftsScreen from "@/screens/DashboardGiftsScreen";
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function GiftsPage() {
-  return <DashboardGiftsScreen />;
+  return (
+    <Suspense fallback={null}>
+      <DashboardGiftsScreen />
+    </Suspense>
+  );
 }

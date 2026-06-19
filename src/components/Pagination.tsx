@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Button from "@/components/Button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,11 @@ export default function Pagination({
   nextLabel = "Next →",
 }: PaginationProps) {
   const [current, setCurrent] = useState(initialPage);
+
+  useEffect(() => {
+    const clamped = Math.min(Math.max(initialPage, 1), Math.max(total, 1));
+    setCurrent(clamped);
+  }, [initialPage, total]);
 
   const go = (page: number) => {
     const clamped = Math.min(Math.max(page, 1), total);

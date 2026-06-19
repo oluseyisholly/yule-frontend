@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import BackButton from "@/components/BackButton";
 import ModalButton from "@/components/ModalButtons";
+import { ModalPanelSkeleton } from "@/components/ui/context-skeletons";
 import ContentModal from "@/components/ui/modal";
 import OverlaySelect, {
   type OverlaySelectOption,
@@ -2853,22 +2854,26 @@ export default function DrawNameStartModal({
           </p>
         </div>
 
-        <OverlaySelect
-          value={selectedEventId}
-          onValueChange={(value) => {
-            hasTouchedEventTypeRef.current = true;
-            setSelectedEventId(value);
-          }}
-          options={eventOptions}
-          placeholder={eventSelectPlaceholder}
-          panelTitle="Select an Event"
-          searchPlaceholder=""
-          addActionLabel="Add New"
-          onCreateOption={handleCreateEventOption}
-          onUpdateOption={handleUpdateEventOption}
-          onDeleteOption={handleDeleteEventOption}
-          triggerClassName="text-[10px]"
-        />
+        {isAvailableEventTypesLoading ? (
+          <ModalPanelSkeleton />
+        ) : (
+          <OverlaySelect
+            value={selectedEventId}
+            onValueChange={(value) => {
+              hasTouchedEventTypeRef.current = true;
+              setSelectedEventId(value);
+            }}
+            options={eventOptions}
+            placeholder={eventSelectPlaceholder}
+            panelTitle="Select an Event"
+            searchPlaceholder=""
+            addActionLabel="Add New"
+            onCreateOption={handleCreateEventOption}
+            onUpdateOption={handleUpdateEventOption}
+            onDeleteOption={handleDeleteEventOption}
+            triggerClassName="text-[10px]"
+          />
+        )}
 
         {isAvailableEventTypesError ? (
           <button

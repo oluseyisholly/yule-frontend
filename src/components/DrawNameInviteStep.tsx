@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import BackButton from "@/components/BackButton";
+import { InviteLinksLoadingSkeleton } from "@/components/ui/context-skeletons";
 import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ export type DrawNameInviteParticipant = {
 };
 
 type DrawNameInviteStepProps = {
+  title?: ReactNode;
   onBack: () => void;
   participants: DrawNameInviteParticipant[];
   isCopyListOpen: boolean;
@@ -64,6 +67,7 @@ const inviteOptions = [
 ] as const;
 
 export default function DrawNameInviteStep({
+  title,
   onBack,
   participants,
   isCopyListOpen,
@@ -81,9 +85,13 @@ export default function DrawNameInviteStep({
     <div className="space-y-8 pt-2 sm:space-y-12">
       <div className="space-y-4 text-center">
         <p className="text-[20px] font-normal leading-[1.35] text-[#434343] sm:text-[24px]">
-          Invite members of the group to draw
-          <br />
-          a name.
+          {title ?? (
+            <>
+              Invite members of the group to draw
+              <br />
+              a name.
+            </>
+          )}
         </p>
       </div>
 
@@ -143,8 +151,8 @@ export default function DrawNameInviteStep({
           />
 
           {isLoadingLinks ? (
-            <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
-              Loading invitation links...
+            <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5">
+              <InviteLinksLoadingSkeleton rows={4} />
             </div>
           ) : isLinksError ? (
             <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">

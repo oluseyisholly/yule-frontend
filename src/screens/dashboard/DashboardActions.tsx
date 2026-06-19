@@ -4,12 +4,13 @@ import DownloadIcon from "@/assets/icons/download.svg";
 import Image from "next/image";
 import AddBtn from "@/assets/icons/addBtn.svg";
 import WhiteAddBtn from "@/assets/icons/whiteAddBtn.svg";
+import { YULE_SIGN_IN_URL } from "@/lib/external-links";
 
 export default function DashboardActions() {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       <Button
-        href="/start"
+        href={YULE_SIGN_IN_URL}
         variant="filled"
         className="h-[44px] pl-2 pr-5 text-sm font-medium"
       >

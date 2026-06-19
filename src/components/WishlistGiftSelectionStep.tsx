@@ -12,8 +12,10 @@ import {
 import toast from "react-hot-toast";
 import ModalStepLayout from "@/components/ModalStepLayout";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GiftGridLoadingSkeleton } from "@/components/ui/context-skeletons";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
+import { Skeleton } from "@/components/ui/skeleton";
 import Button from "@/components/Button";
 import ModalButton from "@/components/ModalButtons";
 import filterIcon from "@/assets/icons/filter.svg";
@@ -217,7 +219,9 @@ function WishlistFilterDropdown({
             : "border-gray-200 bg-[#E4E9ED] text-[#716F6F] hover:bg-[#DCE2E7]",
         )}
       >
-        <span>{loading ? "Loading..." : displayLabel}</span>
+        <span>
+          {loading ? <Skeleton className="h-4 w-20 rounded-full" /> : displayLabel}
+        </span>
         <Image
           src={dropdownIcon}
           alt=""
@@ -275,8 +279,8 @@ function GiftCard({
   const primaryImage = product.images[0] || "";
 
   return (
-    <div className="flex h-full flex-col gap-2.5 rounded-[12px] border border-gray-100 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="relative h-[140px] w-full overflow-hidden rounded-[6px] bg-gray-100 sm:h-[100px]">
+    <div className="flex h-full min-w-0 flex-col gap-2 rounded-[10px] border border-gray-100 bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:gap-2.5 sm:rounded-[12px] sm:px-3 sm:py-2">
+      <div className="relative h-[96px] w-full overflow-hidden rounded-[6px] bg-gray-100 sm:h-[110px] lg:h-[120px]">
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -290,45 +294,45 @@ function GiftCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5 px-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 px-0.5 sm:px-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="truncate font-nunito text-[15px] font-semibold text-[#4E4C4D] sm:text-[16px]">
+          <h3 className="truncate font-nunito text-[12px] font-semibold text-[#4E4C4D] sm:text-[14px] lg:text-[16px]">
             {product.title}
           </h3>
           <Image
             src={verifiedIcon}
             alt="Product badge"
-            className="h-[18px] w-[18px]"
+            className="h-[14px] w-[14px] shrink-0 sm:h-[16px] sm:w-[16px] lg:h-[18px] lg:w-[18px]"
           />
         </div>
 
-        <span className="inline-flex w-fit items-center rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-2 py-0.5 text-[10px] font-medium text-[#FF6600]">
+        <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-1.5 py-0.5 text-[8px] font-medium text-[#FF6600] sm:px-2 sm:text-[9px] lg:text-[10px]">
           {formatConditionLabel(product.condition)}
         </span>
 
-        <p className="line-clamp-2 text-[9px] leading-snug text-neutral">
+        <p className="line-clamp-1 text-[8px] leading-snug text-neutral sm:line-clamp-2 sm:text-[9px]">
           {product.description?.trim() ||
             "No description available for this product yet."}
         </p>
 
-        <div className="flex items-center gap-1 text-[9px] text-[#97989A]">
+        <div className="flex items-center gap-1 text-[8px] text-[#97989A] sm:text-[9px]">
           <Image
             src={locationIcon}
             alt="Location"
-            className="h-[7.5px] w-[5.5px]"
+            className="h-[7px] w-[5px] shrink-0 sm:h-[7.5px] sm:w-[5.5px]"
           />
           <span className="truncate">{formatLocation(product)}</span>
         </div>
 
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="whitespace-nowrap text-[12px] font-semibold leading-[117%] tracking-[0.05em] text-darker">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <span className="min-w-0 truncate text-[10px] font-semibold leading-[117%] tracking-[0.03em] text-darker sm:text-[11px] lg:text-[12px]">
             ₦{formatPrice(product.amount)}
           </span>
           <Checkbox
             checked={checked}
             onCheckedChange={onToggle}
             aria-label={`Select ${product.title}`}
-            className="size-5 rounded-[5px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white"
+            className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
           />
         </div>
       </div>
@@ -701,15 +705,15 @@ export default function WishlistGiftSelectionStep({
       contentClassName="pr-0 sm:pr-1"
     >
       {showLoading ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] text-[14px] text-[#7D7D7D]">
-          Loading gifts...
+        <div className="rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:p-5">
+          <GiftGridLoadingSkeleton count={8} />
         </div>
       ) : products.length === 0 ? (
         <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] px-6 text-center text-[14px] text-[#7D7D7D]">
           No gifts matched your current filters.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           {products.map((product) => (
             <GiftCard
               key={product._id}

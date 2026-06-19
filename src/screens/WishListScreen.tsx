@@ -33,6 +33,10 @@ import WishlistClaimGiftSelectionStep from "@/components/WishlistClaimGiftSelect
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
 import FilterIcon from "@/components/icons/FilterIcon";
 import Pagination from "@/components/Pagination";
+import {
+  ModalPanelSkeleton,
+  TableLoadingState,
+} from "@/components/ui/context-skeletons";
 import ContentModal from "@/components/ui/modal";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import {
@@ -766,6 +770,7 @@ export default function WishListScreen() {
   const {
     data: availableEventTypesResponse,
     isError: isAvailableEventTypesError,
+    isLoading: isAvailableEventTypesLoading,
     refetch: refetchAvailableEventTypes,
   } = useAvailableEventTypesQuery({
     per_page: 25,
@@ -1854,14 +1859,14 @@ export default function WishListScreen() {
       "border-y border-[#F0EEFF] bg-white text-[12px] text-[#434343] transition-colors first:border-l first:rounded-l-[12px] last:border-r last:rounded-r-[12px] group-hover:bg-[#F4F0FF]",
     rowClassName: (row) =>
       cn("transition-colors", selected.includes(row.id) ? "" : "group"),
-    emptyState: (
+    emptyState: isWishlistEventsLoading || isWishlistEventsFetching ? (
+      <TableLoadingState rows={5} />
+    ) : (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <p className="text-sm text-[#7D7D7D]">
-          {isWishlistEventsLoading || isWishlistEventsFetching
-            ? "Loading wish list activity..."
-            : isWishlistEventsError
-              ? "Unable to load wish list activity."
-              : "No wish list activity found."}
+          {isWishlistEventsError
+            ? "Unable to load wish list activity."
+            : "No wish list activity found."}
         </p>
         {isWishlistEventsError ? (
           <button
@@ -1968,13 +1973,11 @@ export default function WishListScreen() {
         title="Create Wish List"
         showHeader={false}
         closeOnOverlayClick={false}
-        bodyScrollable={!isWishlistGiftSelectionStep}
+        bodyScrollable={!isWishlistGiftSelectionStep && !isWishlistInviteStep}
         dialogClassName={cn(
           "rounded-[18px] bg-white sm:rounded-[20px]",
           isWishlistGiftSelectionStep
             ? "max-h-[calc(100vh-1.5rem)] max-w-[1240px]"
-            : isWishlistInviteStep
-              ? "max-w-[700px]"
             : "max-w-[536px]",
         )}
         bodyClassName={cn(
@@ -1994,19 +1997,23 @@ export default function WishListScreen() {
               </p>
             </div>
 
-            <OverlaySelect
-              value={selectedEventTypeId}
-              onValueChange={(value) =>
-                setWishListDraftFields(flowSelectionKey, {
-                  selectedEventTypeId: value,
-                })
-              }
-              options={eventTypeOptions}
-              placeholder="Select Event"
-              panelTitle="Select Event"
-              searchPlaceholder=""
-              triggerClassName="text-[10px]"
-            />
+            {isAvailableEventTypesLoading ? (
+              <ModalPanelSkeleton />
+            ) : (
+              <OverlaySelect
+                value={selectedEventTypeId}
+                onValueChange={(value) =>
+                  setWishListDraftFields(flowSelectionKey, {
+                    selectedEventTypeId: value,
+                  })
+                }
+                options={eventTypeOptions}
+                placeholder="Select Event"
+                panelTitle="Select Event"
+                searchPlaceholder=""
+                triggerClassName="text-[10px]"
+              />
+            )}
 
             {isAvailableEventTypesError ? (
               <button
@@ -2121,9 +2128,7 @@ export default function WishListScreen() {
           </div>
         ) : currentStep === "gift-selection" ? (
           isActiveWishlistEventLoading && mode === "edit" && wishlistEventId ? (
-            <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] text-[14px] text-[#7D7D7D]">
-              Loading wishlist...
-            </div>
+            <ModalPanelSkeleton className="min-h-[320px]" />
           ) : isActiveWishlistEventError &&
             mode === "edit" &&
             wishlistEventId &&
@@ -2213,9 +2218,7 @@ export default function WishListScreen() {
               nextLabel={
                 createBulkGiftsMutation.isPending
                   ? "Saving..."
-                  : isMyParticipantLoading || isMyParticipantFetching
-                    ? "Loading..."
-                    : "Next"
+                  : "Next"
               }
             />
           )

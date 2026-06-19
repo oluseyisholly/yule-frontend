@@ -4,14 +4,19 @@ import type {
   ClaimInvitationResponse,
   DrawNameEventInvitationsParams,
   DrawNameEventInvitationsResponse,
+  GiftingEventInvitationsParams,
+  GiftingEventInvitationsResponse,
   InvitationAccountExistsResponse,
   InvitationResponse,
   SendDrawNameEventInvitationsPayload,
   SendDrawNameEventInvitationsResponse,
+  SendGiftingEventInvitationsPayload,
+  SendGiftingEventInvitationsResponse,
 } from "@/features/invitations/types";
 
 const INVITATIONS_ENDPOINT = "/invitations";
 const DRAW_NAME_EVENTS_ENDPOINT = "/draw-name-event";
+const GIFTING_EVENTS_ENDPOINT = "/gifting-event";
 const USERS_ENDPOINT = "/user";
 
 export async function getInvitationByToken(token: string) {
@@ -69,4 +74,29 @@ export async function sendDrawNameEventInvitations(
     SendDrawNameEventInvitationsResponse,
     SendDrawNameEventInvitationsPayload
   >(`${DRAW_NAME_EVENTS_ENDPOINT}/${drawNameEventId}/invitations/send`, payload);
+}
+
+export async function getGiftingEventInvitations(
+  giftingEventId: string,
+  params: GiftingEventInvitationsParams = {},
+) {
+  return getApi<GiftingEventInvitationsResponse>(
+    `${GIFTING_EVENTS_ENDPOINT}/${giftingEventId}/invitations`,
+    {
+      params: {
+        per_page: params.per_page ?? 25,
+        page: params.page ?? 1,
+      },
+    },
+  );
+}
+
+export async function sendGiftingEventInvitations(
+  giftingEventId: string,
+  payload: SendGiftingEventInvitationsPayload,
+) {
+  return postApi<
+    SendGiftingEventInvitationsResponse,
+    SendGiftingEventInvitationsPayload
+  >(`${GIFTING_EVENTS_ENDPOINT}/${giftingEventId}/invitations/send`, payload);
 }

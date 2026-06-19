@@ -69,3 +69,18 @@ export type EnsureMyContactResponse = {
   message: string;
   data: Contact | null;
 };
+
+export type SyncContactPayload = {
+  gender: "male" | "female";
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email: string;
+  userId: string;
+};
+
+export type SyncContactResponse = {
+  code: number;
+  message: string;
+  data?: Contact | null;
+};

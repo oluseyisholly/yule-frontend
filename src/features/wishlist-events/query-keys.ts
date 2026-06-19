@@ -27,6 +27,7 @@ export const wishlistEventQueryKeys = {
       wishlistEventId,
       params.page ?? 1,
       params.per_page ?? 25,
+      params.searchQuery ?? "",
     ] as const,
   claimedGiftIdList: (wishlistEventId: string) =>
     [...wishlistEventQueryKeys.claimedGiftIds(), wishlistEventId] as const,

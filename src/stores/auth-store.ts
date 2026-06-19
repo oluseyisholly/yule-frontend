@@ -9,6 +9,8 @@ export const AUTH_STORAGE_KEY = "yule-auth-storage";
 type AuthStoreState = {
   user: Omit<AuthUser, "token"> | null;
   token: string | null;
+  refreshToken: string | null;
+  profile: AuthUser["profile"] | null;
   currentContactId: string | null;
   isAuthenticated: boolean;
   setAuthSession: (authUser: AuthUser) => void;
@@ -19,11 +21,18 @@ type AuthStoreState = {
 const initialAuthState = {
   user: null,
   token: null,
+  refreshToken: null,
+  profile: null,
   currentContactId: null,
   isAuthenticated: false,
 } satisfies Pick<
   AuthStoreState,
-  "user" | "token" | "currentContactId" | "isAuthenticated"
+  | "user"
+  | "token"
+  | "refreshToken"
+  | "profile"
+  | "currentContactId"
+  | "isAuthenticated"
 >;
 
 export const useAuthStore = create<AuthStoreState>()(
@@ -38,8 +47,16 @@ export const useAuthStore = create<AuthStoreState>()(
             lastName: authUser.lastName,
             phoneNumber: authUser.phoneNumber,
             email: authUser.email,
+            refreshToken: authUser.refreshToken ?? null,
+            profileId: authUser.profileId ?? null,
+            mode: authUser.mode ?? null,
+            hostBusinessId: authUser.hostBusinessId ?? null,
+            hostAccountId: authUser.hostAccountId ?? null,
+            profile: authUser.profile ?? null,
           },
           token: authUser.token,
+          refreshToken: authUser.refreshToken ?? null,
+          profile: authUser.profile ?? null,
           currentContactId: null,
           isAuthenticated: true,
         }),
@@ -52,6 +69,8 @@ export const useAuthStore = create<AuthStoreState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        refreshToken: state.refreshToken,
+        profile: state.profile,
         currentContactId: state.currentContactId,
         isAuthenticated: state.isAuthenticated,
       }),
@@ -62,7 +81,12 @@ export const useAuthStore = create<AuthStoreState>()(
 type PersistedAuthSnapshot = {
   state?: Pick<
     AuthStoreState,
-    "user" | "token" | "currentContactId" | "isAuthenticated"
+    | "user"
+    | "token"
+    | "refreshToken"
+    | "profile"
+    | "currentContactId"
+    | "isAuthenticated"
   >;
 };
 

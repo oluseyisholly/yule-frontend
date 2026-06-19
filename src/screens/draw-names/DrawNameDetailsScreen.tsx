@@ -16,6 +16,11 @@ import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import { Button } from "@/components/ui/button";
 import {
+  EventDetailScreenSkeleton,
+  GiftGridLoadingSkeleton,
+  InlinePanelSkeleton,
+} from "@/components/ui/context-skeletons";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -718,12 +723,10 @@ export default function DrawNameDetailsScreen({
 
   if (isLoading) {
     return (
-      <div className="space-y-5">
-        <BackLink href="/dashboard/draw-names" label="View Details" />
-        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-10 text-center text-sm text-[#7D7D7D]">
-          Loading draw details...
-        </div>
-      </div>
+      <EventDetailScreenSkeleton
+        backHref="/dashboard/draw-names"
+        backLabel="View Details"
+      />
     );
   }
 
@@ -749,9 +752,7 @@ export default function DrawNameDetailsScreen({
 
   const pairedContent =
     isGiftRecipientLoading || isGiftRecipientFetching ? (
-      <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
-        Loading pairing details...
-      </div>
+      <InlinePanelSkeleton rows={3} />
     ) : isGiftRecipientError ? (
       <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
         <p>Unable to load your gift recipient right now.</p>
@@ -810,8 +811,8 @@ export default function DrawNameDetailsScreen({
           </div>
 
           {isPairedParticipantGiftsLoading || isPairedParticipantGiftsFetching ? (
-            <div className="mt-4 rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
-              Loading gift selections...
+            <div className="mt-4 rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] p-4">
+              <GiftGridLoadingSkeleton count={3} className="xl:grid-cols-3" />
             </div>
           ) : isPairedParticipantGiftsError ? (
             <div className="mt-4 rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">

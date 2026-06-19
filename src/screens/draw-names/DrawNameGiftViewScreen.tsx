@@ -10,6 +10,10 @@ import Button from "@/components/Button";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import DetailHeader from "@/components/DetailHeader";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
+import {
+  EventGiftDetailSkeleton,
+  GiftGridLoadingSkeleton,
+} from "@/components/ui/context-skeletons";
 import verifiedIcon from "@/assets/icons/verified.svg";
 import locationIcon from "@/assets/icons/location.svg";
 import { canManageDrawNameEvent } from "@/features/draw-name-events/access";
@@ -590,21 +594,26 @@ export default function DrawNameGiftViewScreen({
     );
   }
 
-  if (isLoading || !detail) {
-    return (
+  if (isLoading) {
+    return isGiftDetailRoute ? (
+      <EventGiftDetailSkeleton
+        backHref={`/dashboard/draw-names/${drawNameEventId}/gift?participantId=${requestedParticipantId}`}
+        backLabel="View Gift"
+      />
+    ) : (
       <div className="space-y-5">
         <BackLink
           href={`/dashboard/draw-names/${drawNameEventId}`}
-          label={isGiftDetailRoute ? "View Gift" : "View Gifts"}
+          label="View Gifts"
         />
-        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-10 text-center text-sm text-[#7D7D7D]">
-          Loading gift selections...
+        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
+          <GiftGridLoadingSkeleton count={5} className="xl:grid-cols-3" />
         </div>
       </div>
     );
   }
 
-  if (isError) {
+  if (isError || !detail) {
     return (
       <div className="space-y-5">
         <BackLink
@@ -706,15 +715,10 @@ export default function DrawNameGiftViewScreen({
 
   if (isGiftDetailRoute && showGiftDetailLoading) {
     return (
-      <div className="space-y-5">
-        <BackLink
-          href={`/dashboard/draw-names/${drawNameEventId}/gift?participantId=${requestedParticipantId}`}
-          label="View Gift"
-        />
-        <div className="rounded-[16px] border border-[#E6E0F7] bg-white px-5 py-10 text-center text-sm text-[#7D7D7D]">
-          Loading gift details...
-        </div>
-      </div>
+      <EventGiftDetailSkeleton
+        backHref={`/dashboard/draw-names/${drawNameEventId}/gift?participantId=${requestedParticipantId}`}
+        backLabel="View Gift"
+      />
     );
   }
 
@@ -879,12 +883,12 @@ export default function DrawNameGiftViewScreen({
               You can only view gifts for the person you are paired with.
             </div>
           ) : !isGiftDetailRoute && showGiftSelectionsLoading ? (
-            <div className="rounded-[16px] border border-[#E6E0F7] bg-white px-5 py-10 text-center text-sm text-[#7D7D7D]">
-              Loading selected gifts...
+            <div className="rounded-[16px] border border-[#E6E0F7] bg-white p-4 sm:p-5">
+              <GiftGridLoadingSkeleton count={5} className="xl:grid-cols-3" />
             </div>
           ) : isGiftDetailRoute && showGiftDetailLoading ? (
-            <div className="rounded-[16px] border border-[#E6E0F7] bg-white px-5 py-10 text-center text-sm text-[#7D7D7D]">
-              Loading gift details...
+            <div className="rounded-[16px] border border-[#E6E0F7] bg-white p-4 sm:p-5">
+              <GiftGridLoadingSkeleton count={4} className="xl:grid-cols-2" />
             </div>
           ) : !isGiftDetailRoute && participantGiftSelections.length === 0 ? (
             <div className="rounded-[16px] border border-[#E6E0F7] bg-white px-5 py-10 text-center text-sm text-[#7D7D7D]">

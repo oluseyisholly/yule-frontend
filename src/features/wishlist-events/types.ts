@@ -114,6 +114,7 @@ export type WishlistEventDeleteResponse = {
 export type WishlistEventGiftsParams = {
   page?: number;
   per_page?: number;
+  searchQuery?: string;
 };
 
 export type WishlistEventsParams = {

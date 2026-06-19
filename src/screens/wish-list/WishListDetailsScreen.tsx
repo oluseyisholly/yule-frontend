@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
@@ -19,6 +19,10 @@ import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import FilterIcon from "@/components/icons/FilterIcon";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
+import {
+  EventDetailScreenSkeleton,
+  TableLoadingState,
+} from "@/components/ui/context-skeletons";
 import Table, { type TableData } from "@/components/ui/Table";
 import { Button } from "@/components/ui/button";
 import {
@@ -387,6 +391,7 @@ export default function WishListDetailsScreen({
   const currentContactId = useAuthStore((state) => state.currentContactId);
   const [currentGiftPage, setCurrentGiftPage] = useState(1);
   const [giftSearchValue, setGiftSearchValue] = useState("");
+  const [debouncedGiftSearchValue, setDebouncedGiftSearchValue] = useState("");
   const [selectedGiftIds, setSelectedGiftIds] = useState<string[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isParticipantListExpanded, setIsParticipantListExpanded] =
@@ -398,6 +403,7 @@ export default function WishListDetailsScreen({
   );
   const {
     data: giftsResponse,
+    isFetching: isGiftsFetching,
     isLoading: isGiftsLoading,
     isError: isGiftsError,
     refetch: refetchGifts,
@@ -406,6 +412,7 @@ export default function WishListDetailsScreen({
     {
       page: currentGiftPage,
       per_page: 10,
+      searchQuery: debouncedGiftSearchValue,
     },
     {
       enabled: Boolean(wishlistEventId),
@@ -500,25 +507,19 @@ export default function WishListDetailsScreen({
     [detail?.participantsById, giftsResponse],
   );
 
-  const filteredGiftRows = useMemo(() => {
-    const normalizedSearch = giftSearchValue.trim().toLowerCase();
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedGiftSearchValue(giftSearchValue.trim());
+    }, 350);
 
-    if (!normalizedSearch) {
-      return giftRows;
-    }
+    return () => window.clearTimeout(timeoutId);
+  }, [giftSearchValue]);
 
-    return giftRows.filter((gift) => {
-      const assignedName = gift.assignedParticipant?.name.toLowerCase() ?? "";
+  useEffect(() => {
+    setCurrentGiftPage(1);
+  }, [debouncedGiftSearchValue]);
 
-      return (
-        gift.title.toLowerCase().includes(normalizedSearch) ||
-        gift.categoryLabel.toLowerCase().includes(normalizedSearch) ||
-        assignedName.includes(normalizedSearch)
-      );
-    });
-  }, [giftRows, giftSearchValue]);
-
-  const allSelectedGiftIds = filteredGiftRows.map((gift) => gift.id);
+  const allSelectedGiftIds = giftRows.map((gift) => gift.id);
   const allChecked =
     allSelectedGiftIds.length > 0 &&
     allSelectedGiftIds.every((giftId) => selectedGiftIds.includes(giftId));
@@ -696,7 +697,7 @@ export default function WishListDetailsScreen({
         ),
       },
     ],
-    rows: filteredGiftRows,
+    rows: giftRows,
     getRowKey: (row) => row.id,
     headerRowClassName: "text-[12px] font-medium text-[#7D7D7D]",
     headerCellClassName: "bg-transparent",
@@ -704,14 +705,14 @@ export default function WishListDetailsScreen({
       "border-y border-[#F0EEFF] bg-white text-[12px] text-[#434343] transition-colors first:border-l first:rounded-l-[12px] last:border-r last:rounded-r-[12px] group-hover:bg-[#F4F0FF]",
     rowClassName: (row) =>
       cn("transition-colors", selectedGiftIds.includes(row.id) ? "" : "group"),
-    emptyState: (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <p className="text-sm text-[#7D7D7D]">
-          {isGiftsLoading
-            ? "Loading wishlist gifts..."
-            : isGiftsError
-              ? "Unable to load wishlist gifts."
-              : "No gift items found."}
+    emptyState: isGiftsLoading || isGiftsFetching ? (
+      <TableLoadingState rows={5} />
+    ) : (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <p className="text-sm text-[#7D7D7D]">
+          {isGiftsError
+            ? "Unable to load wishlist gifts."
+            : "No gift items found."}
         </p>
         {isGiftsError ? (
           <button
@@ -729,12 +730,10 @@ export default function WishListDetailsScreen({
 
   if (isLoading) {
     return (
-      <div className="space-y-5">
-        <BackLink href="/dashboard/wish-list" label="View Details" />
-        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-6 text-center text-sm text-[#7D7D7D] sm:p-10">
-          Loading wishlist details...
-        </div>
-      </div>
+      <EventDetailScreenSkeleton
+        backHref="/dashboard/wish-list"
+        backLabel="View Details"
+      />
     );
   }
 

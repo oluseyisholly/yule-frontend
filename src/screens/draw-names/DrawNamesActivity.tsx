@@ -10,6 +10,7 @@ import DeleteIcon from "@/components/icons/DeleteIcon";
 import FilterIcon from "@/components/icons/FilterIcon";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import { TableLoadingState } from "@/components/ui/context-skeletons";
 import { Input } from "@/components/ui/input";
 import Checkbox from "@/components/Checkbox";
 import Table, { type TableData } from "@/components/ui/Table";
@@ -645,14 +646,14 @@ export default function DrawNamesActivity() {
       "border-y border-[#F0EEFF] bg-white text-[12px] text-[#434343] transition-colors first:border-l first:rounded-l-[12px] last:border-r last:rounded-r-[12px] group-hover:bg-[#F4F0FF]",
     rowClassName: (row) =>
       cn("transition-colors", selected.includes(row.id) ? "" : "group"),
-    emptyState: (
+    emptyState: isLoading || isFetching ? (
+      <TableLoadingState rows={5} />
+    ) : (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <p className="text-sm text-[#7D7D7D]">
-          {isLoading || isFetching
-            ? "Loading recent draw activities..."
-            : isError
-              ? "Unable to load recent draw activities."
-              : "No draw activity found."}
+          {isError
+            ? "Unable to load recent draw activities."
+            : "No draw activity found."}
         </p>
         {isError ? (
           <button

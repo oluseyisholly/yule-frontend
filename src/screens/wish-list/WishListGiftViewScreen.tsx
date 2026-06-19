@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
+import { EventGiftDetailSkeleton } from "@/components/ui/context-skeletons";
 import { canManageWishlistEvent, isWishlistEventParticipant } from "@/features/wishlist-events/access";
 import { useWishlistEventQuery } from "@/features/wishlist-events/hooks/useWishlistEventQuery";
 import { useWishlistEventGiftsQuery } from "@/features/wishlist-events/hooks/useWishlistEventGiftsQuery";
@@ -235,12 +236,10 @@ export default function WishListGiftViewScreen({
 
   if (isLoading) {
     return (
-      <div className="space-y-5">
-        <BackLink href={`/dashboard/wish-list/${wishlistEventId}`} label="View Gift" />
-        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-10 text-center text-sm text-[#7D7D7D]">
-          Loading gift details...
-        </div>
-      </div>
+      <EventGiftDetailSkeleton
+        backHref={`/dashboard/wish-list/${wishlistEventId}`}
+        backLabel="View Gift"
+      />
     );
   }
 
@@ -300,12 +299,10 @@ export default function WishListGiftViewScreen({
 
   if (isGiftsLoading || isGiftsFetching || isMarketplaceProductLoading || isMarketplaceProductFetching) {
     return (
-      <div className="space-y-5">
-        <BackLink href={`/dashboard/wish-list/${wishlistEventId}`} label="View Gift" />
-        <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-10 text-center text-sm text-[#7D7D7D]">
-          Loading gift details...
-        </div>
-      </div>
+      <EventGiftDetailSkeleton
+        backHref={`/dashboard/wish-list/${wishlistEventId}`}
+        backLabel="View Gift"
+      />
     );
   }
 

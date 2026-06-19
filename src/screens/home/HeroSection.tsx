@@ -1,13 +1,31 @@
+"use client";
+
 import Button from "@/components/Button";
 import Image from "next/image";
 import pics1 from "@/assets/icons/firstHead.svg";
 import pics2 from "@/assets/icons/secondHead.svg";
 import pics3 from "@/assets/icons/thirdHead.svg";
 import pics5 from "@/assets/icons/fifthHead.svg";
+import {
+  getAuthAwareCtaHref,
+  YULE_SIGN_IN_URL,
+  YULE_SIGN_UP_URL,
+} from "@/lib/external-links";
+import { useAuthStore } from "@/stores/auth-store";
 
 const avatars = [pics1, pics2, pics3, pics3, pics5];
 
 export default function HeroSection() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const startCelebratingHref = getAuthAwareCtaHref(
+    isAuthenticated,
+    YULE_SIGN_IN_URL,
+  );
+  const createCelebrationHref = getAuthAwareCtaHref(
+    isAuthenticated,
+    YULE_SIGN_UP_URL,
+  );
+
   return (
     <section className="flex flex-col items-center px-5 pb-8 pt-9 text-center sm:px-6 md:px-10 md:pb-18 md:pt-19 lg:px-20 xl:px-28">
       {/* Social proof */}
@@ -52,11 +70,13 @@ export default function HeroSection() {
       <div className="flex w-full max-w-[420px] flex-col justify-center gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-4">
         <Button
           label="Start Celebrating"
+          href={startCelebratingHref}
           variant="filled"
           className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
         />
         <Button
           label="Create your first celebration"
+          href={createCelebrationHref}
           variant="outlined"
           className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
         />

@@ -543,14 +543,13 @@ export default function WishListPublicScreen({
               </div>
 
               <div className="flex justify-center pt-4">
-                <button
-                  type="button"
+                <Button
                   onClick={handleClaimGift}
                   disabled={!selectedGiftIds.length || isClaiming}
-                  className="inline-flex min-w-[220px] items-center justify-center rounded-full bg-[#3300C9] px-8 py-3 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="min-w-[220px] px-8 py-3 text-[14px] disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {isClaiming ? "Claiming..." : "Claim Gift"}
-                </button>
+                </Button>
               </div>
             </>
           ) : (
@@ -585,19 +584,20 @@ export default function WishListPublicScreen({
           </p>
 
           <div className="mt-8 flex w-full flex-col gap-3">
-            <a
+            <Button
               href={`/start?redirect=${encodeURIComponent(`/wishlist/${wishListEventId}`)}`}
-              className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-[#3300C9] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#2D00B4]"
+              className="h-[52px] w-full px-6 text-[15px]"
             >
               Log In
-            </a>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outlined"
               onClick={() => setIsLoginRequiredModalOpen(false)}
-              className="inline-flex h-[52px] w-full items-center justify-center rounded-full border border-[#3300C9] bg-white px-6 text-[15px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F7F3FF]"
+              className="h-[52px] w-full px-6 text-[15px] hover:bg-[#F7F3FF]"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       </ContentModal>

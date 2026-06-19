@@ -20,11 +20,20 @@ export type CreateBulkGiftsPayload = {
   gifts: CreateBulkGiftItemPayload[];
 };
 
+export type AssignBulkGiftsPayload = {
+  eventId: string;
+  giverParticipantId?: string;
+  recipientParticipantIds: string[];
+  gifts: CreateBulkGiftItemPayload[];
+};
+
 export type CreateBulkGiftsResponse = {
   code: number;
   message: string;
   data?: unknown;
 };
+
+export type AssignBulkGiftsResponse = CreateBulkGiftsResponse;
 
 export type ClaimGiftResponse = {
   code: number;
@@ -108,6 +117,7 @@ export type ParticipantGiftsResponse = {
 export type ClaimedGiftsParams = {
   page?: number;
   per_page?: number;
+  searchQuery?: string;
 };
 
 export type ClaimedGiftsPage = {
@@ -122,6 +132,127 @@ export type ClaimedGiftsResponse = {
   code: number;
   message: string;
   data: ClaimedGiftsPage;
+};
+
+export type GivenGroupedGiftPerson = {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+};
+
+export type GivenGroupedGiftEvent = {
+  id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  eventTypeId?: string | null;
+  eventDate?: string | null;
+  status?: string | null;
+};
+
+export type GivenGroupedGift = {
+  participantGiftId?: string | null;
+  title?: string | null;
+  description?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  imageUrl?: string | null;
+  categorySlug?: string | null;
+  subCategorySlug?: string | null;
+  condition?: string | null;
+  locationState?: string | null;
+  locationCity?: string | null;
+  sellerId?: string | null;
+  productSlug?: string | null;
+  recipientCount?: number | null;
+  people?: GivenGroupedGiftPerson[] | null;
+  event?: GivenGroupedGiftEvent | null;
+};
+
+export type GivenGroupedGiftsParams = {
+  page?: number;
+  per_page?: number;
+  searchQuery?: string;
+};
+
+export type GivenGroupedGiftsPage = {
+  data: GivenGroupedGift[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type GivenGroupedGiftsResponse = {
+  code: number;
+  message: string;
+  data: GivenGroupedGiftsPage;
+};
+
+export type ReceivedGiftParticipantContact = {
+  id?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+};
+
+export type ReceivedGiftParticipant = {
+  id?: string | null;
+  eventContactId?: string | null;
+  eventContact?: ReceivedGiftParticipantContact | null;
+};
+
+export type ReceivedGiftEvent = {
+  id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  eventTypeId?: string | null;
+  eventDate?: string | null;
+  status?: string | null;
+};
+
+export type ReceivedGift = {
+  id: string;
+  eventId?: string | null;
+  recipientParticipantId?: string | null;
+  giverParticipantId?: string | null;
+  participantGiftId?: string | null;
+  title?: string | null;
+  description?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  imageUrl?: string | null;
+  categorySlug?: string | null;
+  subCategorySlug?: string | null;
+  condition?: string | null;
+  locationState?: string | null;
+  locationCity?: string | null;
+  sellerId?: string | null;
+  productSlug?: string | null;
+  recipientParticipant?: ReceivedGiftParticipant | null;
+  giverParticipant?: ReceivedGiftParticipant | null;
+  event?: ReceivedGiftEvent | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ReceivedGiftsParams = {
+  page?: number;
+  per_page?: number;
+  searchQuery?: string;
+};
+
+export type ReceivedGiftsPage = {
+  data: ReceivedGift[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type ReceivedGiftsResponse = {
+  code: number;
+  message: string;
+  data: ReceivedGiftsPage;
 };
 
 export type EventSelectedGift = ParticipantGiftSelection & {

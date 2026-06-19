@@ -34,6 +34,24 @@ export type DrawNameEventInvitationRecord = {
   eventContact: InvitationContact;
 };
 
+export type GiftingEventInvitationRecord = {
+  id: string;
+  eventType: "gifting" | string;
+  drawNameEventId: null;
+  wishlistEventId: null;
+  giftingEventId: string;
+  eventId: string;
+  participantId: string | null;
+  eventContactId: string;
+  status: InvitationStatus;
+  channel: "email" | "whatsapp" | string;
+  inviteUrl: string;
+  eventTitle: string;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  eventContact: InvitationContact;
+};
+
 export type InvitationResponse = {
   code: number;
   message: string;
@@ -67,8 +85,18 @@ export type DrawNameEventInvitationsParams = {
   searchQuery?: string;
 };
 
+export type GiftingEventInvitationsParams = {
+  per_page?: number;
+  page?: number;
+};
+
 export type SendDrawNameEventInvitationsPayload = {
   channel: "email" | "whatsapp";
+};
+
+export type SendGiftingEventInvitationsPayload = {
+  channel: "email" | "whatsapp";
+  contactIds: string[];
 };
 
 export type SendDrawNameEventInvitationsResponse = {
@@ -89,6 +117,24 @@ export type SendDrawNameEventInvitationsResponse = {
       reason: string;
     }>;
   };
+};
+
+export type GiftingEventInvitationsResponse = {
+  code: number;
+  message: string;
+  data: {
+    data: GiftingEventInvitationRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+};
+
+export type SendGiftingEventInvitationsResponse = {
+  code: number;
+  message: string;
+  data?: unknown;
 };
 
 export type ClaimInvitationPayload = {

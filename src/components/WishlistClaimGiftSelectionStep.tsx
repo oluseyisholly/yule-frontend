@@ -6,6 +6,7 @@ import Button from "@/components/Button";
 import ModalButton from "@/components/ModalButtons";
 import ModalStepLayout from "@/components/ModalStepLayout";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GiftGridLoadingSkeleton } from "@/components/ui/context-skeletons";
 import { cn } from "@/lib/utils";
 import featureImg1 from "@/assets/icons/featureImg1.svg";
 import featureImg2 from "@/assets/icons/featureImg2.svg";
@@ -360,8 +361,8 @@ export default function WishlistClaimGiftSelectionStep({
       contentClassName="pr-0 sm:pr-1"
     >
       {isLoading ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] text-[14px] text-[#7D7D7D]">
-          Loading gifts...
+        <div className="rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:p-5">
+          <GiftGridLoadingSkeleton count={8} />
         </div>
       ) : isError ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] px-6 text-center">

@@ -7,6 +7,8 @@ import type {
   CurrentContactIdResponse,
   DeleteContactResponse,
   EnsureMyContactResponse,
+  SyncContactPayload,
+  SyncContactResponse,
   UpdateContactPayload,
   UpdateContactResponse,
 } from "@/features/contacts/types";
@@ -14,6 +16,7 @@ import type {
 const CONTACTS_ENDPOINT = "/contacts";
 const ENSURE_MY_CONTACT_ENDPOINT = "/contacts/me/ensure";
 const MY_CONTACT_ID_ENDPOINT = "/contacts/me/contact-id";
+const SYNC_CONTACT_ENDPOINT = "/contacts/sync";
 
 export async function getContacts(params: ContactsParams = {}) {
   return getApi<ContactsResponse>(CONTACTS_ENDPOINT, {
@@ -52,4 +55,11 @@ export async function ensureMyContact() {
 
 export async function getMyContactId() {
   return getApi<CurrentContactIdResponse>(MY_CONTACT_ID_ENDPOINT);
+}
+
+export async function syncContact(payload: SyncContactPayload) {
+  return postApi<SyncContactResponse, SyncContactPayload>(
+    SYNC_CONTACT_ENDPOINT,
+    payload,
+  );
 }

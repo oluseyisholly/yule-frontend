@@ -12,7 +12,7 @@ import {
   getStoredAuthToken,
 } from "@/stores/auth-store";
 
-const DEFAULT_LOGIN_ROUTE = "/start";
+const LANDING_PAGE_ROUTE = "/";
 const PENDING_TOAST_STORAGE_KEY = "yule_pending_api_toast";
 const TOKEN_STORAGE_KEYS = [
   "accessToken",
@@ -106,7 +106,7 @@ function defaultLogout() {
   isLoggingOut = true;
   clearStoredAuthSession();
   clearStoredAuthState();
-  window.location.assign(DEFAULT_LOGIN_ROUTE);
+  window.location.assign(LANDING_PAGE_ROUTE);
 }
 
 function resolveToken() {
