@@ -9,7 +9,7 @@ import type {
 
 const SIGN_IN_ENDPOINT = "/user/signin";
 const CREATE_USER_ENDPOINT = "/user";
-const ONEDA_PROFILE_API_BASE_URL = "https://dev-api.oneda.vcd.ng/api/v1";
+const NEXT_ONEDA_API_BASE_URL = process.env.NEXT_ONEDA_API_BASE_URL;
 
 export async function signIn(payload: SignInPayload) {
   return postApi<SignInResponse, SignInPayload>(SIGN_IN_ENDPOINT, payload, {
@@ -32,7 +32,7 @@ export async function getExternalProfile(
   accessToken: string,
 ) {
   const response = await fetch(
-    `${ONEDA_PROFILE_API_BASE_URL}/profile/${encodeURIComponent(profileId)}`,
+    `${NEXT_ONEDA_API_BASE_URL}/profile/${encodeURIComponent(profileId)}`,
     {
       method: "GET",
       headers: {
