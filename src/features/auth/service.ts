@@ -9,7 +9,8 @@ import type {
 
 const SIGN_IN_ENDPOINT = "/user/signin";
 const CREATE_USER_ENDPOINT = "/user";
-const NEXT_ONEDA_API_BASE_URL = process.env.NEXT_ONEDA_API_BASE_URL;
+const NEXT_PUBLIC_ONEDA_API_BASE_URL =
+  process.env.NEXT_PUBLIC_ONEDA_API_BASE_URL?.trim().replace(/\/$/, "");
 
 export async function signIn(payload: SignInPayload) {
   return postApi<SignInResponse, SignInPayload>(SIGN_IN_ENDPOINT, payload, {
@@ -31,8 +32,12 @@ export async function getExternalProfile(
   profileId: string,
   accessToken: string,
 ) {
+  if (!NEXT_PUBLIC_ONEDA_API_BASE_URL) {
+    throw new ApiRequestError("Oneda profile base URL is not configured.");
+  }
+
   const response = await fetch(
-    `${NEXT_ONEDA_API_BASE_URL}/profile/${encodeURIComponent(profileId)}`,
+    `${NEXT_PUBLIC_ONEDA_API_BASE_URL}/profile/${encodeURIComponent(profileId)}`,
     {
       method: "GET",
       headers: {
