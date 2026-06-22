@@ -257,10 +257,7 @@ function buildGiftRows(gifts: GivenGroupedGift[]): GiftRow[] {
       gift.recipientCount ?? (assignedPeople.length > 0 ? assignedPeople.length : 0);
 
     return {
-      id:
-        gift.participantGiftId?.trim() ||
-        gift.productSlug?.trim() ||
-        `${gift.title?.trim() || "gift"}-${index}`,
+      id: gift.id?.trim() || `${gift.title?.trim() || "gift"}-${index}`,
       title: gift.title?.trim() || "Selected gift",
       imageUrl: gift.imageUrl?.trim() || "",
       conditionLabel: formatConditionLabel(gift.condition),

@@ -139,14 +139,46 @@ function showToastMessage(message: string, type: ToastVariant, id?: string) {
   toast.error(message, toastOptions);
 }
 
+function extractApiErrorMessage(data: unknown) {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  if ("message" in data) {
+    const message = (data as { message?: unknown }).message;
+
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+
+    if (Array.isArray(message)) {
+      const normalizedMessage = message
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .join(". ");
+
+      if (normalizedMessage) {
+        return normalizedMessage;
+      }
+    }
+  }
+
+  if ("error" in data) {
+    const errorMessage = (data as { error?: unknown }).error;
+
+    if (typeof errorMessage === "string" && errorMessage.trim()) {
+      return errorMessage;
+    }
+  }
+
+  return null;
+}
+
 function normalizeApiError(error: AxiosError) {
   const status = error.response?.status;
   const message =
-    (typeof error.response?.data === "object" &&
-      error.response?.data &&
-      "message" in error.response.data &&
-      typeof error.response.data.message === "string" &&
-      error.response.data.message) ||
+    extractApiErrorMessage(error.response?.data) ||
     error.message ||
     "Something went wrong while processing your request.";
 

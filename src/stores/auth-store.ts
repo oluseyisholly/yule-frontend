@@ -13,7 +13,9 @@ type AuthStoreState = {
   profile: AuthUser["profile"] | null;
   currentContactId: string | null;
   isAuthenticated: boolean;
+  isSsoSigningIn: boolean;
   setAuthSession: (authUser: AuthUser) => void;
+  setSsoSigningIn: (value: boolean) => void;
   setCurrentContactId: (contactId: string | null) => void;
   clearAuthSession: () => void;
 };
@@ -25,6 +27,7 @@ const initialAuthState = {
   profile: null,
   currentContactId: null,
   isAuthenticated: false,
+  isSsoSigningIn: false,
 } satisfies Pick<
   AuthStoreState,
   | "user"
@@ -33,6 +36,7 @@ const initialAuthState = {
   | "profile"
   | "currentContactId"
   | "isAuthenticated"
+  | "isSsoSigningIn"
 >;
 
 export const useAuthStore = create<AuthStoreState>()(
@@ -60,6 +64,7 @@ export const useAuthStore = create<AuthStoreState>()(
           currentContactId: null,
           isAuthenticated: true,
         }),
+      setSsoSigningIn: (value) => set({ isSsoSigningIn: value }),
       setCurrentContactId: (contactId) => set({ currentContactId: contactId }),
       clearAuthSession: () => set(initialAuthState),
     }),
@@ -110,6 +115,23 @@ function getPersistedAuthSnapshot() {
 
 export function getStoredAuthToken() {
   return useAuthStore.getState().token ?? getPersistedAuthSnapshot()?.state?.token ?? null;
+}
+
+export function getStoredAuthStateSnapshot() {
+  const inMemoryState = useAuthStore.getState();
+  const persistedState = getPersistedAuthSnapshot()?.state;
+
+  return {
+    user: inMemoryState.user ?? persistedState?.user ?? null,
+    token: inMemoryState.token ?? persistedState?.token ?? null,
+    refreshToken:
+      inMemoryState.refreshToken ?? persistedState?.refreshToken ?? null,
+    profile: inMemoryState.profile ?? persistedState?.profile ?? null,
+    currentContactId:
+      inMemoryState.currentContactId ?? persistedState?.currentContactId ?? null,
+    isAuthenticated:
+      inMemoryState.isAuthenticated || Boolean(persistedState?.isAuthenticated),
+  };
 }
 
 export function getStoredCurrentContactId() {

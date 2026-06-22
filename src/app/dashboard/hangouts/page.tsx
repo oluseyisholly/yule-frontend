@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import DashboardHangoutsScreen from "@/screens/DashboardHangoutsScreen";
 
 export const metadata: Metadata = {
   title: "Hangouts",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function HangoutsPage() {
-  return <DashboardWorkspace tab="hangouts" />;
+  return <DashboardHangoutsScreen />;
 }

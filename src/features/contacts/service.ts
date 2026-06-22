@@ -14,12 +14,13 @@ import type {
 } from "@/features/contacts/types";
 
 const CONTACTS_ENDPOINT = "/contacts";
+const CONTACTS_EXCLUDE_ME = "/contacts/exclude-me";
 const ENSURE_MY_CONTACT_ENDPOINT = "/contacts/me/ensure";
 const MY_CONTACT_ID_ENDPOINT = "/contacts/me/contact-id";
 const SYNC_CONTACT_ENDPOINT = "/contacts/sync";
 
 export async function getContacts(params: ContactsParams = {}) {
-  return getApi<ContactsResponse>(CONTACTS_ENDPOINT, {
+  return getApi<ContactsResponse>(CONTACTS_EXCLUDE_ME, {
     params: {
       per_page: params.per_page ?? 25,
       page: params.page ?? 1,
@@ -35,10 +36,7 @@ export async function createContact(payload: CreateContactPayload) {
   );
 }
 
-export async function updateContact(
-  id: string,
-  payload: UpdateContactPayload,
-) {
+export async function updateContact(id: string, payload: UpdateContactPayload) {
   return patchApi<UpdateContactResponse, UpdateContactPayload>(
     `${CONTACTS_ENDPOINT}/${id}`,
     payload,

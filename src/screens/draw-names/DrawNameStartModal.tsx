@@ -965,6 +965,10 @@ export default function DrawNameStartModal({
         ),
     [selectedRecordOptions, signedInEmail],
   );
+  const selectedRecordReviewDisplayItems = useMemo(
+    () => selectedRecordReviewItems.filter((item) => !item.isAdmin),
+    [selectedRecordReviewItems],
+  );
   const selectedEventLabel =
     eventOptions.find((option) => option.value === selectedEventId)?.label ||
     "Team Retreat";
@@ -3033,7 +3037,7 @@ export default function DrawNameStartModal({
       <>
         <CustomColleagueReview
           greetingName={greetingName}
-          items={selectedRecordReviewItems}
+          items={selectedRecordReviewDisplayItems}
           onAddNew={() => handleOpenAddNewColleague("review-records")}
           onBack={() => onStepChange("record")}
           onNext={handleReviewNext}
@@ -3054,7 +3058,7 @@ export default function DrawNameStartModal({
             }
           }}
           nextDisabled={
-            !selectedRecordReviewItems.some((item) => !item.isAdmin) ||
+            selectedRecordReviewDisplayItems.length === 0 ||
             createParticipantsBulkMutation.isPending ||
             isEventParticipantsLoading ||
             isEventParticipantsFetching

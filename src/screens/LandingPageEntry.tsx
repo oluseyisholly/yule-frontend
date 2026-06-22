@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
 import toast from "react-hot-toast";
@@ -9,9 +9,9 @@ import { getExternalProfile } from "@/features/auth/service";
 import type { AuthUser, SsoTokenPayload } from "@/features/auth/types";
 import { getMyContactId, syncContact } from "@/features/contacts/service";
 import { ApiRequestError, resetApiLogoutState } from "@/lib/api";
-import { Spinner } from "@/components/ui/spinner";
 import {
   clearStoredAuthSession,
+  getStoredAuthStateSnapshot,
   useAuthStore,
 } from "@/stores/auth-store";
 
@@ -22,6 +22,35 @@ function buildSanitizedLandingUrl(searchParams: URLSearchParams) {
   const nextSearch = nextSearchParams.toString();
 
   return nextSearch ? `/?${nextSearch}` : "/";
+}
+
+function resolvePostSsoRedirect(searchParams: URLSearchParams) {
+  const redirectUrl = searchParams.get("redirectUrl")?.trim();
+
+  if (!redirectUrl) {
+    return buildSanitizedLandingUrl(searchParams);
+  }
+
+  if (typeof window === "undefined") {
+    return buildSanitizedLandingUrl(searchParams);
+  }
+
+  try {
+    const resolvedUrl = new URL(redirectUrl, window.location.origin);
+
+    if (resolvedUrl.origin !== window.location.origin) {
+      return buildSanitizedLandingUrl(searchParams);
+    }
+
+    resolvedUrl.searchParams.delete("accessToken");
+    resolvedUrl.searchParams.delete("refreshToken");
+
+    const resolvedSearch = resolvedUrl.searchParams.toString();
+
+    return `${resolvedUrl.pathname}${resolvedSearch ? `?${resolvedSearch}` : ""}${resolvedUrl.hash}`;
+  } catch {
+    return buildSanitizedLandingUrl(searchParams);
+  }
 }
 
 function normalizeErrorMessage(error: unknown) {
@@ -37,7 +66,7 @@ export default function LandingPageEntry() {
   const searchParams = useSearchParams();
   const setAuthSession = useAuthStore((state) => state.setAuthSession);
   const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const setIsSsoSigningIn = useAuthStore((state) => state.setSsoSigningIn);
   const processedAccessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -46,7 +75,7 @@ export default function LandingPageEntry() {
 
     if (!accessToken) {
       processedAccessTokenRef.current = null;
-      setIsSigningIn(false);
+      setIsSsoSigningIn(false);
       return;
     }
 
@@ -59,9 +88,8 @@ export default function LandingPageEntry() {
     let isCancelled = false;
 
     const bootstrapSsoSession = async () => {
-      setIsSigningIn(true);
-      clearStoredAuthSession();
       resetApiLogoutState();
+      setIsSsoSigningIn(true);
 
       try {
         const decodedToken = jwtDecode<SsoTokenPayload>(accessToken);
@@ -71,6 +99,46 @@ export default function LandingPageEntry() {
         if (!email || !profileId) {
           throw new Error("Unable to resolve your sign-in details.");
         }
+
+        const normalizedEmail = email.toLowerCase();
+        const storedAuthState = getStoredAuthStateSnapshot();
+        const storedEmail =
+          storedAuthState.user?.email?.trim().toLowerCase() || "";
+
+        if (storedEmail && storedEmail === normalizedEmail && storedAuthState.user) {
+          const resumedSession: AuthUser = {
+            id: storedAuthState.user.id?.trim() || decodedToken.id?.trim() || profileId,
+            firstName: storedAuthState.user.firstName?.trim() || "",
+            lastName: storedAuthState.user.lastName?.trim() || "",
+            phoneNumber: storedAuthState.user.phoneNumber?.trim() || "",
+            email: storedAuthState.user.email?.trim() || email,
+            token: accessToken,
+            refreshToken: refreshToken || storedAuthState.refreshToken || null,
+            profileId: storedAuthState.user.profileId?.trim() || profileId,
+            mode:
+              decodedToken.mode?.trim() || storedAuthState.user.mode?.trim() || null,
+            hostBusinessId:
+              decodedToken.hostBusinessId?.trim() ||
+              storedAuthState.user.hostBusinessId?.trim() ||
+              null,
+            hostAccountId:
+              decodedToken.hostAccountId?.trim() ||
+              storedAuthState.user.hostAccountId?.trim() ||
+              null,
+            profile: storedAuthState.profile ?? storedAuthState.user.profile ?? null,
+          };
+
+          if (!isCancelled) {
+            setAuthSession(resumedSession);
+            setCurrentContactId(storedAuthState.currentContactId ?? null);
+            router.replace(resolvePostSsoRedirect(searchParams));
+            toast.success("Sign in successful");
+          }
+
+          return;
+        }
+
+        clearStoredAuthSession();
 
         const provisionalSession: AuthUser = {
           id: decodedToken.id?.trim() || profileId,
@@ -139,7 +207,7 @@ export default function LandingPageEntry() {
         }
 
         if (!isCancelled) {
-          router.replace(buildSanitizedLandingUrl(searchParams));
+          router.replace(resolvePostSsoRedirect(searchParams));
           toast.success("Sign in successful");
         }
       } catch (error) {
@@ -152,7 +220,7 @@ export default function LandingPageEntry() {
         }
       } finally {
         if (!isCancelled) {
-          setIsSigningIn(false);
+          setIsSsoSigningIn(false);
         }
       }
     };
@@ -162,25 +230,7 @@ export default function LandingPageEntry() {
     return () => {
       isCancelled = true;
     };
-  }, [router, searchParams, setAuthSession, setCurrentContactId]);
-
-  if (isSigningIn) {
-    return (
-      <main className="flex min-h-[70vh] items-center justify-center px-4 py-16">
-        <div className="flex w-full max-w-[420px] flex-col items-center rounded-[28px] border border-[#EEEAF7] bg-white px-8 py-12 text-center shadow-[0_18px_50px_rgba(33,16,93,0.08)]">
-          <span className="flex size-16 items-center justify-center rounded-full bg-[#F3EEFF] text-[#3300C9]">
-            <Spinner className="size-7" />
-          </span>
-          <h1 className="mt-6 text-[28px] font-semibold text-[#17191C]">
-            Signing you in
-          </h1>
-          <p className="mt-3 text-[14px] leading-6 text-[#6B7280]">
-            Please wait while we securely complete your sign-in.
-          </p>
-        </div>
-      </main>
-    );
-  }
+  }, [router, searchParams, setAuthSession, setCurrentContactId, setIsSsoSigningIn]);
 
   return <HomeScreen />;
 }

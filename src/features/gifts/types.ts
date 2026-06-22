@@ -150,6 +150,7 @@ export type GivenGroupedGiftEvent = {
 };
 
 export type GivenGroupedGift = {
+  id?: string | null;
   participantGiftId?: string | null;
   title?: string | null;
   description?: string | null;

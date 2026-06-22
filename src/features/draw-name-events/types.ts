@@ -133,3 +133,28 @@ export type DrawNameEventsResponse = {
   message: string;
   data: DrawNameEventsPage;
 };
+
+export type DrawNameMetricsData = {
+  totalGifts: {
+    value: number;
+    percentageChangeThisMonth?: number | null;
+    currentMonth?: number | null;
+    previousMonth?: number | null;
+  };
+  activeDrawNames: {
+    value: number;
+    newThisWeek?: number | null;
+  };
+  totalNames: {
+    value: number;
+  };
+  activeMembers: {
+    value: number;
+  };
+};
+
+export type DrawNameMetricsResponse = {
+  code: number;
+  message: string;
+  data: DrawNameMetricsData;
+};

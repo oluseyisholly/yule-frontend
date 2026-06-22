@@ -6,6 +6,7 @@ import type {
   DrawNameEventPatchPayload,
   DrawNameEventsParams,
   DrawNameEventsResponse,
+  DrawNameMetricsResponse,
 } from "@/features/draw-name-events/types";
 
 const DRAW_NAME_EVENTS_ENDPOINT = "/draw-name-event";
@@ -57,4 +58,9 @@ export async function deleteDrawNameEvent(id: string) {
   return deleteApi<DeleteDrawNameEventResponse>(
     `${DRAW_NAME_EVENTS_ENDPOINT}/${id}`,
   );
+}
+
+export async function getDrawNameMetrics() {
+  // GET /dashboard/draw-name-metrics
+  return getApi<DrawNameMetricsResponse>(`/dashboard/draw-name-metrics`);
 }

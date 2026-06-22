@@ -1,5 +1,6 @@
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
+import { useDrawNameMetricsQuery } from "@/features/draw-name-events/hooks/useDrawNameMetricsQuery";
 
 function GiftBoxStatIcon() {
   return (
@@ -81,7 +82,13 @@ function NamesStatIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="7.917" cy="6.25" r="3.333" stroke="#C28A00" strokeWidth="1.4" />
+      <circle
+        cx="7.917"
+        cy="6.25"
+        r="3.333"
+        stroke="#C28A00"
+        strokeWidth="1.4"
+      />
       <path
         d="M18.333 17.5v-1.667a3.333 3.333 0 0 0-2.5-3.225M13.333 2.608a3.333 3.333 0 0 1 0 6.459"
         stroke="#C28A00"
@@ -130,38 +137,70 @@ type StatCardProps = {
   hintColor?: string;
 };
 
-const stats: StatCardProps[] = [
-  {
-    icon: <GiftBoxStatIcon />,
-    iconBg: "#EFE6FD",
-    value: "48",
-    label: "Total Gifts",
-    hint: "+12% this month",
-    hintColor: "#24A959",
-  },
-  {
-    icon: <CalendarStatIcon />,
-    iconBg: "#D9F4E2",
-    value: "6",
-    label: "Active Wish Lists",
-    hint: "+2 new this week",
-    hintColor: "#24A959",
-  },
-  {
-    icon: <NamesStatIcon />,
-    iconBg: "#FCEEC8",
-    value: "3",
-    label: "Total Names",
-  },
-  {
-    icon: <TrendStatIcon />,
-    iconBg: "#FDE0DE",
-    value: "12",
-    label: "Active Members",
-  },
-];
+const DrawNamesStatsInner = () => {
+  const { data: metrics = null } = useDrawNameMetricsQuery(true);
 
-function StatCard({ icon, iconBg, value, label, hint, hintColor }: StatCardProps) {
+  console.log("Draw Name Metrics:", metrics);
+
+  const d = metrics ?? {
+    totalGifts: { value: 0, percentageChangeThisMonth: 0 },
+    activeDrawNames: { value: 0, newThisWeek: 0 },
+    totalNames: { value: 0 },
+    activeMembers: { value: 0 },
+  };
+
+  const stats: StatCardProps[] = [
+    {
+      icon: <GiftBoxStatIcon />,
+      iconBg: "#EFE6FD",
+      value: String(d.totalGifts.value),
+      label: "Total Gifts",
+      hint: d.totalGifts.percentageChangeThisMonth
+        ? `+${d.totalGifts.percentageChangeThisMonth}% this month`
+        : undefined,
+      hintColor: "#24A959",
+    },
+    {
+      icon: <CalendarStatIcon />,
+      iconBg: "#D9F4E2",
+      value: String(d.activeDrawNames?.value),
+      label: "Active Draw Names",
+      hint: d.activeDrawNames?.newThisWeek
+        ? `+${d.activeDrawNames?.newThisWeek} new this week`
+        : undefined,
+      hintColor: "#24A959",
+    },
+    {
+      icon: <NamesStatIcon />,
+      iconBg: "#FCEEC8",
+      value: String(d.totalNames?.value),
+      label: "Total Names",
+    },
+    {
+      icon: <TrendStatIcon />,
+      iconBg: "#FDE0DE",
+      value: String(d.activeMembers?.value),
+      label: "Active Members",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {stats.map((stat) => (
+        <StatCard key={stat.label} {...stat} />
+      ))}
+    </div>
+  );
+};
+
+function StatCard({
+  icon,
+  iconBg,
+  value,
+  label,
+  hint,
+  hintColor,
+}: StatCardProps) {
   return (
     <div className="rounded-2xl border border-[#EEEAF7] bg-white p-5 shadow-[0_2px_6px_rgba(33,16,93,0.04)]">
       <div className="flex items-start justify-between">
@@ -202,11 +241,5 @@ function StatCard({ icon, iconBg, value, label, hint, hintColor }: StatCardProps
 }
 
 export default function DrawNamesStats() {
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <StatCard key={stat.label} {...stat} />
-      ))}
-    </div>
-  );
+  return <DrawNamesStatsInner />;
 }

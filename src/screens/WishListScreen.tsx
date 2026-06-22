@@ -12,6 +12,7 @@ import {
   Share2Icon,
   UsersIcon,
 } from "lucide-react";
+import { useWishListMetricsQuery } from "@/features/wishlist/hooks/useWishListMetricsQuery";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/dashboard/PageHeader";
 import Button from "@/components/Button";
@@ -51,6 +52,9 @@ import { Input } from "@/components/ui/input";
 import ViewIcon from "@/components/icons/ViewIcon";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
+import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
+import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
+import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import {
   canManageWishlistEvent,
   isWishlistEventParticipant,
@@ -136,38 +140,57 @@ const participantPalette = [
   { color: "#5A4CB8", bg: "#E8E6F8" },
 ] as const;
 
-const wishListStats: WishListStat[] = [
-  {
-    icon: <GiftIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
-    iconBg: "#EFE6FD",
-    value: "48",
-    label: "Total Gifts",
-    hint: "+12% this month",
-    hintColor: "#3300C9",
-  },
-  {
-    icon: (
-      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
-    ),
-    iconBg: "#D9F4E2",
-    value: "6",
-    label: "Active Wish Lists",
-    hint: "+2 new this week",
-    hintColor: "#24A959",
-  },
-  {
-    icon: <UsersIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
-    iconBg: "#FCEEC8",
-    value: "3",
-    label: "Total Names",
-  },
-  {
-    icon: <Share2Icon className="size-5 text-[#E04F4F]" strokeWidth={1.8} />,
-    iconBg: "#FDE0DE",
-    value: "12",
-    label: "Active Members",
-  },
-];
+// Stats are driven from the wishlist metrics API
+function useDerivedWishListStats() {
+  const { data: metrics = null } = useWishListMetricsQuery(true);
+
+  const m =
+    metrics ?? {
+      totalItems: { value: 0, percentageChangeThisMonth: 0 },
+      activeWishlists: { value: 0, newThisWeek: 0 },
+      totalParticipants: { value: 0 },
+      reservedItems: { value: 0 },
+    };
+
+  const stats: WishListStat[] = [
+    {
+      icon: <GiftIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
+      iconBg: "#EFE6FD",
+      value: String(m.totalItems.value),
+      label: "Total Items",
+      hint: m.totalItems.percentageChangeThisMonth
+        ? `+${m.totalItems.percentageChangeThisMonth}% this month`
+        : undefined,
+      hintColor: "#3300C9",
+    },
+    {
+      icon: (
+        <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
+      ),
+      iconBg: "#D9F4E2",
+      value: String(m.activeWishlists.value),
+      label: "Active Wish Lists",
+      hint: m.activeWishlists.newThisWeek
+        ? `+${m.activeWishlists.newThisWeek} new this week`
+        : undefined,
+      hintColor: "#24A959",
+    },
+    {
+      icon: <UsersIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
+      iconBg: "#FCEEC8",
+      value: String(m.totalParticipants.value),
+      label: "Total Participants",
+    },
+    {
+      icon: <Share2Icon className="size-5 text-[#E04F4F]" strokeWidth={1.8} />,
+      iconBg: "#FDE0DE",
+      value: String(m.reservedItems.value),
+      label: "Reserved Items",
+    },
+  ];
+
+  return stats;
+}
 
 const wishListCelebrationTypeOptions: Array<{
   value: Exclude<WishListCelebrationType, "">;
@@ -627,7 +650,9 @@ function WishListRowActions({
   onRequestDelete: (row: WishListRow) => void;
 }) {
   const isOngoingState = row.status === "Ongoing";
-  const canEdit = row.canManage && !isOngoingState;
+  const isCompletedState = row.status === "Completed";
+  // Edit should be disabled for completed wishlists
+  const canEdit = row.canManage && !isCompletedState;
   const canSendInvite = row.canManage && isOngoingState;
 
   return (
@@ -653,17 +678,21 @@ function WishListRowActions({
             <ViewIcon className="size-4 text-[#292D32]" />
             View Details
           </DropdownMenuItem>
-          {row.canManage ? (
+          {canSendInvite ? (
             <DropdownMenuItem
               onSelect={() => onEdit(row)}
               className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"
             >
-              {canSendInvite ? (
-                <InviteEmailIcon className="size-4 text-[#292D32]" />
-              ) : (
-                <EditPencilIcon className="size-4 text-[#292D32]" />
-              )}
-              {canSendInvite ? "Send Invite" : "Edit Wish List"}
+              <InviteEmailIcon className="size-4 text-[#292D32]" />
+              Send Invite
+            </DropdownMenuItem>
+          ) : canEdit ? (
+            <DropdownMenuItem
+              onSelect={() => onEdit(row)}
+              className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"
+            >
+              <EditPencilIcon className="size-4 text-[#292D32]" />
+              Edit Wish List
             </DropdownMenuItem>
           ) : null}
           {!row.canManage ? (
@@ -694,9 +723,9 @@ function WishListRowActions({
           ) : null}
           <DropdownMenuSeparator className="bg-[#F0ECFA]" />
           <DropdownMenuItem
-            disabled={isOngoingState || !row.canManage}
+            disabled={isOngoingState || isCompletedState || !row.canManage}
             onSelect={() => {
-              if (isOngoingState || !row.canManage) {
+              if (isOngoingState || isCompletedState || !row.canManage) {
                 return;
               }
 
@@ -704,7 +733,7 @@ function WishListRowActions({
             }}
             className={cn(
               "rounded-lg px-3 py-2 text-sm focus:bg-[#FDEEEE]",
-              isOngoingState
+              isOngoingState || isCompletedState
                 ? "cursor-not-allowed text-[#B8B5C3] focus:text-[#B8B5C3]"
                 : "cursor-pointer text-[#E04F4F] focus:text-[#E04F4F]",
             )}
@@ -712,7 +741,7 @@ function WishListRowActions({
             <DeleteIcon
               className={cn(
                 "size-4",
-                isOngoingState ? "text-[#B8B5C3]" : "text-[#DC2626]",
+                isOngoingState || isCompletedState ? "text-[#B8B5C3]" : "text-[#DC2626]",
               )}
             />
             Delete Wish List
@@ -776,6 +805,9 @@ export default function WishListScreen() {
     per_page: 25,
     page: 1,
   });
+  const createEventTypeMutation = useCreateEventTypeMutation();
+  const updateEventTypeMutation = useUpdateEventTypeMutation();
+  const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const createWishlistEventMutation = useCreateWishlistEventMutation();
   const claimGiftMutation = useClaimGiftMutation();
   const deleteWishlistEventMutation = useDeleteWishlistEventMutation();
@@ -911,6 +943,7 @@ export default function WishListScreen() {
           value: eventType.id,
           label: eventType.name,
           icon: getEventTypeIcon(eventType.key),
+          isManageable: Boolean(eventType.user_id ?? eventType.createdById),
         })),
     [availableEventTypesResponse],
   );
@@ -1329,6 +1362,47 @@ export default function WishListScreen() {
 
   const handleOpenClaimWishList = (row: WishListRow) => {
     openModal("gift-selection", "edit", row.eventId, row.wishlistEventId);
+  };
+
+  const handleCreateEventOption = async (name: string) => {
+    const response = await createEventTypeMutation.mutateAsync({ name });
+
+    if (response.data?.id) {
+      toast.success(response.message);
+
+      return {
+        value: response.data.id,
+        label: response.data.name,
+        icon: getEventTypeIcon(response.data.key ?? null),
+        isManageable: Boolean(
+          response.data.user_id ?? response.data.createdById,
+        ),
+      } satisfies OverlaySelectOption;
+    }
+  };
+
+  const handleUpdateEventOption = async (
+    option: OverlaySelectOption,
+    name: string,
+  ) => {
+    const response = await updateEventTypeMutation.mutateAsync({
+      id: option.value,
+      payload: { name },
+    });
+
+    toast.success(response.message);
+
+    return {
+      ...option,
+      label: response.data?.name ?? name,
+      icon: getEventTypeIcon(response.data?.key ?? null),
+      isManageable: option.isManageable,
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleDeleteEventOption = async (option: OverlaySelectOption) => {
+    const response = await deleteEventTypeMutation.mutateAsync(option.value);
+    toast.success(response.message);
   };
 
   const handleCreateWishList = async () => {
@@ -1914,7 +1988,7 @@ export default function WishListScreen() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {wishListStats.map((stat) => (
+        {useDerivedWishListStats().map((stat) => (
           <WishListStatCard key={stat.label} {...stat} />
         ))}
       </div>
@@ -2011,6 +2085,10 @@ export default function WishListScreen() {
                 placeholder="Select Event"
                 panelTitle="Select Event"
                 searchPlaceholder=""
+                addActionLabel="Add New"
+                onCreateOption={handleCreateEventOption}
+                onUpdateOption={handleUpdateEventOption}
+                onDeleteOption={handleDeleteEventOption}
                 triggerClassName="text-[10px]"
               />
             )}

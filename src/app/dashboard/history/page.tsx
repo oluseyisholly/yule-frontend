@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import HistoryScreen from "@/screens/HistoryScreen";
 
 export const metadata: Metadata = {
   title: "My History",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function HistoryPage() {
-  return <DashboardWorkspace tab="history" />;
+  return <HistoryScreen />;
 }

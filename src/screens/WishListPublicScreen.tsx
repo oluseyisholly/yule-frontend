@@ -29,6 +29,7 @@ import type {
   PublicWishlistEventRecord,
   WishlistEventGiftRow,
 } from "@/features/wishlist-events/types";
+import { YULE_SIGN_IN_URL } from "@/lib/external-links";
 
 type WishListPublicScreenProps = {
   wishListEventId: string;
@@ -585,7 +586,7 @@ export default function WishListPublicScreen({
 
           <div className="mt-8 flex w-full flex-col gap-3">
             <Button
-              href={`/start?redirect=${encodeURIComponent(`/wishlist/${wishListEventId}`)}`}
+              href={`${YULE_SIGN_IN_URL}&redirectUrl=${encodeURIComponent(`/wishlist/${wishListEventId}`)}`}
               className="h-[52px] w-full px-6 text-[15px]"
             >
               Log In

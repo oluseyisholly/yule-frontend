@@ -9,6 +9,7 @@ import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
 import { useAuthStore } from "@/stores/auth-store";
 import { YULE_SIGN_IN_URL, YULE_SIGN_UP_URL } from "@/lib/external-links";
+import { Spinner } from "@/components/ui/spinner";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -61,11 +62,35 @@ function SignedInUserCard({
   );
 }
 
+function SigningInUserCard({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`flex min-w-0 items-center gap-3 rounded-full border border-[#F1EBFF] px-4 py-2.5 ${className}`}
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#EEE6FF] text-[#3300C9]">
+        <Spinner className="size-4" />
+      </span>
+
+      <span className="min-w-0">
+        <span className="block truncate text-[16px] font-medium leading-tight text-[#3300C9]">
+          Signing you in
+        </span>
+        <span className="block truncate text-[14px] leading-tight text-[#5F5C67]">
+          Please wait...
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const authUser = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isSsoSigningIn = useAuthStore((state) => state.isSsoSigningIn);
 
   const fullName =
     `${authUser?.firstName?.trim() ?? ""} ${authUser?.lastName?.trim() ?? ""}`.trim() ||
@@ -108,7 +133,9 @@ export default function Header() {
 
         {/* Desktop CTAs */}
         <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-6">
-          {shouldShowSignedInCard ? (
+          {isSsoSigningIn ? (
+            <SigningInUserCard className="max-w-[280px]" />
+          ) : shouldShowSignedInCard ? (
             <SignedInUserCard
               name={fullName}
               email={email}
@@ -183,7 +210,9 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          {shouldShowSignedInCard ? (
+          {isSsoSigningIn ? (
+            <SigningInUserCard className="w-full" />
+          ) : shouldShowSignedInCard ? (
             <SignedInUserCard
               name={fullName}
               email={email}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image, { type StaticImageData } from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   CalendarDaysIcon,
@@ -65,6 +65,9 @@ import { useUpdateContactMutation } from "@/features/contacts/hooks/useUpdateCon
 import type { Contact } from "@/features/contacts/types";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
+import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
+import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
+import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
 import { useGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useGivenGroupedGiftsQuery";
 import { useReceivedGiftsQuery } from "@/features/gifts/hooks/useReceivedGiftsQuery";
@@ -174,6 +177,7 @@ const giftingEventStatusStyles: Record<GiftingEventStatusLabel, string> = {
   Ongoing: "bg-[#EFE6FD] text-[#3300C9]",
   Completed: "bg-[#E6F7EC] text-[#24A959]",
 };
+const VALID_GIFTS_TABS: GiftsTab[] = ["events", "sent", "received"];
 
 const PAGE_SIZE = 5;
 const fallbackGiftImages = [featureImg1, featureImg2, featureImg3, featureImg4];
@@ -194,7 +198,9 @@ const RECORD_AVATAR_STYLES = [
 ] as const;
 const giftStats: StatCardData[] = [
   {
-    icon: <ShoppingBagIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
+    icon: (
+      <ShoppingBagIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
+    ),
     iconBg: "#EFE6FD",
     value: "48",
     label: "Total Gifts",
@@ -202,7 +208,9 @@ const giftStats: StatCardData[] = [
     hintColor: "#3300C9",
   },
   {
-    icon: <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />,
+    icon: (
+      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
+    ),
     iconBg: "#D9F4E2",
     value: "$264",
     label: "Total Amount Spent",
@@ -423,21 +431,14 @@ function toSentGiftStatus(
   return "Pending";
 }
 
-function toSentGiftRow(
-  gift: GivenGroupedGift,
-  index: number,
-): GiftRow {
+function toSentGiftRow(gift: GivenGroupedGift, index: number): GiftRow {
   const people = toGivenGiftPeople(gift.people);
   const recipientCount =
     gift.recipientCount ?? (people.length > 0 ? people.length : 1);
   const event = gift.event;
 
   return {
-    id:
-      gift.participantGiftId?.trim() ||
-      gift.productSlug?.trim() ||
-      event?.id?.trim() ||
-      `given-gift-${index}`,
+    id: gift.id?.trim() || `given-gift-${index}`,
     item: gift.title?.trim() || "Gift item",
     image:
       gift.imageUrl?.trim() ||
@@ -469,7 +470,8 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
     id: gift.id,
     item: gift.title?.trim() || "Gift item",
     image:
-      gift.imageUrl?.trim() || fallbackGiftImages[index % fallbackGiftImages.length],
+      gift.imageUrl?.trim() ||
+      fallbackGiftImages[index % fallbackGiftImages.length],
     eventName: gift.event?.title?.trim() || "-",
     eventDate: formatDate(gift.event?.eventDate),
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
@@ -485,9 +487,7 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
   };
 }
 
-function toGiftingEventStatus(
-  status?: string | null,
-): GiftingEventStatusLabel {
+function toGiftingEventStatus(status?: string | null): GiftingEventStatusLabel {
   const normalizedStatus = status?.trim().toLowerCase();
 
   if (normalizedStatus === "completed") {
@@ -513,6 +513,10 @@ function hasGiftFlowDraft(selection: GiftFlowSelectionState) {
     selection.selectedGiftIds.length > 0 ||
     Object.keys(selection.selectedGiftProductsById).length > 0
   );
+}
+
+function isValidGiftsTab(value: string | null): value is GiftsTab {
+  return VALID_GIFTS_TABS.includes(value as GiftsTab);
 }
 
 function normalizeGiftFlowSelection(
@@ -576,7 +580,9 @@ function toGiftingEventRow(
 
       return mappedParticipant;
     })
-    .filter((participant): participant is GiftRowPerson => Boolean(participant));
+    .filter((participant): participant is GiftRowPerson =>
+      Boolean(participant),
+    );
   const participantContactIds = Array.from(
     new Set(
       allParticipants
@@ -588,7 +594,8 @@ function toGiftingEventRow(
         .map((participant) => participant.eventContactId!.trim()),
     ),
   );
-  const participantIdsByContactId = getParticipantIdsByContactId(allParticipants);
+  const participantIdsByContactId =
+    getParticipantIdsByContactId(allParticipants);
   const participantRecordItems = mergeRecordItems(
     allParticipants
       .filter(
@@ -638,7 +645,6 @@ function toInitials(name: string) {
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
 }
-
 
 function HeaderActionIconButton({
   label,
@@ -733,7 +739,9 @@ function RecipientCell({ people }: { people: GiftRowPerson[] }) {
     return (
       <div className="flex items-center gap-2.5">
         <RecipientAvatar name={person.name} />
-        <span className="text-sm font-medium text-[#1E1E1E]">{person.name}</span>
+        <span className="text-sm font-medium text-[#1E1E1E]">
+          {person.name}
+        </span>
       </div>
     );
   }
@@ -955,9 +963,13 @@ function GiftItemImage({
 
 export default function DashboardGiftsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const authUser = useAuthStore((state) => state.user);
   const currentContactId = useAuthStore((state) => state.currentContactId);
-  const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
+  const setCurrentContactId = useAuthStore(
+    (state) => state.setCurrentContactId,
+  );
   const {
     isOpen: isGiftFlowOpen,
     currentStep: currentGiftFlowStep,
@@ -984,7 +996,9 @@ export default function DashboardGiftsScreen() {
     () => normalizeGiftFlowSelection(storedFlowSelection),
     [storedFlowSelection],
   );
-  const setGiftFlowDraftFields = useGiftFlowStore((state) => state.setDraftFields);
+  const setGiftFlowDraftFields = useGiftFlowStore(
+    (state) => state.setDraftFields,
+  );
   const setSelectedParticipantContactIds = useGiftFlowStore(
     (state) => state.setSelectedParticipantContactIds,
   );
@@ -997,7 +1011,6 @@ export default function DashboardGiftsScreen() {
   const resetGiftFlowSelection = useGiftFlowStore(
     (state) => state.resetFlowSelection,
   );
-  const [activeTab, setActiveTab] = useState<GiftsTab>("events");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -1011,14 +1024,15 @@ export default function DashboardGiftsScreen() {
   const [giftInviteSearchValue, setGiftInviteSearchValue] = useState("");
   const [isGiftInviteCopyListOpen, setIsGiftInviteCopyListOpen] =
     useState(false);
-  const [isCompleteGiftingEventConfirmationOpen, setIsCompleteGiftingEventConfirmationOpen] =
-    useState(false);
+  const [
+    isCompleteGiftingEventConfirmationOpen,
+    setIsCompleteGiftingEventConfirmationOpen,
+  ] = useState(false);
   const [isSendGiftEmailConfirmationOpen, setIsSendGiftEmailConfirmationOpen] =
     useState(false);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
-  const [newColleagueForm, setNewColleagueForm] = useState<AddColleagueFormValues>(
-    EMPTY_NEW_COLLEAGUE_FORM,
-  );
+  const [newColleagueForm, setNewColleagueForm] =
+    useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
   const [customContactRecordItems, setCustomContactRecordItems] = useState<
     SearchableRecordItem[]
   >([]);
@@ -1039,6 +1053,10 @@ export default function DashboardGiftsScreen() {
   const selectedGiftEventDate = flowSelection.eventDate;
   const giftEventName = flowSelection.eventName;
   const isGiftInviteStep = currentGiftFlowStep === "invite";
+  const activeTabParam = searchParams.get("tab")?.trim().toLowerCase() ?? null;
+  const activeTab: GiftsTab = isValidGiftsTab(activeTabParam)
+    ? activeTabParam
+    : "events";
   const resolvedCurrentContactId =
     currentContactId?.trim() || ensuredCurrentContactId?.trim() || null;
   const {
@@ -1102,6 +1120,9 @@ export default function DashboardGiftsScreen() {
     },
   );
   const createGiftingEventMutation = useCreateGiftingEventMutation();
+  const createEventTypeMutation = useCreateEventTypeMutation();
+  const updateEventTypeMutation = useUpdateEventTypeMutation();
+  const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const deleteGiftingEventMutation = useDeleteGiftingEventMutation();
   const completeGiftingEventMutation = useCompleteGiftingEventMutation();
   const updateGiftingEventMutation = useUpdateGiftingEventMutation();
@@ -1185,6 +1206,7 @@ export default function DashboardGiftsScreen() {
           value: eventType.id,
           label: eventType.name,
           icon: getEventTypeIcon(eventType.key),
+          isManageable: Boolean(eventType.user_id ?? eventType.createdById),
         })),
     [availableEventTypesResponse],
   );
@@ -1260,7 +1282,9 @@ export default function DashboardGiftsScreen() {
           id: actor.id || invitation.eventContactId,
           participantId:
             invitation.participantId ||
-            currentEventRow?.participantIdsByContactId[invitation.eventContactId] ||
+            currentEventRow?.participantIdsByContactId[
+              invitation.eventContactId
+            ] ||
             invitation.eventContactId,
           name: fullName,
           role:
@@ -1273,7 +1297,10 @@ export default function DashboardGiftsScreen() {
           inviteUrl: invitation.inviteUrl ?? null,
         };
       }),
-    [currentEventRow?.participantIdsByContactId, giftingEventInvitationsResponse],
+    [
+      currentEventRow?.participantIdsByContactId,
+      giftingEventInvitationsResponse,
+    ],
   );
   const filteredGiftInviteParticipants = useMemo(() => {
     const normalizedSearch = giftInviteSearchValue.trim().toLowerCase();
@@ -1306,6 +1333,33 @@ export default function DashboardGiftsScreen() {
   );
   const counterpartLabel = isSentTab ? "Sent to" : "Received from";
   const giftRows = isSentTab ? sentRows : receivedRows;
+
+  const updateActiveTab = (nextTab: GiftsTab) => {
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.set("tab", nextTab);
+    const nextQueryString = nextSearchParams.toString();
+
+    router.replace(
+      nextQueryString ? `${pathname}?${nextQueryString}` : pathname,
+      { scroll: false },
+    );
+  };
+
+  useEffect(() => {
+    if (activeTabParam === activeTab) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.set("tab", activeTab);
+    const nextQueryString = nextSearchParams.toString();
+
+    router.replace(
+      nextQueryString ? `${pathname}?${nextQueryString}` : pathname,
+      { scroll: false },
+    );
+  }, [activeTab, activeTabParam, pathname, router, searchParams]);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedQuery(query.trim());
@@ -1459,6 +1513,47 @@ export default function DashboardGiftsScreen() {
     }
   };
 
+  const handleCreateEventOption = async (name: string) => {
+    const response = await createEventTypeMutation.mutateAsync({ name });
+
+    if (response.data?.id) {
+      toast.success(response.message);
+
+      return {
+        value: response.data.id,
+        label: response.data.name,
+        icon: getEventTypeIcon(response.data.key ?? null),
+        isManageable: Boolean(
+          response.data.user_id ?? response.data.createdById,
+        ),
+      } satisfies OverlaySelectOption;
+    }
+  };
+
+  const handleUpdateEventOption = async (
+    option: OverlaySelectOption,
+    name: string,
+  ) => {
+    const response = await updateEventTypeMutation.mutateAsync({
+      id: option.value,
+      payload: { name },
+    });
+
+    toast.success(response.message);
+
+    return {
+      ...option,
+      label: response.data?.name ?? name,
+      icon: getEventTypeIcon(response.data?.key ?? null),
+      isManageable: option.isManageable,
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleDeleteEventOption = async (option: OverlaySelectOption) => {
+    const response = await deleteEventTypeMutation.mutateAsync(option.value);
+    toast.success(response.message);
+  };
+
   const handleGiftFlowProductToggle = (
     product: MarketplaceProduct,
     checked: boolean,
@@ -1550,12 +1645,7 @@ export default function DashboardGiftsScreen() {
       }
 
       toast.success(response.message);
-      setGiftFlowStep(
-        "event-date",
-        "create",
-        nextEventId,
-        nextGiftingEventId,
-      );
+      setGiftFlowStep("event-date", "create", nextEventId, nextGiftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1608,7 +1698,9 @@ export default function DashboardGiftsScreen() {
     }
 
     const resolvedTitle =
-      giftEventName.trim() || selectedEventTypeOption?.label || "Untitled event";
+      giftEventName.trim() ||
+      selectedEventTypeOption?.label ||
+      "Untitled event";
 
     try {
       const response = await updateGiftingEventMutation.mutateAsync({
@@ -1708,10 +1800,7 @@ export default function DashboardGiftsScreen() {
 
       if (!editingRecordId) {
         setSelectedParticipantContactIds(flowSelectionKey, [
-          ...new Set([
-            ...selectedParticipantContactIds,
-            response.data.id,
-          ]),
+          ...new Set([...selectedParticipantContactIds, response.data.id]),
         ]);
       }
 
@@ -1844,7 +1933,8 @@ export default function DashboardGiftsScreen() {
       return null;
     }
 
-    let participantIdsByContactId = currentEventRow?.participantIdsByContactId ?? {};
+    let participantIdsByContactId =
+      currentEventRow?.participantIdsByContactId ?? {};
     let resolvedRecipientParticipantIds = Array.from(
       new Set(
         selectedParticipantContactIds
@@ -1863,8 +1953,7 @@ export default function DashboardGiftsScreen() {
       const refreshedRecord = (
         refreshedGiftingEventsResponse.data?.data.data ?? []
       ).find(
-        (record) =>
-          record.id === giftingEventId || record.eventId === eventId,
+        (record) => record.id === giftingEventId || record.eventId === eventId,
       );
 
       if (refreshedRecord) {
@@ -1978,10 +2067,9 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
-    const contactIds =
-      currentEventRow?.participantContactIds?.length
-        ? currentEventRow.participantContactIds
-        : selectedParticipantContactIds;
+    const contactIds = currentEventRow?.participantContactIds?.length
+      ? currentEventRow.participantContactIds
+      : selectedParticipantContactIds;
 
     if (!contactIds.length) {
       toast.error("No participants are available for invitation yet.");
@@ -2190,12 +2278,7 @@ export default function DashboardGiftsScreen() {
     if (isGiftFlowOpen && currentGiftFlowStep !== "event" && !giftingEventId) {
       closeGiftFlowModal();
     }
-  }, [
-    closeGiftFlowModal,
-    isGiftFlowOpen,
-    currentGiftFlowStep,
-    giftingEventId,
-  ]);
+  }, [closeGiftFlowModal, isGiftFlowOpen, currentGiftFlowStep, giftingEventId]);
 
   return (
     <div className="space-y-6">
@@ -2252,7 +2335,7 @@ export default function DashboardGiftsScreen() {
           <div className="flex items-end gap-6">
             <button
               type="button"
-              onClick={() => setActiveTab("events")}
+              onClick={() => updateActiveTab("events")}
               className={cn(
                 "border-b-2 px-1 pb-3 text-sm font-medium transition-colors",
                 activeTab === "events"
@@ -2264,7 +2347,7 @@ export default function DashboardGiftsScreen() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("sent")}
+              onClick={() => updateActiveTab("sent")}
               className={cn(
                 "border-b-2 px-1 pb-3 text-sm font-medium transition-colors",
                 activeTab === "sent"
@@ -2276,7 +2359,7 @@ export default function DashboardGiftsScreen() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("received")}
+              onClick={() => updateActiveTab("received")}
               className={cn(
                 "border-b-2 px-1 pb-3 text-sm font-medium transition-colors",
                 activeTab === "received"
@@ -2314,8 +2397,7 @@ export default function DashboardGiftsScreen() {
           </div>
         </div>
 
-        {(isEventsTab &&
-          (isGiftingEventsLoading || isGiftingEventsFetching)) ||
+        {(isEventsTab && (isGiftingEventsLoading || isGiftingEventsFetching)) ||
         (isSentTab &&
           (isGivenGroupedGiftsLoading || isGivenGroupedGiftsFetching)) ||
         (isReceivedTab &&
@@ -2331,8 +2413,8 @@ export default function DashboardGiftsScreen() {
               {isEventsTab
                 ? "Unable to load gifting events right now."
                 : isSentTab
-                ? "Unable to load the gifts you have given right now."
-                : "Unable to load the gifts you have received right now."}
+                  ? "Unable to load the gifts you have given right now."
+                  : "Unable to load the gifts you have received right now."}
             </p>
             <button
               type="button"
@@ -2340,8 +2422,8 @@ export default function DashboardGiftsScreen() {
                 isEventsTab
                   ? void refetchGiftingEvents()
                   : isSentTab
-                  ? void refetchGivenGroupedGifts()
-                  : void refetchReceivedGifts()
+                    ? void refetchGivenGroupedGifts()
+                    : void refetchReceivedGifts()
               }
               className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
             >
@@ -2421,8 +2503,12 @@ export default function DashboardGiftsScreen() {
                           <td className="px-3 text-sm font-medium text-[#1E1E1E]">
                             {row.eventName}
                           </td>
-                          <td className="px-3 text-sm text-[#434343]">{row.eventDate}</td>
-                          <td className="px-3 text-sm text-[#434343]">{row.createdBy}</td>
+                          <td className="px-3 text-sm text-[#434343]">
+                            {row.eventDate}
+                          </td>
+                          <td className="px-3 text-sm text-[#434343]">
+                            {row.createdBy}
+                          </td>
                           <td className="px-3">
                             <ParticipantStack people={row.participants} />
                           </td>
@@ -2449,67 +2535,71 @@ export default function DashboardGiftsScreen() {
                         </td>
                       </tr>
                     )
-                  ) : (
-                    displayedGiftRows.length > 0 ? (
-                      displayedGiftRows.map((row) => {
-                        const people =
-                          isSentTab
-                            ? row.sentTo ?? []
-                            : row.receivedFrom ?? [];
+                  ) : displayedGiftRows.length > 0 ? (
+                    displayedGiftRows.map((row) => {
+                      const people = isSentTab
+                        ? (row.sentTo ?? [])
+                        : (row.receivedFrom ?? []);
 
-                        return (
-                          <tr
-                            key={row.id}
-                            className="[&>td]:border-y [&>td]:border-[#F1EDF8] [&>td]:bg-white [&>td]:py-3.5"
-                          >
-                            <td className="rounded-l-[16px] border-l border-[#F1EDF8] px-3">
-                              <Checkbox aria-label={`Select ${row.item}`} />
-                            </td>
-                            <td className="px-3">
-                              <div className="flex items-center gap-3">
-                                <div className="flex size-10 items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F6FB]">
-                                  <GiftItemImage image={row.image} alt={row.item} />
-                                </div>
-                                <span className="text-sm font-medium text-[#1E1E1E]">
-                                  {row.item}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-3 text-sm text-[#434343]">{row.eventName}</td>
-                            <td className="px-3 text-sm text-[#434343]">{row.eventDate}</td>
-                            <td className="px-3">
-                              <RecipientCell people={people} />
-                            </td>
-                            <td className="px-3 text-sm font-medium text-[#434343]">
-                              {row.amount}
-                            </td>
-                            <td className="px-3">
-                              <StatusPill status={row.status} />
-                            </td>
-                            <td className="rounded-r-[16px] border-r border-[#F1EDF8] px-3">
-                              <div className="flex justify-end">
-                                <button
-                                  type="button"
-                                  aria-label={`More options for ${row.item}`}
-                                  className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
-                                >
-                                  <MoreHorizontal className="size-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="rounded-[16px] border border-[#F1EDF8] bg-[#FCFBFF] px-6 py-10 text-center text-sm text-[#7D7D7D]"
+                      return (
+                        <tr
+                          key={row.id}
+                          className="[&>td]:border-y [&>td]:border-[#F1EDF8] [&>td]:bg-white [&>td]:py-3.5"
                         >
-                          No gifts match your search right now.
-                        </td>
-                      </tr>
-                    )
+                          <td className="rounded-l-[16px] border-l border-[#F1EDF8] px-3">
+                            <Checkbox aria-label={`Select ${row.item}`} />
+                          </td>
+                          <td className="px-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-10 items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F6FB]">
+                                <GiftItemImage
+                                  image={row.image}
+                                  alt={row.item}
+                                />
+                              </div>
+                              <span className="text-sm font-medium text-[#1E1E1E]">
+                                {row.item}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 text-sm text-[#434343]">
+                            {row.eventName}
+                          </td>
+                          <td className="px-3 text-sm text-[#434343]">
+                            {row.eventDate}
+                          </td>
+                          <td className="px-3">
+                            <RecipientCell people={people} />
+                          </td>
+                          <td className="px-3 text-sm font-medium text-[#434343]">
+                            {row.amount}
+                          </td>
+                          <td className="px-3">
+                            <StatusPill status={row.status} />
+                          </td>
+                          <td className="rounded-r-[16px] border-r border-[#F1EDF8] px-3">
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                aria-label={`More options for ${row.item}`}
+                                className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="rounded-[16px] border border-[#F1EDF8] bg-[#FCFBFF] px-6 py-10 text-center text-sm text-[#7D7D7D]"
+                      >
+                        No gifts match your search right now.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -2623,9 +2713,7 @@ export default function DashboardGiftsScreen() {
               isMyParticipantLoading ||
               isMyParticipantFetching
             }
-            nextLabel={
-              assignBulkGiftsMutation.isPending ? "Saving..." : "Next"
-            }
+            nextLabel={assignBulkGiftsMutation.isPending ? "Saving..." : "Next"}
           />
         ) : currentGiftFlowStep === "invite" ? (
           <DrawNameInviteStep
@@ -2644,7 +2732,8 @@ export default function DashboardGiftsScreen() {
             onCopyLink={handleGiftInviteCopyLink}
             isSendingEmail={sendGiftingEventInvitationsMutation.isPending}
             isLoadingLinks={
-              isGiftingEventInvitationsLoading || isGiftingEventInvitationsFetching
+              isGiftingEventInvitationsLoading ||
+              isGiftingEventInvitationsFetching
             }
             isLinksError={isGiftingEventInvitationsError}
             onRetryLinks={() => {
@@ -2662,7 +2751,9 @@ export default function DashboardGiftsScreen() {
                 eventDate: value,
               })
             }
-            onBack={() => setGiftFlowStep("event", mode, eventId, giftingEventId)}
+            onBack={() =>
+              setGiftFlowStep("event", mode, eventId, giftingEventId)
+            }
             onNext={handleGiftEventDateNext}
             heading="What's the date?"
             headingAlign="left"
@@ -2740,7 +2831,12 @@ export default function DashboardGiftsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() =>
-                      setGiftFlowStep("event-name", mode, eventId, giftingEventId)
+                      setGiftFlowStep(
+                        "event-name",
+                        mode,
+                        eventId,
+                        giftingEventId,
+                      )
                     }
                     className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"
@@ -2818,6 +2914,10 @@ export default function DashboardGiftsScreen() {
                 placeholder="Select Event"
                 panelTitle="Select Event"
                 searchPlaceholder=""
+                addActionLabel="Add New"
+                onCreateOption={handleCreateEventOption}
+                onUpdateOption={handleUpdateEventOption}
+                onDeleteOption={handleDeleteEventOption}
                 triggerClassName="text-[10px]"
               />
             )}

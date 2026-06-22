@@ -19,6 +19,7 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import ModalButton from "@/components/ModalButtons";
 import { Input } from "@/components/ui/input";
@@ -265,6 +266,14 @@ export default function OverlaySelect({
       }
 
       handleCancelComposer();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : composerMode === "edit"
+            ? "Unable to update this event right now."
+            : "Unable to create this event right now.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -284,6 +293,12 @@ export default function OverlaySelect({
       }
 
       setPendingDeleteOption(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this event right now.",
+      );
     } finally {
       setIsSubmitting(false);
     }

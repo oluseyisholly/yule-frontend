@@ -31,6 +31,7 @@ export function useGivenGroupedGiftsQuery(
     data: {
       data: [
         {
+          id: "given-gift-1",
           participantGiftId: "product-123",
           title: "Wireless Headphones",
           description: "Noise cancelling",
@@ -107,6 +108,7 @@ export function useGivenGroupedGiftsQuery(
 
           groupGifts.forEach((gift) => {
             flattened.push({
+              id: (gift.id as string) ?? null,
               participantGiftId: (gift.participantGiftId as string) ?? null,
               title: (gift.title as string) ?? null,
               description: (gift.description as string) ?? null,
