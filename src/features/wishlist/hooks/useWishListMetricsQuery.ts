@@ -8,20 +8,20 @@ type WishListMetrics = WishListMetricsData;
 
 const sampleMetrics: WishListMetrics = {
   totalItems: {
-    value: 124,
-    percentageChangeThisMonth: 8.33,
-    currentMonth: 48,
-    previousMonth: 44,
+    value: 0,
+    percentageChangeThisMonth: 0,
+    currentMonth: 0,
+    previousMonth: 0,
   },
   activeWishlists: {
-    value: 21,
-    newThisWeek: 3,
+    value: 0,
+    newThisWeek: 0,
   },
   totalParticipants: {
-    value: 78,
+    value: 0,
   },
   reservedItems: {
-    value: 15,
+    value: 0,
   },
 };
 
