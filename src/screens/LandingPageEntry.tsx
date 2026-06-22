@@ -94,9 +94,10 @@ export default function LandingPageEntry() {
       try {
         const decodedToken = jwtDecode<SsoTokenPayload>(accessToken);
         const email = decodedToken.email?.trim();
+        const id = decodedToken.id?.trim();
         const profileId = decodedToken.profileId?.trim();
 
-        if (!email || !profileId) {
+        if (!email || !id) {
           throw new Error("Unable to resolve your sign-in details.");
         }
 
@@ -107,14 +108,14 @@ export default function LandingPageEntry() {
 
         if (storedEmail && storedEmail === normalizedEmail && storedAuthState.user) {
           const resumedSession: AuthUser = {
-            id: storedAuthState.user.id?.trim() || decodedToken.id?.trim() || profileId,
+            id: storedAuthState.user.id?.trim() || decodedToken.id?.trim() || id,
             firstName: storedAuthState.user.firstName?.trim() || "",
             lastName: storedAuthState.user.lastName?.trim() || "",
             phoneNumber: storedAuthState.user.phoneNumber?.trim() || "",
             email: storedAuthState.user.email?.trim() || email,
             token: accessToken,
             refreshToken: refreshToken || storedAuthState.refreshToken || null,
-            profileId: storedAuthState.user.profileId?.trim() || profileId,
+            profileId: storedAuthState.user.id?.trim() || id,
             mode:
               decodedToken.mode?.trim() || storedAuthState.user.mode?.trim() || null,
             hostBusinessId:
@@ -141,14 +142,14 @@ export default function LandingPageEntry() {
         clearStoredAuthSession();
 
         const provisionalSession: AuthUser = {
-          id: decodedToken.id?.trim() || profileId,
+          id: decodedToken.id?.trim() || id,
           firstName: "",
           lastName: "",
           phoneNumber: "",
           email,
           token: accessToken,
           refreshToken: refreshToken || null,
-          profileId,
+          profileId:id,
           mode: decodedToken.mode?.trim() || null,
           hostBusinessId: decodedToken.hostBusinessId?.trim() || null,
           hostAccountId: decodedToken.hostAccountId?.trim() || null,
@@ -164,14 +165,14 @@ export default function LandingPageEntry() {
         const account = profileRecord.accountId;
 
         const resolvedSession: AuthUser = {
-          id: decodedToken.id?.trim() || account._id?.trim() || profileId,
+          id: decodedToken.id?.trim() || account._id?.trim() || id,
           firstName: account.firstName?.trim() || "",
           lastName: account.lastName?.trim() || "",
           phoneNumber: account.phoneNumber?.trim() || "",
           email: account.email?.trim() || email,
           token: accessToken,
           refreshToken: refreshToken || null,
-          profileId,
+          profileId: id,
           mode: decodedToken.mode?.trim() || profileRecord.type?.trim() || null,
           hostBusinessId: decodedToken.hostBusinessId?.trim() || null,
           hostAccountId:
@@ -189,7 +190,7 @@ export default function LandingPageEntry() {
           lastName: resolvedSession.lastName || "User",
           phoneNumber: resolvedSession.phoneNumber || "",
           email: resolvedSession.email,
-          userId: profileId,
+          userId: id,
         });
 
         try {
