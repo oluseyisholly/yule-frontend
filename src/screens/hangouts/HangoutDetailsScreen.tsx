@@ -187,7 +187,7 @@ export default function HangoutDetailsScreen({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.9fr)]">
+        <div >
           <div className="space-y-5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
               <button
@@ -222,7 +222,7 @@ export default function HangoutDetailsScreen({
               </div>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_520px]">
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-[#7D7D7D]">
                   <span className="inline-flex items-center gap-1.5">

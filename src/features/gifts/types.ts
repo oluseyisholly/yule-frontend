@@ -289,3 +289,24 @@ export type EventSelectedGiftsResponse = {
   message: string;
   data: EventSelectedGiftsPage;
 };
+
+export type GiftMetricStat = {
+  value: number | string;
+  percentageChangeThisMonth?: number | null;
+  currentMonth?: number | null;
+  previousMonth?: number | null;
+  newThisWeek?: number | null;
+};
+
+export type GiftMetricsData = {
+  totalGifts: GiftMetricStat | number | string;
+  totalAmountSpent: GiftMetricStat | number | string;
+  totalPeople: GiftMetricStat | number | string;
+  totalSellers: GiftMetricStat | number | string;
+};
+
+export type GiftMetricsResponse = {
+  code: number;
+  message: string;
+  data: GiftMetricsData;
+};

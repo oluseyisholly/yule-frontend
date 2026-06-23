@@ -58,8 +58,10 @@ export default function DrawNamesScreen() {
     return canManageDrawNameEvent(guardedDrawNameEventResponse?.data, {
       currentUserId: authUser?.id?.trim() || null,
       currentContactId: currentContactId?.trim() || null,
+      currentUserEmail: authUser?.email?.trim() || null,
     });
   }, [
+    authUser?.email,
     authUser?.id,
     currentContactId,
     drawNameEventId,
@@ -102,6 +104,10 @@ export default function DrawNamesScreen() {
     !drawNameEventId ||
     canManageExistingDrawFlow ||
     canAccessParticipantDraw;
+  const isDrawNameFlowVisible =
+    isOpen && (!drawNameEventId || canAccessExistingDrawFlow);
+  const isInlineWishlistGiftsStep =
+    isDrawNameFlowVisible && currentStep === "wishlist-gifts";
   const flowActor =
     drawNameEventId && !canManageExistingDrawFlow ? "participant" : "creator";
 
@@ -198,20 +204,36 @@ export default function DrawNamesScreen() {
         }
       />
 
-      <DrawNamesStats />
+      {isInlineWishlistGiftsStep ? (
+        <DrawNameStartModal
+          open={isDrawNameFlowVisible}
+          currentStep={currentStep}
+          eventId={eventId}
+          drawNameEventId={drawNameEventId}
+          flowActor={flowActor}
+          renderInline={true}
+          onStepChange={setCurrentStep}
+          onReplaceStep={replaceCurrentStep}
+          onClose={closeModal}
+        />
+      ) : (
+        <>
+          <DrawNamesStats />
 
-      <DrawNamesActivity />
+          <DrawNamesActivity />
 
-      <DrawNameStartModal
-        open={isOpen && (!drawNameEventId || canAccessExistingDrawFlow)}
-        currentStep={currentStep}
-        eventId={eventId}
-        drawNameEventId={drawNameEventId}
-        flowActor={flowActor}
-        onStepChange={setCurrentStep}
-        onReplaceStep={replaceCurrentStep}
-        onClose={closeModal}
-      />
+          <DrawNameStartModal
+            open={isDrawNameFlowVisible}
+            currentStep={currentStep}
+            eventId={eventId}
+            drawNameEventId={drawNameEventId}
+            flowActor={flowActor}
+            onStepChange={setCurrentStep}
+            onReplaceStep={replaceCurrentStep}
+            onClose={closeModal}
+          />
+        </>
+      )}
     </div>
   );
 }

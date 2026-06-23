@@ -73,7 +73,7 @@ export default function OverlaySelect({
   const PANEL_GAP = 18;
   const VIEWPORT_PADDING = 24;
   const FALLBACK_PANEL_HEIGHT = 520;
-  const MIN_PANEL_WIDTH = 494;
+  const MIN_PANEL_WIDTH = 0;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -85,9 +85,8 @@ export default function OverlaySelect({
     "idle",
   );
   const [composerValue, setComposerValue] = useState("");
-  const [editingOption, setEditingOption] = useState<OverlaySelectOption | null>(
-    null,
-  );
+  const [editingOption, setEditingOption] =
+    useState<OverlaySelectOption | null>(null);
   const [pendingDeleteOption, setPendingDeleteOption] =
     useState<OverlaySelectOption | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -257,8 +256,7 @@ export default function OverlaySelect({
           onValueChange(updatedOption.value);
         }
       } else if (composerMode === "create" && onCreateOption) {
-        const createdOption =
-          (await onCreateOption(trimmedValue)) ?? undefined;
+        const createdOption = (await onCreateOption(trimmedValue)) ?? undefined;
 
         if (createdOption?.value) {
           onValueChange(createdOption.value);

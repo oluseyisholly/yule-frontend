@@ -40,6 +40,7 @@ type OverlayRecordPickerProps = {
   footer?: ReactNode;
   suspendDismiss?: boolean;
   onOpenChange?: (open: boolean) => void;
+  showTriggerChevron?: boolean;
   className?: string;
   triggerClassName?: string;
   panelClassName?: string;
@@ -70,6 +71,7 @@ export default function OverlayRecordPicker({
   footer,
   suspendDismiss = false,
   onOpenChange,
+  showTriggerChevron = true,
   className,
   triggerClassName,
   panelClassName,
@@ -77,7 +79,7 @@ export default function OverlayRecordPicker({
   const PANEL_GAP = 14;
   const VIEWPORT_PADDING = 24;
   const FALLBACK_PANEL_HEIGHT = 540;
-  const MIN_PANEL_WIDTH = 494;
+  const MIN_PANEL_WIDTH = 0;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -202,20 +204,28 @@ export default function OverlayRecordPicker({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex h-[48px] w-full items-center justify-between rounded-[14px] border border-[#3300C9] bg-white px-4 text-[18px] font-medium text-[#666666]",
+          "flex h-[48px] w-full items-center rounded-[14px] border border-[#3300C9] bg-white px-4 text-[18px] font-medium text-[#666666]",
+          showTriggerChevron ? "justify-between" : "justify-center",
           triggerClassName,
         )}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
       >
-        <span className={cn(!selectedItems.length && "text-[#666666]")}>
+        <span
+          className={cn(
+            !selectedItems.length && "text-[#666666]",
+            !showTriggerChevron && "text-center",
+          )}
+        >
           {triggerLabel}
         </span>
-        {isOpen ? (
-          <ChevronUpIcon className="size-5 text-[#7D7D7D]" />
-        ) : (
-          <ChevronDownIcon className="size-5 text-[#7D7D7D]" />
-        )}
+        {showTriggerChevron ? (
+          isOpen ? (
+            <ChevronUpIcon className="size-5 text-[#7D7D7D]" />
+          ) : (
+            <ChevronDownIcon className="size-5 text-[#7D7D7D]" />
+          )
+        ) : null}
       </button>
 
       {!isOpen && triggerBottomAction ? (

@@ -128,6 +128,34 @@ function TrendStatIcon() {
   );
 }
 
+function ParticipatedStatIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M6.25 10a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm7.5 1.25a2.917 2.917 0 1 0 0-5.833 2.917 2.917 0 0 0 0 5.833Z"
+        stroke="#0067C9"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M1.667 17.5v-.833a5 5 0 0 1 5-5h1.666a5 5 0 0 1 5 5v.833M12.5 17.5v-.833a4.167 4.167 0 0 1 4.167-4.167"
+        stroke="#0067C9"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type StatCardProps = {
   icon: ReactNode;
   iconBg: string;
@@ -140,11 +168,10 @@ type StatCardProps = {
 const DrawNamesStatsInner = () => {
   const { data: metrics = null } = useDrawNameMetricsQuery(true);
 
-  console.log("Draw Name Metrics:", metrics);
-
   const d = metrics ?? {
     totalGifts: { value: 0, percentageChangeThisMonth: 0 },
     activeDrawNames: { value: 0, newThisWeek: 0 },
+    totalDrawNamesParticipated: { value: 0 },
     totalNames: { value: 0 },
     activeMembers: { value: 0 },
   };
@@ -173,8 +200,8 @@ const DrawNamesStatsInner = () => {
     {
       icon: <NamesStatIcon />,
       iconBg: "#FCEEC8",
-      value: String(d.totalNames?.value),
-      label: "Total Names",
+      value: String(d.totalDrawNamesParticipated?.value),
+      label: "Total Draw Names",
     },
     {
       icon: <TrendStatIcon />,
@@ -185,7 +212,7 @@ const DrawNamesStatsInner = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
       {stats.map((stat) => (
         <StatCard key={stat.label} {...stat} />
       ))}

@@ -25,6 +25,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { getDashboardNavItemByPathname } from "@/components/dashboard/navigation";
 import { cn } from "@/lib/utils";
 import { clearStoredAuthSession, useAuthStore } from "@/stores/auth-store";
+import { AUTH_APP_BASE_URL_MANAGE_ACCOUNT } from "@/lib/external-links";
 
 function CompanyBranchIcon() {
   return (
@@ -213,7 +214,7 @@ function DashboardProfileMenu({
       <PopoverContent
         align="end"
         sideOffset={12}
-        className="w-[min(400px,calc(100vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
+        className="w-[min(370px,calc(75vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
       >
         <div className="relative px-6 pb-7 pt-4 text-center">
           <p className="px-10 text-[14px] font-medium text-[#616777]">
@@ -251,13 +252,12 @@ function DashboardProfileMenu({
             <span>{profileName}</span>
           </p>
 
-          <button
-            type="button"
-            onClick={() => handleNavigate("/dashboard/profile")}
+          <a
+            href={AUTH_APP_BASE_URL_MANAGE_ACCOUNT}
             className="mt-3 inline-flex h-[40px] items-center justify-center rounded-full border border-[#D9DDEA] px-6 text-[16px] font-medium text-[#434343] transition-colors hover:bg-[#FAF8FF]"
           >
             Manage your Viktri account
-          </button>
+          </a>
         </div>
 
         <div className="border-t border-[#ECE8F7] py-2">

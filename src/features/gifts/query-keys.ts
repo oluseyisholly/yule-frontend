@@ -1,5 +1,6 @@
 export const giftQueryKeys = {
   all: ["gifts"] as const,
+  metrics: () => [...giftQueryKeys.all, "metrics"] as const,
   selections: () => [...giftQueryKeys.all, "selections"] as const,
   participantSelections: (participantId: string, eventId: string) =>
     [...giftQueryKeys.selections(), participantId, eventId] as const,

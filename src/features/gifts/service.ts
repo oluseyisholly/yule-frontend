@@ -9,6 +9,7 @@ import type {
   CreateBulkGiftsResponse,
   EventSelectedGiftsParams,
   EventSelectedGiftsResponse,
+  GiftMetricsResponse,
   GivenGroupedGiftsParams,
   GivenGroupedGiftsResponse,
   ParticipantGiftsParams,
@@ -22,6 +23,10 @@ const GIFTS_BULK_ENDPOINT = "/gift/bulk";
 const GIFTS_ASSIGN_BULK_ENDPOINT = "/gift/assign/bulk";
 const GIFTS_ENDPOINT = "/gift";
 const PARTICIPANT_ENDPOINT = "/participant";
+
+export async function getGiftMetrics() {
+  return getApi<GiftMetricsResponse>(`/dashboard/gift-metrics`);
+}
 
 export async function createBulkGifts(payload: CreateBulkGiftsPayload) {
   return postApi<CreateBulkGiftsResponse, CreateBulkGiftsPayload>(

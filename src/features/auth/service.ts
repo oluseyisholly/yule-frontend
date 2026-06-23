@@ -2,6 +2,7 @@ import { ApiRequestError, postApi } from "@/lib/api";
 import type {
   CreateUserPayload,
   CreateUserResponse,
+  ExternalBusinessesResponse,
   ExternalProfileResponse,
   SignInPayload,
   SignInResponse,
@@ -56,4 +57,38 @@ export async function getExternalProfile(
   }
 
   return (await response.json()) as ExternalProfileResponse;
+}
+
+export async function getExternalBusinesses(
+  accountId: string,
+  accessToken: string,
+) {
+  if (!NEXT_PUBLIC_ONEDA_API_BASE_URL) {
+    throw new ApiRequestError("Oneda profile base URL is not configured.");
+  }
+
+  const response = await fetch(
+    `${NEXT_PUBLIC_ONEDA_API_BASE_URL}/business/fetch`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        accountId,
+      }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new ApiRequestError("Unable to load your businesses right now.", {
+      status: response.status,
+      details: await response.text(),
+    });
+  }
+
+  return (await response.json()) as ExternalBusinessesResponse;
 }

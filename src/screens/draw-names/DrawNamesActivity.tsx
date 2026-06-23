@@ -180,10 +180,12 @@ function mapDrawActivityRow(
   drawEvent: DrawNameEventListItem,
   currentUserId: string | null,
   currentContactId: string | null,
+  currentUserEmail: string | null,
 ): DrawActivityRow {
   const accessOptions = {
     currentUserId,
     currentContactId,
+    currentUserEmail,
   };
   const createdBy = drawEvent.event.createdBy
     ? `${drawEvent.event.createdBy.firstName} ${drawEvent.event.createdBy.lastName}`.trim()
@@ -495,9 +497,10 @@ export default function DrawNamesActivity() {
         drawEvent,
         authUser?.id?.trim() || null,
         currentContactId?.trim() || null,
+        authUser?.email?.trim() || null,
       ),
     );
-  }, [authUser?.id, currentContactId, drawNameEventsResponse]);
+  }, [authUser?.email, authUser?.id, currentContactId, drawNameEventsResponse]);
 
   useEffect(() => {
     setSelected((current) =>

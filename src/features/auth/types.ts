@@ -72,6 +72,32 @@ export type ExternalProfileResponse = {
   data: ExternalProfileRecord;
 };
 
+export type ExternalBusinessRecord = {
+  _id?: string;
+  id?: string;
+  businessName?: string;
+  numberOfEmployees?: string;
+  businessLocation?: string;
+  industry?: string;
+  currency?: string;
+  timezone?: string;
+  goals?: string[];
+  services?: string[];
+  state?: string;
+  country?: string;
+  switchActive?: boolean;
+  onboardingCompleted?: boolean;
+  accountId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
+};
+
+export type ExternalBusinessesResponse = {
+  success: boolean;
+  data: ExternalBusinessRecord[];
+};
+
 export type SignInResponse = {
   code: number;
   message: string;

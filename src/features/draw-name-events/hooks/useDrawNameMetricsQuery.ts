@@ -9,13 +9,16 @@ type DrawNameMetrics = DrawNameMetricsData;
 const sampleMetrics: DrawNameMetrics = {
   totalGifts: {
     value: 0,
-    percentageChangeThisMonth:0,
+    percentageChangeThisMonth: 0,
     currentMonth: 0,
     previousMonth: 0,
   },
   activeDrawNames: {
     value: 0,
     newThisWeek: 0,
+  },
+  totalDrawNamesParticipated: {
+    value: 0,
   },
   totalNames: {
     value: 0,

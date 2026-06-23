@@ -5,6 +5,8 @@ export const AUTH_APP_BASE_URL =
   
 export const YULE_SIGN_IN_URL = `${AUTH_APP_BASE_URL}/signin?source=yule`;
 export const YULE_SIGN_UP_URL = `${AUTH_APP_BASE_URL}/signup?source=yule`;
+export const AUTH_APP_BASE_URL_MANAGE_ACCOUNT= `${AUTH_APP_BASE_URL}/account`;
+
 
 export function getAuthAwareCtaHref(
   isAuthenticated: boolean,

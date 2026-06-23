@@ -145,6 +145,9 @@ export type DrawNameMetricsData = {
     value: number;
     newThisWeek?: number | null;
   };
+  totalDrawNamesParticipated: {
+    value: number;
+  };
   totalNames: {
     value: number;
   };

@@ -69,6 +69,7 @@ import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCrea
 import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
+import { useGiftMetricsQuery } from "@/features/gifts/hooks/useGiftMetricsQuery";
 import { useGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useGivenGroupedGiftsQuery";
 import { useReceivedGiftsQuery } from "@/features/gifts/hooks/useReceivedGiftsQuery";
 import { canManageGiftingEvent } from "@/features/gifting-events/access";
@@ -80,6 +81,7 @@ import { useUpdateGiftingEventMutation } from "@/features/gifting-events/hooks/u
 import { useGiftingEventInvitationsQuery } from "@/features/invitations/hooks/useGiftingEventInvitationsQuery";
 import { useSendGiftingEventInvitationsMutation } from "@/features/invitations/hooks/useSendGiftingEventInvitationsMutation";
 import type {
+  GiftMetricStat,
   GivenGroupedGift,
   GivenGroupedGiftEvent,
   GivenGroupedGiftPerson,
@@ -158,6 +160,8 @@ type StatCardData = {
   hintColor?: string;
 };
 
+type GiftMetricSource = GiftMetricStat | number | string | null | undefined;
+
 const recipientPalette = [
   { color: "#3300C9", bg: "#EFE6FD" },
   { color: "#C28A00", bg: "#FCEEC8" },
@@ -196,40 +200,124 @@ const RECORD_AVATAR_STYLES = [
   { avatarBg: "#DDF0FF", avatarColor: "#0067C9" },
   { avatarBg: "#E8E6F8", avatarColor: "#5A4CB8" },
 ] as const;
-const giftStats: StatCardData[] = [
-  {
-    icon: (
-      <ShoppingBagIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
-    ),
-    iconBg: "#EFE6FD",
-    value: "48",
-    label: "Total Gifts",
-    hint: "+12% this month",
-    hintColor: "#3300C9",
-  },
-  {
-    icon: (
-      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
-    ),
-    iconBg: "#D9F4E2",
-    value: "$264",
-    label: "Total Amount Spent",
-    hint: "+2 new this week",
-    hintColor: "#24A959",
-  },
-  {
-    icon: <UsersIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
-    iconBg: "#FCEEC8",
-    value: "3",
-    label: "Total People",
-  },
-  {
-    icon: <StoreIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
-    iconBg: "#FCEEC8",
-    value: "3",
-    label: "Total Sellers",
-  },
-];
+function getGiftMetricValue(metric: GiftMetricSource) {
+  if (
+    metric &&
+    typeof metric === "object" &&
+    "value" in metric &&
+    (typeof metric.value === "number" || typeof metric.value === "string")
+  ) {
+    return metric.value;
+  }
+
+  if (typeof metric === "number" || typeof metric === "string") {
+    return metric;
+  }
+
+  return 0;
+}
+
+function getGiftMetricOptionalNumber(
+  metric: GiftMetricSource,
+  key: "percentageChangeThisMonth" | "newThisWeek",
+) {
+  if (!metric || typeof metric !== "object" || !(key in metric)) {
+    return null;
+  }
+
+  const value = (metric as Record<string, unknown>)[key];
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatGiftMetricAmount(value: number | string) {
+  if (typeof value === "string") {
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) {
+      return formatCurrency(0, "NGN");
+    }
+
+    if (/[A-Za-z$#€£¥₦]/.test(trimmedValue)) {
+      return trimmedValue;
+    }
+  }
+
+  return formatCurrency(value, "NGN");
+}
+
+function useDerivedGiftStats() {
+  const { data: metrics = null } = useGiftMetricsQuery(true);
+
+  const resolvedMetrics = metrics ?? {
+    totalGifts: { value: 0, percentageChangeThisMonth: 0 },
+    totalAmountSpent: { value: 0, newThisWeek: 0 },
+    totalPeople: { value: 0 },
+    totalSellers: { value: 0 },
+  };
+
+  const totalGiftsValue = getGiftMetricValue(resolvedMetrics.totalGifts);
+  const totalAmountSpentValue = getGiftMetricValue(
+    resolvedMetrics.totalAmountSpent,
+  );
+  const totalPeopleValue = getGiftMetricValue(resolvedMetrics.totalPeople);
+  const totalSellersValue = getGiftMetricValue(resolvedMetrics.totalSellers);
+  const totalGiftsPercentageChange = getGiftMetricOptionalNumber(
+    resolvedMetrics.totalGifts,
+    "percentageChangeThisMonth",
+  );
+  const totalAmountSpentNewThisWeek = getGiftMetricOptionalNumber(
+    resolvedMetrics.totalAmountSpent,
+    "newThisWeek",
+  );
+
+  const stats: StatCardData[] = [
+    {
+      icon: (
+        <ShoppingBagIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
+      ),
+      iconBg: "#EFE6FD",
+      value: String(totalGiftsValue),
+      label: "Total Gifts",
+      hint:
+        totalGiftsPercentageChange !== null && totalGiftsPercentageChange !== 0
+          ? `${totalGiftsPercentageChange > 0 ? "+" : ""}${totalGiftsPercentageChange}% this month`
+          : undefined,
+      hintColor: "#3300C9",
+    },
+    {
+      icon: (
+        <CalendarDaysIcon
+          className="size-5 text-[#1FAB54]"
+          strokeWidth={1.8}
+        />
+      ),
+      iconBg: "#D9F4E2",
+      value: formatGiftMetricAmount(totalAmountSpentValue),
+      label: "Total Amount Spent",
+      hint:
+        totalAmountSpentNewThisWeek !== null &&
+        totalAmountSpentNewThisWeek !== 0
+          ? `+${totalAmountSpentNewThisWeek} new this week`
+          : undefined,
+      hintColor: "#24A959",
+    },
+    {
+      icon: <UsersIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
+      iconBg: "#FCEEC8",
+      value: String(totalPeopleValue),
+      label: "Total People",
+    },
+    {
+      icon: <StoreIcon className="size-5 text-[#C28A00]" strokeWidth={1.8} />,
+      iconBg: "#FCEEC8",
+      value: String(totalSellersValue),
+      label: "Total Sellers",
+    },
+  ];
+
+  return stats;
+}
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -1057,6 +1145,7 @@ export default function DashboardGiftsScreen() {
   const activeTab: GiftsTab = isValidGiftsTab(activeTabParam)
     ? activeTabParam
     : "events";
+  const giftStats = useDerivedGiftStats();
   const resolvedCurrentContactId =
     currentContactId?.trim() || ensuredCurrentContactId?.trim() || null;
   const {

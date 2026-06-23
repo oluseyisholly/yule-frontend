@@ -24,6 +24,7 @@ import SearchableRecordPicker, {
   type SearchableRecordItem,
 } from "@/components/SearchableRecordPicker";
 import DrawNameExecutionFlowSteps from "@/screens/draw-names/DrawNameExecutionFlowSteps";
+import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useContactsQuery } from "@/features/contacts/hooks/useContactsQuery";
@@ -59,6 +60,7 @@ import type {
   MarketplaceProduct,
 } from "@/features/marketplace/types";
 import { type DrawNameInviteParticipant } from "@/components/DrawNameInviteStep";
+import type { ExternalBusinessRecord } from "@/features/auth/types";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
 import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
@@ -84,6 +86,7 @@ type DrawNameStartModalProps = {
   eventId: string | null;
   drawNameEventId: string | null;
   flowActor: "creator" | "participant";
+  renderInline?: boolean;
   onStepChange: (
     step: DrawNameModalStep,
     nextEventId?: string | null,
@@ -205,6 +208,47 @@ function mapEventParticipantToRecordItem(
     phoneNumber: "",
     gender: "",
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
+    avatarBg,
+    avatarColor,
+  };
+}
+
+function mapExternalBusinessToRecordItem(
+  business: ExternalBusinessRecord,
+): SearchableRecordItem | null {
+  const businessId = business.id?.trim() || business._id?.trim() || "";
+  const businessName = business.businessName?.trim() || "";
+
+  if (!businessId || !businessName) {
+    return null;
+  }
+
+  const subtitleParts = [
+    business.businessLocation?.trim(),
+    business.state?.trim(),
+    business.country?.trim(),
+    business.industry?.trim(),
+  ].filter(Boolean);
+  const subtitle = subtitleParts.join(" • ") || "Business";
+  const initials = businessName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+  const { avatarBg, avatarColor } = getContactAvatarStyle(businessId);
+
+  return {
+    id: businessId,
+    name: businessName,
+    subtitle,
+    createdById: null,
+    isManageable: false,
+    firstName: businessName,
+    lastName: "",
+    phoneNumber: "",
+    gender: "",
+    initials: initials || "ON",
     avatarBg,
     avatarColor,
   };
@@ -499,14 +543,20 @@ export default function DrawNameStartModal({
   eventId,
   drawNameEventId,
   flowActor,
+  renderInline = false,
   onStepChange,
   onReplaceStep,
   onClose,
 }: DrawNameStartModalProps) {
   const authUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
   const currentUserContactId = useAuthStore((state) => state.currentContactId);
   const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
   const firstName = authUser?.firstName;
+  const onedaAccountId =
+    authUser?.profile?.accountId?._id?.trim() ||
+    authUser?.hostAccountId?.trim() ||
+    null;
   const flowSelectionKey = buildDrawNameFlowSelectionKey(
     flowActor,
     drawNameEventId,
@@ -531,6 +581,11 @@ export default function DrawNameStartModal({
   const [isSendEmailConfirmationOpen, setIsSendEmailConfirmationOpen] =
     useState(false);
   const [isCopyInvitePanelOpen, setIsCopyInvitePanelOpen] = useState(false);
+  const [isOnedaBusinessPickerOpen, setIsOnedaBusinessPickerOpen] =
+    useState(false);
+  const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
+    string[]
+  >([]);
   const [inviteSearchValue, setInviteSearchValue] = useState("");
   const [debouncedInviteSearchValue, setDebouncedInviteSearchValue] =
     useState("");
@@ -667,6 +722,20 @@ export default function DrawNameStartModal({
     },
   );
   const {
+    data: onedaBusinesses = [],
+    isLoading: isOnedaBusinessesLoading,
+    isFetching: isOnedaBusinessesFetching,
+    isError: isOnedaBusinessesError,
+    refetch: refetchOnedaBusinesses,
+  } = useExternalBusinessesQuery(onedaAccountId, authToken, {
+    enabled:
+      open &&
+      currentStep === "source" &&
+      isOnedaBusinessPickerOpen &&
+      Boolean(onedaAccountId) &&
+      Boolean(authToken),
+  });
+  const {
     data: contactsResponse,
     isLoading: isContactsLoading,
     isFetching: isContactsFetching,
@@ -775,6 +844,13 @@ export default function DrawNameStartModal({
           isManageable: Boolean(eventType.user_id ?? eventType.createdById),
         })),
     [availableEventTypesResponse],
+  );
+  const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
+    () =>
+      onedaBusinesses
+        .map((business) => mapExternalBusinessToRecordItem(business))
+        .filter((business): business is SearchableRecordItem => Boolean(business)),
+    [onedaBusinesses],
   );
 
   const fetchedRecordOptions = useMemo<SearchableRecordItem[]>(
@@ -1766,6 +1842,14 @@ export default function DrawNameStartModal({
   }, []);
 
   useEffect(() => {
+    if (open && currentStep === "source") {
+      return;
+    }
+
+    setIsOnedaBusinessPickerOpen(false);
+  }, [currentStep, open]);
+
+  useEffect(() => {
     if (!open) {
       return;
     }
@@ -1981,6 +2065,19 @@ export default function DrawNameStartModal({
   const handleDeleteEventOption = async (option: OverlaySelectOption) => {
     const response = await deleteEventTypeMutation.mutateAsync(option.value);
     toast.success(response.message);
+  };
+
+  const handleOnedaBusinessPickerOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && (!authToken || !onedaAccountId)) {
+      toast.error("Your Oneda business details are not available right now.");
+      return;
+    }
+
+    setIsOnedaBusinessPickerOpen(nextOpen);
+  };
+
+  const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
+    setSelectedOnedaBusinessIds(ids.slice(-1));
   };
 
   const handleSourceNext = () => {
@@ -2916,14 +3013,37 @@ export default function DrawNameStartModal({
             From Record
           </ModalButton>
 
-          <ModalButton
-            type="button"
-            variant="secondary"
-            disabled
-            className="w-full cursor-not-allowed border-[#D8D1F3] bg-[#F6F4FD] text-[#A79EDC] hover:bg-[#F6F4FD]"
-          >
-            From Oneda
-          </ModalButton>
+          <OverlayRecordPicker
+            open={isOnedaBusinessPickerOpen}
+            onOpenChange={handleOnedaBusinessPickerOpenChange}
+            items={onedaBusinessOptions}
+            selectedIds={selectedOnedaBusinessIds}
+            onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
+            placeholder="From Oneda"
+            panelTitle="Search for business"
+            searchPlaceholder=""
+            isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+            emptyStateText={
+              isOnedaBusinessesError
+                ? "Unable to load businesses."
+                : "No business found."
+            }
+            footer={
+              isOnedaBusinessesError ? (
+                <div className="flex justify-center pt-3">
+                  <button
+                    type="button"
+                    onClick={() => void refetchOnedaBusinesses()}
+                    className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                  >
+                    Retry loading businesses
+                  </button>
+                </div>
+              ) : null
+            }
+            showTriggerChevron={false}
+            triggerClassName="h-[42px] justify-center rounded-[14px] border border-[#3300C9] bg-white px-6 text-[18px] font-medium text-[#3300C9] hover:bg-[#F8F5FF]"
+          />
         </div>
 
         <div className="flex justify-center">
@@ -3210,32 +3330,8 @@ export default function DrawNameStartModal({
     return exclusionRecordContent;
   }
 
-  return (
+  const confirmationModals = (
     <>
-      <ContentModal
-        open={open}
-        onClose={handleCloseAndRedirect}
-        title="Start draw name"
-        bodyScrollable={!isLargeGiftStep && !isDrawInviteStep}
-        showHeader={false}
-        showCloseButton={true}
-        closeOnOverlayClick={false}
-        dialogClassName={
-          isLargeGiftStep
-            ? "max-w-[1148px] max-h-[calc(100vh-1.5rem)] rounded-[18px] bg-white sm:rounded-[20px]"
-            : "max-w-[536px] rounded-[18px] bg-white sm:rounded-[20px]"
-        }
-        bodyClassName={
-          isDrawResultStep
-            ? "overflow-hidden p-0"
-            : isLargeGiftStep
-              ? "!max-h-[calc(100vh-1.5rem)] h-[calc(100vh-1.5rem)] px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
-              : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
-        }
-      >
-        {modalContent}
-      </ContentModal>
-
       <ConfirmationModal
         open={Boolean(recordPendingDelete)}
         onClose={() => setRecordPendingDelete(null)}
@@ -3282,6 +3378,48 @@ export default function DrawNameStartModal({
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
+    </>
+  );
+
+  if (renderInline && currentStep === "wishlist-gifts") {
+    return (
+      <>
+        <div className="min-h-[560px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
+          <div className="h-full min-h-0">{modalContent}</div>
+        </div>
+
+        {confirmationModals}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <ContentModal
+        open={open}
+        onClose={handleCloseAndRedirect}
+        title="Start draw name"
+        bodyScrollable={!isLargeGiftStep && !isDrawInviteStep}
+        showHeader={false}
+        showCloseButton={true}
+        closeOnOverlayClick={false}
+        dialogClassName={
+          isLargeGiftStep
+            ? "max-w-[1148px] max-h-[calc(100vh-1.5rem)] rounded-[18px] bg-white sm:rounded-[20px]"
+            : "max-w-[536px] rounded-[18px] bg-white sm:rounded-[20px]"
+        }
+        bodyClassName={
+          isDrawResultStep
+            ? "overflow-hidden p-0"
+            : isLargeGiftStep
+              ? "!max-h-[calc(100vh-1.5rem)] h-[calc(100vh-1.5rem)] px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
+              : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
+        }
+      >
+        {modalContent}
+      </ContentModal>
+
+      {confirmationModals}
     </>
   );
 }
