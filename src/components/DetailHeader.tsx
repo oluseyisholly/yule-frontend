@@ -66,7 +66,7 @@ export default function DetailHeader({
         {/* <DetailHeaderAvatar avatar={avatar} badge={avatarBadge} /> */}
 
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-[#1E1E1E] lg:text-2xl">
+          <h1 className="text-lg font-semibold text-[#1E1E1E] lg:text-4xl">
             {title}
           </h1>
           {subtitle ? (
