@@ -40,6 +40,10 @@ export type CreateContactPayload = {
   email: string;
 };
 
+export type CreateBulkContactsPayload = {
+  contacts: CreateContactPayload[];
+};
+
 export type UpdateContactPayload = CreateContactPayload;
 
 export type CreateContactResponse = {
@@ -49,6 +53,12 @@ export type CreateContactResponse = {
 };
 
 export type UpdateContactResponse = CreateContactResponse;
+
+export type CreateBulkContactsResponse = {
+  code: number;
+  message: string;
+  data: Contact[];
+};
 
 export type CurrentContactIdResponse = {
   code: number;

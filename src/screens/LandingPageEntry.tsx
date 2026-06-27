@@ -21,7 +21,7 @@ function buildSanitizedLandingUrl(searchParams: URLSearchParams) {
   nextSearchParams.delete("refreshToken");
   const nextSearch = nextSearchParams.toString();
 
-  return nextSearch ? `/?${nextSearch}` : "/";
+  return nextSearch ? `/?${nextSearch}` : "/dashboard";
 }
 
 function resolvePostSsoRedirect(searchParams: URLSearchParams) {

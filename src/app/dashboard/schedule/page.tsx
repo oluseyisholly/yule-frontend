@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DashboardWorkspace from "@/components/dashboard/Workspace";
+import ScheduleScreen from "@/screens/ScheduleScreen";
 
 export const metadata: Metadata = {
   title: "Schedule Event & Message",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function SchedulePage() {
-  return <DashboardWorkspace tab="schedule" />;
+  return <ScheduleScreen />;
 }

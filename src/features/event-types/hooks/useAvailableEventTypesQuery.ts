@@ -22,8 +22,8 @@ export function useAvailableEventTypesQuery(
     queryKey: eventTypeQueryKeys.available(normalizedParams),
     queryFn: () => getAvailableEventTypes(normalizedParams),
     enabled: options.enabled ?? true,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
   });
 }

@@ -118,6 +118,7 @@ export type DrawNameEventsParams = {
   per_page?: number;
   page?: number;
   searchQuery?: string;
+  scope?: "organizer" | "participant" | "all";
 };
 
 export type DrawNameEventsPage = {

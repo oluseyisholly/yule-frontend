@@ -59,9 +59,19 @@ export type ExternalProfileRecord = {
   default: boolean;
   host: boolean;
   type: string;
+  gender?: string;
+  nationality?: string;
   active: boolean;
   status: string;
+  category?: string;
+  subCategory?: string;
   above18: boolean;
+  businessCity?: string;
+  state?: string;
+  country?: string;
+  currency?: string;
+  profilePhotoUrl?: string | null;
+  address?: string | null;
   createdAt: string;
   updatedAt: string;
   __v: number;
@@ -70,6 +80,24 @@ export type ExternalProfileRecord = {
 export type ExternalProfileResponse = {
   success: boolean;
   data: ExternalProfileRecord;
+};
+
+export type UpdateExternalProfilePayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  businessCity: string;
+  state: string;
+  country: string;
+  phoneNumber: string;
+  currency: string;
+  profilePhotoUrl: string;
+};
+
+export type UpdateExternalProfileResponse = {
+  success?: boolean;
+  message?: string;
+  data?: ExternalProfileRecord;
 };
 
 export type ExternalBusinessRecord = {

@@ -37,41 +37,48 @@ export default function TopAlert({
   };
 
   return (
-    <Alert className="relative flex items-center gap-3 bg-[#EFE6FD] rounded-[10px] text-[#434343] max-md:p-2 md:justify-center md:gap-4">
-      <p className="pr-8 text-[9px] md:pr-0 md:text-xs">{title}</p>
+    <Alert className="relative overflow-hidden rounded-[10px] bg-[#EFE6FD] text-[#434343] px-3 py-3 sm:px-4">
+      <div className="flex flex-col gap-3 pr-7 sm:pr-8 md:flex-row md:items-center md:justify-center md:gap-4">
+        <p className="text-[11px] leading-4 sm:text-xs sm:leading-5 md:text-center">
+          {title}
+        </p>
 
-      <button
-        type="button"
-        onClick={onThumbsUp}
-        aria-label="Helpful"
-        className="flex h-7 w-11 shrink-0 items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f8f5ff]"
-      >
-        <ThumbsUpIcon size={16} />
-      </button>
+        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:gap-3">
+          <button
+            type="button"
+            onClick={onThumbsUp}
+            aria-label="Helpful"
+            className="flex h-7 w-10 shrink-0 items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f8f5ff] sm:w-11"
+          >
+            <ThumbsUpIcon size={16} />
+          </button>
 
-      <button
-        type="button"
-        onClick={onThumbsDown}
-        aria-label="Not helpful"
-        className="flex h-7 w-11 shrink-0 items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f8f5ff]"
-      >
-        <ThumbsDownIcon size={16} />
-      </button>
+          <button
+            type="button"
+            onClick={onThumbsDown}
+            aria-label="Not helpful"
+            className="flex h-7 w-10 shrink-0 items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f8f5ff] sm:w-11"
+          >
+            <ThumbsDownIcon size={16} />
+          </button>
 
-      <Link
-        href={externalLink}
-        className="mr-5 flex items-center gap-1.5 text-[9px] text-nowrap text-[#24A959] md:gap-2.5 md:text-sm"
-      >
-        Learn more <ExternalLinkIcon size={16} />
-      </Link>
+          <Link
+            href={externalLink}
+            className="flex min-w-0 items-center gap-1.5 text-[11px] text-[#24A959] sm:gap-2 sm:text-sm md:whitespace-nowrap"
+          >
+            <span className="truncate">Learn more</span>
+            <ExternalLinkIcon size={16} className="shrink-0" />
+          </Link>
+        </div>
+      </div>
 
       <button
         type="button"
         aria-label="Dismiss alert"
-        className="absolute right-1.5 top-3 cursor-pointer md:right-4 md:top-4"
+        className="absolute right-2 top-2 cursor-pointer rounded-full p-0.5 transition-colors hover:bg-white/60 md:right-4 md:top-4"
         onClick={handleCancel}
       >
-        <XIcon size={24} />
+        <XIcon size={18} className="sm:size-5 md:size-6" />
       </button>
     </Alert>
   );

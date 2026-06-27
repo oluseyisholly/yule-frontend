@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import Button from "@/components/Button";
 import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
@@ -44,13 +44,13 @@ function SignedInUserCard({
     <Link
       href="/dashboard"
       onClick={onClick}
-      className={`flex min-w-0 items-center gap-3 rounded-full border border-transparent px-4 py-2.5 transition-colors hover:border-[#F1EBFF] ${className}`}
+      className={`flex min-w-0 items-center gap-3 rounded-full border border-transparent px-1 py-2.5 transition-colors hover:border-[#F1EBFF] ${className}`}
     >
       <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#EEE6FF] text-[16px] font-semibold text-[#3300C9]">
         {initials}
       </span>
 
-      <span className="min-w-0">
+      <span className="min-w-0 hidden md:block">
         <span className="block truncate text-[16px] font-medium leading-tight text-[#3300C9]">
           {name}
         </span>
@@ -88,9 +88,11 @@ function SigningInUserCard({ className = "" }: { className?: string }) {
 export default function Header() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [hasPendingAccessToken, setHasPendingAccessToken] = useState(false);
   const authUser = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isSsoSigningIn = useAuthStore((state) => state.isSsoSigningIn);
+  const shouldShowSigningInLoader = isSsoSigningIn || hasPendingAccessToken;
 
   const fullName =
     `${authUser?.firstName?.trim() ?? ""} ${authUser?.lastName?.trim() ?? ""}`.trim() ||
@@ -100,6 +102,15 @@ export default function Header() {
   const shouldShowSignedInCard = isAuthenticated && Boolean(authUser);
 
   const closeMenu = () => setIsOpen(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(window.location.search);
+    setHasPendingAccessToken(Boolean(nextSearchParams.get("accessToken")?.trim()));
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur">
@@ -133,7 +144,7 @@ export default function Header() {
 
         {/* Desktop CTAs */}
         <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-6">
-          {isSsoSigningIn ? (
+          {shouldShowSigningInLoader ? (
             <SigningInUserCard className="max-w-[280px]" />
           ) : shouldShowSignedInCard ? (
             <SignedInUserCard
@@ -210,7 +221,7 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          {isSsoSigningIn ? (
+          {shouldShowSigningInLoader ? (
             <SigningInUserCard className="w-full" />
           ) : shouldShowSignedInCard ? (
             <SignedInUserCard

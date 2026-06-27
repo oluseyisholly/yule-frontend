@@ -13,6 +13,7 @@ export const wishlistEventQueryKeys = {
   list: (params: WishlistEventsParams = {}) =>
     [
       ...wishlistEventQueryKeys.lists(),
+      params.scope ?? "all",
       params.per_page ?? 10,
       params.page ?? 1,
       params.searchQuery ?? "",

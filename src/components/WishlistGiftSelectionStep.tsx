@@ -46,6 +46,11 @@ type WishlistGiftSelectionStepProps = {
   isInitialSelectionLoading?: boolean;
   isInitialSelectionError?: boolean;
   onRetryInitialSelection?: () => void;
+  selectionMode?: "single" | "multiple";
+  title?: string;
+  description?: string;
+  searchPlaceholder?: string;
+  emptyStateText?: string;
 };
 
 type FilterOption = {
@@ -352,6 +357,11 @@ export default function WishlistGiftSelectionStep({
   isInitialSelectionLoading = false,
   isInitialSelectionError = false,
   onRetryInitialSelection,
+  selectionMode = "multiple",
+  title = "Gifts speak louder than words.",
+  description = "While you're typing that heartfelt message, let us help you find the perfect surprise to brighten their day.",
+  searchPlaceholder = "Search for Gift",
+  emptyStateText = "No gifts matched your current filters.",
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -456,7 +466,9 @@ export default function WishlistGiftSelectionStep({
     onSelectedIdsChange(
       isCurrentlySelected
         ? selectedIds.filter((id) => id !== giftId)
-        : [...selectedIds, giftId],
+        : selectionMode === "single"
+          ? [giftId]
+          : [...selectedIds, giftId],
     );
     onSelectedProductToggle(product, nextChecked);
   };
@@ -498,11 +510,10 @@ export default function WishlistGiftSelectionStep({
         <div className="space-y-4 pb-4 sm:space-y-5 sm:pb-5">
           <div>
             <h2 className="mb-2 max-w-[700px] font-body text-[26px] font-semibold leading-tight text-charcoal sm:text-[32px]">
-              Gifts speak louder than words.
+              {title}
             </h2>
             <p className="max-w-[720px] text-[13px] text-charcoal sm:text-[14px]">
-              While you&apos;re typing that heartfelt message, let us help you
-              find the perfect surprise to brighten their day.
+              {description}
             </p>
           </div>
 
@@ -597,7 +608,7 @@ export default function WishlistGiftSelectionStep({
                 setQuery(event.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search for Gift"
+              placeholder={searchPlaceholder}
               containerClassName="w-full xl:max-w-[520px]"
               className="h-10 rounded-[5px] border-[#9F9F9F] bg-[#FFFFFF] text-[12px] font-medium placeholder:text-[#716F6F]"
             />
@@ -710,7 +721,7 @@ export default function WishlistGiftSelectionStep({
         </div>
       ) : products.length === 0 ? (
         <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] px-6 text-center text-[14px] text-[#7D7D7D]">
-          No gifts matched your current filters.
+          {emptyStateText}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">

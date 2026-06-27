@@ -25,7 +25,9 @@ import SearchableRecordPicker, {
 } from "@/components/SearchableRecordPicker";
 import DrawNameExecutionFlowSteps from "@/screens/draw-names/DrawNameExecutionFlowSteps";
 import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
+import { useOnedaProfilesQuery } from "@/features/auth/hooks/useOnedaProfilesQuery";
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
+import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCreateBulkContactsMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useContactsQuery } from "@/features/contacts/hooks/useContactsQuery";
 import { useEnsureMyContactMutation } from "@/features/contacts/hooks/useEnsureMyContactMutation";
@@ -294,7 +296,9 @@ function mergePairedRecordMaps(...maps: Record<string, string[]>[]) {
 
   return Object.fromEntries(
     Array.from(nextMap.entries())
-      .map(([recordId, pairedIds]) => [recordId, Array.from(pairedIds)] as const)
+      .map(
+        ([recordId, pairedIds]) => [recordId, Array.from(pairedIds)] as const,
+      )
       .filter(([, pairedIds]) => pairedIds.length > 0),
   ) as Record<string, string[]>;
 }
@@ -304,10 +308,8 @@ function getGiftRecipientDisplayName(result: GiftRecipientResult) {
     return "";
   }
 
-  const firstName =
-    result.eventContact?.firstName?.trim() || "";
-  const lastName =
-    result.eventContact?.lastName?.trim() || "";
+  const firstName = result.eventContact?.firstName?.trim() || "";
+  const lastName = result.eventContact?.lastName?.trim() || "";
 
   return `${firstName} ${lastName}`.trim();
 }
@@ -387,7 +389,9 @@ function normalizeParticipantGiftSelections(
   return [];
 }
 
-function toMarketplaceCondition(value?: string): MarketplaceCondition | undefined {
+function toMarketplaceCondition(
+  value?: string,
+): MarketplaceCondition | undefined {
   const normalizedValue = value?.trim();
 
   if (
@@ -443,18 +447,20 @@ function mapParticipantGiftSelectionToMarketplaceProduct(
   };
 }
 
-function hasRichMarketplaceProductSnapshot(product?: MarketplaceProduct | null) {
+function hasRichMarketplaceProductSnapshot(
+  product?: MarketplaceProduct | null,
+) {
   if (!product) {
     return false;
   }
 
   return Boolean(
     (product.title?.trim() && product.title.trim() !== "Selected gift") ||
-      (typeof product.amount === "number" && product.amount > 0) ||
-      product.description?.trim() ||
-      product.images?.length ||
-      product.sellerId ||
-      product.slug,
+    (typeof product.amount === "number" && product.amount > 0) ||
+    product.description?.trim() ||
+    product.images?.length ||
+    product.sellerId ||
+    product.slug,
   );
 }
 
@@ -551,7 +557,9 @@ export default function DrawNameStartModal({
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
   const currentUserContactId = useAuthStore((state) => state.currentContactId);
-  const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
+  const setCurrentContactId = useAuthStore(
+    (state) => state.setCurrentContactId,
+  );
   const firstName = authUser?.firstName;
   const onedaAccountId =
     authUser?.profile?.accountId?._id?.trim() ||
@@ -581,9 +589,10 @@ export default function DrawNameStartModal({
   const [isSendEmailConfirmationOpen, setIsSendEmailConfirmationOpen] =
     useState(false);
   const [isCopyInvitePanelOpen, setIsCopyInvitePanelOpen] = useState(false);
-  const [isOnedaBusinessPickerOpen, setIsOnedaBusinessPickerOpen] =
-    useState(false);
   const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
+    string[]
+  >([]);
+  const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<
     string[]
   >([]);
   const [inviteSearchValue, setInviteSearchValue] = useState("");
@@ -605,8 +614,10 @@ export default function DrawNameStartModal({
   const [selectedWishlistGiftIds, setSelectedWishlistGiftIds] = useState<
     string[]
   >([]);
-  const [selectedWishlistGiftProductsById, setSelectedWishlistGiftProductsById] =
-    useState<Record<string, MarketplaceProduct>>({});
+  const [
+    selectedWishlistGiftProductsById,
+    setSelectedWishlistGiftProductsById,
+  ] = useState<Record<string, MarketplaceProduct>>({});
   const [wishlistNotificationChoice, setWishlistNotificationChoice] = useState<
     "yes" | "no"
   >("yes");
@@ -659,6 +670,7 @@ export default function DrawNameStartModal({
   const updateEventTypeMutation = useUpdateEventTypeMutation();
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const createContactMutation = useCreateContactMutation();
+  const createBulkContactsMutation = useCreateBulkContactsMutation();
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const myContactIdMutation = useMyContactIdMutation();
@@ -700,11 +712,7 @@ export default function DrawNameStartModal({
         currentUserId: authUser?.id?.trim() || null,
         currentContactId: currentUserContactId?.trim() || null,
       }),
-    [
-      authUser?.id,
-      currentUserContactId,
-      drawNameEventResponse?.data,
-    ],
+    [authUser?.id, currentUserContactId, drawNameEventResponse?.data],
   );
 
   const {
@@ -718,7 +726,7 @@ export default function DrawNameStartModal({
       page: 1,
     },
     {
-      enabled: open,
+      enabled: open && currentStep === "event",
     },
   );
   const {
@@ -730,10 +738,26 @@ export default function DrawNameStartModal({
   } = useExternalBusinessesQuery(onedaAccountId, authToken, {
     enabled:
       open &&
-      currentStep === "source" &&
-      isOnedaBusinessPickerOpen &&
+      currentStep === "oneda-business" &&
       Boolean(onedaAccountId) &&
       Boolean(authToken),
+  });
+  const selectedOnedaBusinessId =
+    Array.isArray(selectedOnedaBusinessIds) &&
+    selectedOnedaBusinessIds.length > 0
+      ? (selectedOnedaBusinessIds[0] ?? null)
+      : null;
+  const {
+    data: onedaProfiles = [],
+    isLoading: isOnedaProfilesLoading,
+    isFetching: isOnedaProfilesFetching,
+    isError: isOnedaProfilesError,
+    refetch: refetchOnedaProfiles,
+  } = useOnedaProfilesQuery(selectedOnedaBusinessId, authToken, {
+    enabled:
+      open &&
+      currentStep === "oneda-contact" &&
+      Boolean(selectedOnedaBusinessId),
   });
   const {
     data: contactsResponse,
@@ -819,18 +843,20 @@ export default function DrawNameStartModal({
     isFetching: isDrawNameEventInvitationsFetching,
     isError: isDrawNameEventInvitationsError,
     refetch: refetchDrawNameEventInvitations,
-  } = useDrawNameEventInvitationsQuery(drawNameEventId, {
-    per_page: 25,
-    page: 1,
-    searchQuery: debouncedInviteSearchValue,
-  }, {
-    enabled: open && currentStep === "draw-invite",
-  });
+  } = useDrawNameEventInvitationsQuery(
+    drawNameEventId,
+    {
+      per_page: 25,
+      page: 1,
+      searchQuery: debouncedInviteSearchValue,
+    },
+    {
+      enabled: open && currentStep === "draw-invite",
+    },
+  );
   const { data: giftRecipientResponse, refetch: refetchGiftRecipient } =
     useGiftRecipientQuery(eventId, {
-      enabled:
-        open &&
-        ["draw-result"].includes(currentStep),
+      enabled: open && ["draw-result"].includes(currentStep),
     });
 
   const eventOptions = useMemo<OverlaySelectOption[]>(
@@ -849,8 +875,22 @@ export default function DrawNameStartModal({
     () =>
       onedaBusinesses
         .map((business) => mapExternalBusinessToRecordItem(business))
-        .filter((business): business is SearchableRecordItem => Boolean(business)),
+        .filter((business): business is SearchableRecordItem =>
+          Boolean(business),
+        ),
     [onedaBusinesses],
+  );
+  const onedaProfileOptions = useMemo<SearchableRecordItem[]>(
+    () =>
+      onedaProfiles.map((profile) => ({
+        id: profile._id,
+        name: `${profile.accountId.firstName} ${profile.accountId.lastName}`,
+        email: profile.accountId.email,
+        subtitle: profile.accountId.email,
+        avatar: "",
+        isSelectable: true,
+      })),
+    [onedaProfiles],
   );
 
   const fetchedRecordOptions = useMemo<SearchableRecordItem[]>(
@@ -1071,15 +1111,22 @@ export default function DrawNameStartModal({
     createDrawNameEventMutation.isPending ||
     updateDrawNameEventMutation.isPending;
   const activeContactMutation =
-    createContactMutation.isPending || updateContactMutation.isPending;
+    createContactMutation.isPending ||
+    createBulkContactsMutation.isPending ||
+    updateContactMutation.isPending;
 
   useEffect(() => {
-    if (currentStep !== "wishlist-gifts" || !participantGiftSelectionsResponse) {
+    if (
+      currentStep !== "wishlist-gifts" ||
+      !participantGiftSelectionsResponse
+    ) {
       return;
     }
 
     const selectedProducts = participantGiftSelections
-      .map((selection) => mapParticipantGiftSelectionToMarketplaceProduct(selection))
+      .map((selection) =>
+        mapParticipantGiftSelectionToMarketplaceProduct(selection),
+      )
       .filter((product): product is MarketplaceProduct => Boolean(product));
     const hasLocalWishlistSelection =
       selectedWishlistGiftIds.length > 0 ||
@@ -1092,7 +1139,9 @@ export default function DrawNameStartModal({
 
       setSelectedWishlistGiftIds((current) =>
         current.length === nextSelectedWishlistGiftIds.length &&
-        current.every((giftId, index) => giftId === nextSelectedWishlistGiftIds[index])
+        current.every(
+          (giftId, index) => giftId === nextSelectedWishlistGiftIds[index],
+        )
           ? current
           : nextSelectedWishlistGiftIds,
       );
@@ -1118,7 +1167,10 @@ export default function DrawNameStartModal({
       let hasChanged = false;
 
       selectedProducts.forEach((product) => {
-        if (current[product._id] || selectedWishlistGiftIds.includes(product._id)) {
+        if (
+          current[product._id] ||
+          selectedWishlistGiftIds.includes(product._id)
+        ) {
           const mergedProduct =
             mergeMarketplaceProductSnapshots(current[product._id], product) ??
             product;
@@ -1273,13 +1325,13 @@ export default function DrawNameStartModal({
 
     setIsFlowSelectionHydrated(false);
     setSelectedEventId(storedFlowSelection.selectedEventId);
+    setSelectedOnedaBusinessIds(storedFlowSelection.selectedOnedaBusinessIds);
+    setSelectedOnedaContactIds(storedFlowSelection.selectedOnedaContactIds);
     setSelectedRecordIds(storedFlowSelection.selectedRecordIds);
     setExclusionChoice(storedFlowSelection.exclusionChoice);
     setEventDate(storedFlowSelection.eventDate);
     setGroupName(storedFlowSelection.groupName);
-    setCameToBudgetFromGroupName(
-      storedFlowSelection.cameToBudgetFromGroupName,
-    );
+    setCameToBudgetFromGroupName(storedFlowSelection.cameToBudgetFromGroupName);
     setSelectedBudget(storedFlowSelection.selectedBudget);
     setCustomBudget(storedFlowSelection.customBudget);
     setSelectedWishlistGiftIds(storedFlowSelection.selectedWishlistGiftIds);
@@ -1446,6 +1498,8 @@ export default function DrawNameStartModal({
     setStoredDraftFields(flowSelectionKey, {
       lastVisitedStep: currentStep,
       selectedEventId,
+      selectedOnedaBusinessIds,
+      selectedOnedaContactIds,
       exclusionChoice,
       eventDate,
       groupName,
@@ -1463,6 +1517,8 @@ export default function DrawNameStartModal({
     flowSelectionKey,
     groupName,
     isFlowSelectionHydrated,
+    selectedOnedaBusinessIds,
+    selectedOnedaContactIds,
     selectedBudget,
     selectedEventId,
     setStoredDraftFields,
@@ -1495,10 +1551,8 @@ export default function DrawNameStartModal({
     } = toBudgetSelection(drawNameEvent.budget || drawNameEvent.maximumSpend);
     const persistedSelectedEventId =
       storedFlowSelection.selectedEventId || nextEventTypeId;
-    const persistedEventDate =
-      storedFlowSelection.eventDate || nextEventDate;
-    const persistedGroupName =
-      storedFlowSelection.groupName || nextGroupName;
+    const persistedEventDate = storedFlowSelection.eventDate || nextEventDate;
+    const persistedGroupName = storedFlowSelection.groupName || nextGroupName;
     const persistedSelectedBudget =
       storedFlowSelection.selectedBudget || nextSelectedBudget;
     const persistedCustomBudget =
@@ -1831,7 +1885,9 @@ export default function DrawNameStartModal({
             ? ([recordId, nextPairedIds] as const)
             : null;
         })
-        .filter((entry): entry is readonly [string, string[]] => Boolean(entry));
+        .filter((entry): entry is readonly [string, string[]] =>
+          Boolean(entry),
+        );
 
       return hasChanged ? Object.fromEntries(nextEntries) : current;
     });
@@ -1840,14 +1896,6 @@ export default function DrawNameStartModal({
   useEffect(() => {
     setIsPortalReady(true);
   }, []);
-
-  useEffect(() => {
-    if (open && currentStep === "source") {
-      return;
-    }
-
-    setIsOnedaBusinessPickerOpen(false);
-  }, [currentStep, open]);
 
   useEffect(() => {
     if (!open) {
@@ -1937,7 +1985,10 @@ export default function DrawNameStartModal({
       return;
     }
 
-    if (currentStep === "wishlist-gifts" || currentStep === "wishlist-notification") {
+    if (
+      currentStep === "wishlist-gifts" ||
+      currentStep === "wishlist-notification"
+    ) {
       if (eventId) {
         void refetchMyParticipant();
       }
@@ -2067,21 +2118,79 @@ export default function DrawNameStartModal({
     toast.success(response.message);
   };
 
-  const handleOnedaBusinessPickerOpenChange = (nextOpen: boolean) => {
-    if (nextOpen && (!authToken || !onedaAccountId)) {
+  const handleOpenOnedaBusinessStep = () => {
+    if (!authToken || !onedaAccountId) {
       toast.error("Your Oneda business details are not available right now.");
       return;
     }
 
-    setIsOnedaBusinessPickerOpen(nextOpen);
+    onStepChange("oneda-business");
   };
 
   const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
     setSelectedOnedaBusinessIds(ids.slice(-1));
+    setSelectedOnedaContactIds([]);
   };
 
   const handleSourceNext = () => {
     onStepChange("record");
+  };
+
+  const handleOnedaBusinessNext = () => {
+    if (!selectedOnedaBusinessIds.length) return;
+    onStepChange("oneda-contact");
+  };
+
+  const handleOnedaContactNext = () => {
+    if (!selectedOnedaContactIds.length) return;
+
+    const selectedProfiles = onedaProfiles.filter((profile) =>
+      selectedOnedaContactIds.includes(profile._id),
+    );
+
+    if (!selectedProfiles.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    void (async () => {
+      try {
+        const response = await createBulkContactsMutation.mutateAsync({
+          contacts: selectedProfiles.map((profile) => ({
+            gender: "male",
+            firstName: profile.accountId.firstName?.trim() || "Unknown",
+            lastName: profile.accountId.lastName?.trim() || "Contact",
+            phoneNumber: profile.accountId.phoneNumber?.trim() || "",
+            email: profile.accountId.email?.trim() || "",
+          })),
+        });
+
+        const importedRecords = response.data.map((contact) =>
+          mapContactToRecordItem(contact, currentUserContactId),
+        );
+        const importedRecordIds = importedRecords.map((record) => record.id);
+
+        setCustomRecordOptions((current) =>
+          mergeRecordItems(current, importedRecords),
+        );
+        setPersistedFetchedRecordItemsById((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            importedRecords.map((record) => [record.id, record]),
+          ),
+        }));
+        setSelectedRecordIds(importedRecordIds);
+
+        toast.success(response.message);
+        onStepChange("review-records");
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to import business contacts right now.",
+        );
+      }
+    })();
   };
 
   const handleRecordNext = () => {
@@ -2335,7 +2444,9 @@ export default function DrawNameStartModal({
               ? ([key, nextPairedRecordIds] as const)
               : null;
           })
-          .filter((entry): entry is readonly [string, string[]] => Boolean(entry));
+          .filter((entry): entry is readonly [string, string[]] =>
+            Boolean(entry),
+          );
 
         return Object.fromEntries(nextEntries);
       });
@@ -2420,7 +2531,7 @@ export default function DrawNameStartModal({
     const resolvedBudgetAmount = getSelectedBudgetAmount();
 
     if (!drawNameEventId) {
-  handleCloseAndRedirect();
+      handleCloseAndRedirect();
       return;
     }
 
@@ -2478,7 +2589,7 @@ export default function DrawNameStartModal({
 
   const handleWishlistGiftsNext = async () => {
     if (!eventId) {
-  handleCloseAndRedirect();
+      handleCloseAndRedirect();
       return;
     }
 
@@ -2491,43 +2602,43 @@ export default function DrawNameStartModal({
       .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
       .filter((product): product is MarketplaceProduct => Boolean(product));
 
-      if (!selectedProducts.length) {
-        toast.error("Please select at least one gift before continuing.");
-        return;
-      }
+    if (!selectedProducts.length) {
+      toast.error("Please select at least one gift before continuing.");
+      return;
+    }
 
-      const hasBudgetExceededGift =
-        typeof resolvedWishlistMaximumSpend === "number" &&
-        resolvedWishlistMaximumSpend > 0 &&
-        selectedProducts.some(
-          (product) => Number(product.amount) > resolvedWishlistMaximumSpend,
-        );
-
-      if (hasBudgetExceededGift) {
-        toast.error("Budget has been exceeded for this draw name.", {
-          id: "draw-name-budget-exceeded",
-          position: "top-center",
-        });
-        return;
-      }
-
-      const hasIncompleteGiftDetails = selectedProducts.some(
-        (product) =>
-          !product.title?.trim() ||
-          product.title.trim() === "Selected gift" ||
-          !Number.isFinite(product.amount) ||
-          product.amount <= 0,
+    const hasBudgetExceededGift =
+      typeof resolvedWishlistMaximumSpend === "number" &&
+      resolvedWishlistMaximumSpend > 0 &&
+      selectedProducts.some(
+        (product) => Number(product.amount) > resolvedWishlistMaximumSpend,
       );
 
-      if (hasIncompleteGiftDetails) {
-        toast.error(
-          "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
-        );
-        return;
-      }
+    if (hasBudgetExceededGift) {
+      toast.error("Budget has been exceeded for this draw name.", {
+        id: "draw-name-budget-exceeded",
+        position: "top-center",
+      });
+      return;
+    }
 
-      try {
-        const response = await createBulkGiftsMutation.mutateAsync({
+    const hasIncompleteGiftDetails = selectedProducts.some(
+      (product) =>
+        !product.title?.trim() ||
+        product.title.trim() === "Selected gift" ||
+        !Number.isFinite(product.amount) ||
+        product.amount <= 0,
+    );
+
+    if (hasIncompleteGiftDetails) {
+      toast.error(
+        "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
+      );
+      return;
+    }
+
+    try {
+      const response = await createBulkGiftsMutation.mutateAsync({
         eventId,
         recipientParticipantId: currentParticipantId,
         gifts: selectedProducts.map((product) => ({
@@ -2560,7 +2671,7 @@ export default function DrawNameStartModal({
 
   const handleWishlistNotificationYes = async () => {
     if (!eventId) {
-  handleCloseAndRedirect();
+      handleCloseAndRedirect();
       return;
     }
 
@@ -2587,7 +2698,7 @@ export default function DrawNameStartModal({
 
   const handleDrawNameReadyNext = async () => {
     if (!drawNameEventId) {
-  handleCloseAndRedirect();
+      handleCloseAndRedirect();
       return;
     }
 
@@ -2758,10 +2869,7 @@ export default function DrawNameStartModal({
   }, [isSelectedExclusionPairPaired, selectedExclusionPair]);
   const displayPairedRecordIdsById = useMemo(
     () =>
-      mergePairedRecordMaps(
-        pairedRecordIdsById,
-        previewPairedRecordIdsById,
-      ),
+      mergePairedRecordMaps(pairedRecordIdsById, previewPairedRecordIdsById),
     [pairedRecordIdsById, previewPairedRecordIdsById],
   );
   const pairedItemsById = useMemo(
@@ -2774,8 +2882,8 @@ export default function DrawNameStartModal({
               .map((pairedId) =>
                 selectedRecordOptions.find((record) => record.id === pairedId),
               )
-              .filter(
-                (record): record is SearchableRecordItem => Boolean(record),
+              .filter((record): record is SearchableRecordItem =>
+                Boolean(record),
               ),
           ],
         ),
@@ -2835,7 +2943,9 @@ export default function DrawNameStartModal({
         setPairedRecordIdsById((current) => {
           const next = { ...current };
           next[firstId] = (next[firstId] ?? []).filter((id) => id !== secondId);
-          next[secondId] = (next[secondId] ?? []).filter((id) => id !== firstId);
+          next[secondId] = (next[secondId] ?? []).filter(
+            (id) => id !== firstId,
+          );
 
           if (!next[firstId]?.length) {
             delete next[firstId];
@@ -3012,38 +3122,9 @@ export default function DrawNameStartModal({
           >
             From Record
           </ModalButton>
-
-          <OverlayRecordPicker
-            open={isOnedaBusinessPickerOpen}
-            onOpenChange={handleOnedaBusinessPickerOpenChange}
-            items={onedaBusinessOptions}
-            selectedIds={selectedOnedaBusinessIds}
-            onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
-            placeholder="From Oneda"
-            panelTitle="Search for business"
-            searchPlaceholder=""
-            isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
-            emptyStateText={
-              isOnedaBusinessesError
-                ? "Unable to load businesses."
-                : "No business found."
-            }
-            footer={
-              isOnedaBusinessesError ? (
-                <div className="flex justify-center pt-3">
-                  <button
-                    type="button"
-                    onClick={() => void refetchOnedaBusinesses()}
-                    className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
-                  >
-                    Retry loading businesses
-                  </button>
-                </div>
-              ) : null
-            }
-            showTriggerChevron={false}
-            triggerClassName="h-[42px] justify-center rounded-[14px] border border-[#3300C9] bg-white px-6 text-[18px] font-medium text-[#3300C9] hover:bg-[#F8F5FF]"
-          />
+          <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+            From Oneda
+          </ModalButton>
         </div>
 
         <div className="flex justify-center">
@@ -3052,6 +3133,139 @@ export default function DrawNameStartModal({
             className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
           />
         </div>
+      </div>
+    ) : currentStep === "oneda-business" ? (
+      <div className="space-y-8 pt-2">
+        <div className="text-center">
+          <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+            Hey {greetingName},
+          </p>
+          <p className="mt-2 text-[20px] font-normal text-[#434343]">
+            Which business are you selecting from?
+          </p>
+        </div>
+
+        <div className="mx-auto max-w-[494px]">
+          <OverlayRecordPicker
+            items={onedaBusinessOptions}
+            selectedIds={selectedOnedaBusinessIds}
+            onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
+            placeholder="Search for business"
+            panelTitle="Search for business"
+            searchPlaceholder=""
+            isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+            emptyStateText={
+              isOnedaBusinessesError
+                ? "Unable to load businesses."
+                : "No business found."
+            }
+            triggerBottomAction={
+              <BackButton
+                onClick={() => onStepChange("source")}
+                className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+            }
+            footer={
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <BackButton
+                  onClick={() => onStepChange("source")}
+                  className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                  iconClassName="size-[24px]"
+                />
+
+                <ModalButton
+                  onClick={handleOnedaBusinessNext}
+                  disabled={!selectedOnedaBusinessIds.length}
+                >
+                  Next
+                </ModalButton>
+              </div>
+            }
+            triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+          />
+        </div>
+
+        {isOnedaBusinessesError ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => void refetchOnedaBusinesses()}
+              className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+            >
+              Retry loading businesses
+            </button>
+          </div>
+        ) : null}
+      </div>
+    ) : currentStep === "oneda-contact" ? (
+      <div className="space-y-8 pt-2">
+        <div className="text-center">
+          <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+            Hey {greetingName},
+          </p>
+          <p className="mt-2 text-[20px] font-normal text-[#434343]">
+            Who&apos;d you like to draw names with?
+          </p>
+        </div>
+
+        <div className="mx-auto max-w-[494px]">
+          <OverlayRecordPicker
+            items={onedaProfileOptions}
+            selectedIds={selectedOnedaContactIds}
+            onSelectedIdsChange={setSelectedOnedaContactIds}
+            placeholder="Search for colleague"
+            panelTitle="Search for colleague"
+            searchPlaceholder=""
+            isLoading={isOnedaProfilesLoading || isOnedaProfilesFetching}
+            emptyStateText={
+              isOnedaProfilesError
+                ? "Unable to load contacts."
+                : "No colleague found."
+            }
+            triggerBottomAction={
+              <BackButton
+                onClick={() => onStepChange("oneda-business")}
+                className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+            }
+            footer={
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <BackButton
+                  onClick={() => onStepChange("oneda-business")}
+                  className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                  iconClassName="size-[24px]"
+                />
+
+                <ModalButton
+                  onClick={handleOnedaContactNext}
+                  disabled={
+                    !selectedOnedaContactIds.length ||
+                    createBulkContactsMutation.isPending
+                  }
+                >
+                  {createBulkContactsMutation.isPending
+                    ? "Importing..."
+                    : "Next"}
+                </ModalButton>
+              </div>
+            }
+            triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+          />
+        </div>
+
+        {isOnedaProfilesError ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => void refetchOnedaProfiles()}
+              className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+            >
+              Retry loading contacts
+            </button>
+          </div>
+        ) : null}
       </div>
     ) : currentStep === "record" ? (
       <div className="space-y-8 pt-2">
@@ -3159,7 +3373,7 @@ export default function DrawNameStartModal({
           greetingName={greetingName}
           items={selectedRecordReviewDisplayItems}
           onAddNew={() => handleOpenAddNewColleague("review-records")}
-          onBack={() => onStepChange("record")}
+          onBack={() => onStepChange("source")}
           onNext={handleReviewNext}
           onEdit={(id) => {
             const item = allKnownRecordOptions.find(
@@ -3360,7 +3574,9 @@ export default function DrawNameStartModal({
             ? "Are you sure you want to end this draft and continue to invite members?"
             : "Are you sure you want to end this draw now?"
         }
-        confirmText={isCreatorForCurrentDrawFlow ? "Yes, Continue" : "Yes, End Draw"}
+        confirmText={
+          isCreatorForCurrentDrawFlow ? "Yes, Continue" : "Yes, End Draw"
+        }
         isLoading={completeDrawNameEventMutation.isPending}
         closeOnOverlayClick={false}
         closeOnEscape={false}
@@ -3418,7 +3634,6 @@ export default function DrawNameStartModal({
       >
         {modalContent}
       </ContentModal>
-
       {confirmationModals}
     </>
   );

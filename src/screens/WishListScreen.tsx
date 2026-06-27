@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 import {
   CalendarDaysIcon,
   GiftIcon,
@@ -101,6 +103,7 @@ type WishListParticipant = {
 };
 
 type WishListCelebrationType = "" | "gifts" | "hangouts" | "both";
+type WishListActivityTab = "organizer" | "participant";
 
 type WishListRow = {
   id: string;
@@ -271,7 +274,7 @@ function toDateInputValue(value?: string | null) {
 }
 
 function toIsoDate(value: string) {
-  return new Date(`${value}T00:00:00`).toISOString();
+  return `${value}T10:00:00.000Z`;
 }
 
 function toWishlistDeadlineIsoDate(value: string) {
@@ -785,6 +788,7 @@ export default function WishListScreen() {
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<WishListActivityTab>("organizer");
   const [wishlistInviteSearchValue, setWishlistInviteSearchValue] = useState("");
   const [isWishlistInviteCopyListOpen, setIsWishlistInviteCopyListOpen] =
     useState(false);
@@ -795,16 +799,24 @@ export default function WishListScreen() {
   const [pendingDeleteRow, setPendingDeleteRow] = useState<WishListRow | null>(
     null,
   );
+  const [wishlistStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 4000, stopOnInteraction: true }),
+  ]);
 
   const {
     data: availableEventTypesResponse,
     isError: isAvailableEventTypesError,
     isLoading: isAvailableEventTypesLoading,
     refetch: refetchAvailableEventTypes,
-  } = useAvailableEventTypesQuery({
-    per_page: 25,
-    page: 1,
-  });
+  } = useAvailableEventTypesQuery(
+    {
+      per_page: 25,
+      page: 1,
+    },
+    {
+      enabled: isOpen && currentStep === "event",
+    },
+  );
   const createEventTypeMutation = useCreateEventTypeMutation();
   const updateEventTypeMutation = useUpdateEventTypeMutation();
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
@@ -821,6 +833,7 @@ export default function WishListScreen() {
     isLoading: isWishlistEventsLoading,
     refetch: refetchWishlistEvents,
   } = useWishlistEventsQuery({
+    scope: activeTab,
     per_page: 10,
     page: currentPage,
     searchQuery: debouncedSearchValue,
@@ -1023,6 +1036,11 @@ export default function WishListScreen() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchValue]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelected([]);
+  }, [activeTab]);
 
   useEffect(() => {
     setSelected((current) =>
@@ -1987,17 +2005,61 @@ export default function WishListScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {useDerivedWishListStats().map((stat) => (
-          <WishListStatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+      <>
+        {/* Carousel for mobile */}
+        <div className="sm:hidden">
+          <div className="overflow-hidden" ref={wishlistStatsEmblaRef}>
+            <div className="flex gap-3">
+              {useDerivedWishListStats().map((stat) => (
+                <div key={stat.label} className="min-w-0 flex-[0_0_100%]">
+                  <WishListStatCard {...stat} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Grid for tablet and above */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {useDerivedWishListStats().map((stat) => (
+            <WishListStatCard key={stat.label} {...stat} />
+          ))}
+        </div>
+      </>
 
       <section className="rounded-2xl border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-[14px] font-semibold text-[#434343]">
-            Recent Activity
-          </h2>
+          <div className="space-y-3">
+            <h2 className="text-[14px] font-semibold text-[#434343]">
+              Recent Activity
+            </h2>
+            <div className="flex items-center gap-5 border-b border-[#F1EDF8]">
+              <button
+                type="button"
+                onClick={() => setActiveTab("organizer")}
+                className={cn(
+                  "border-b-2 pb-2 text-sm font-medium transition-colors",
+                  activeTab === "organizer"
+                    ? "border-[#3300C9] text-[#3300C9]"
+                    : "border-transparent text-[#9A97A5] hover:text-[#5A4CB8]",
+                )}
+              >
+                Organizer
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("participant")}
+                className={cn(
+                  "border-b-2 pb-2 text-sm font-medium transition-colors",
+                  activeTab === "participant"
+                    ? "border-[#3300C9] text-[#3300C9]"
+                    : "border-transparent text-[#9A97A5] hover:text-[#5A4CB8]",
+                )}
+              >
+                Participant
+              </button>
+            </div>
+          </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-[260px]">

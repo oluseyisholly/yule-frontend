@@ -79,6 +79,8 @@ type DrawActivityRow = {
   canDraw: boolean;
 };
 
+type DrawActivityTab = "organizer" | "participant";
+
 function formatDate(value?: string | null) {
   if (!value) {
     return "-";
@@ -464,6 +466,7 @@ export default function DrawNamesActivity() {
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<DrawActivityTab>("organizer");
   const [pendingDeleteRow, setPendingDeleteRow] = useState<DrawActivityRow | null>(
     null,
   );
@@ -476,6 +479,7 @@ export default function DrawNamesActivity() {
     isError,
     refetch,
   } = useDrawNameEventsQuery({
+    scope: activeTab,
     per_page: perPage,
     page,
     searchQuery: debouncedSearchValue,
@@ -488,6 +492,11 @@ export default function DrawNamesActivity() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchValue]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelected([]);
+  }, [activeTab]);
 
   const rows = useMemo(() => {
     const drawNameEvents = drawNameEventsResponse?.data.data ?? [];
@@ -675,9 +684,37 @@ export default function DrawNamesActivity() {
   return (
     <section className="rounded-2xl border border-[#EEEAF7] bg-white p-5 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-[14px] font-semibold text-[#434343]">
-          Recent Activity
-        </h2>
+        <div className="space-y-3">
+          <h2 className="text-[14px] font-semibold text-[#434343]">
+            Recent Activity
+          </h2>
+          <div className="flex items-center gap-5 border-b border-[#F1EDF8]">
+            <button
+              type="button"
+              onClick={() => setActiveTab("organizer")}
+              className={cn(
+                "border-b-2 pb-2 text-sm font-medium transition-colors",
+                activeTab === "organizer"
+                  ? "border-[#3300C9] text-[#3300C9]"
+                  : "border-transparent text-[#9A97A5] hover:text-[#5A4CB8]",
+              )}
+            >
+              Organizer
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("participant")}
+              className={cn(
+                "border-b-2 pb-2 text-sm font-medium transition-colors",
+                activeTab === "participant"
+                  ? "border-[#3300C9] text-[#3300C9]"
+                  : "border-transparent text-[#9A97A5] hover:text-[#5A4CB8]",
+              )}
+            >
+              Participant
+            </button>
+          </div>
+        </div>
 
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">

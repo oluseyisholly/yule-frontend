@@ -15,7 +15,14 @@ import type {
 const WISHLIST_EVENTS_ENDPOINT = "/wishlist-event";
 
 export async function getWishlistEvents(params: WishlistEventsParams = {}) {
-  return getApi<WishlistEventsResponse>(WISHLIST_EVENTS_ENDPOINT, {
+  const endpoint =
+    params.scope === "organizer"
+      ? `${WISHLIST_EVENTS_ENDPOINT}/created`
+      : params.scope === "participant"
+        ? `${WISHLIST_EVENTS_ENDPOINT}/participated`
+        : WISHLIST_EVENTS_ENDPOINT;
+
+  return getApi<WishlistEventsResponse>(endpoint, {
     params: {
       per_page: params.per_page ?? 10,
       page: params.page ?? 1,

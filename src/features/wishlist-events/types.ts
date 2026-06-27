@@ -121,6 +121,7 @@ export type WishlistEventsParams = {
   page?: number;
   per_page?: number;
   searchQuery?: string;
+  scope?: "organizer" | "participant" | "all";
 };
 
 export type WishlistEventsPage = {

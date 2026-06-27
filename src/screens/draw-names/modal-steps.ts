@@ -1,6 +1,8 @@
 export const DRAW_NAME_SETUP_STEPS = [
   "event",
   "source",
+  "oneda-business",
+  "oneda-contact",
   "record",
   "add-record",
   "review-records",

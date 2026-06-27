@@ -1,5 +1,9 @@
+"use client";
+
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 
 function GiftBoxStatIcon() {
   return (
@@ -204,11 +208,31 @@ function StatCard({ icon, iconBg, value, label, hint, hintColor }: StatCardProps
 }
 
 export default function DashboardStats() {
+  const [dashboardStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 4000, stopOnInteraction: true }),
+  ]);
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <StatCard key={stat.label} {...stat} />
-      ))}
-    </div>
+    <>
+      {/* Carousel for mobile */}
+      <div className="sm:hidden">
+        <div className="overflow-hidden" ref={dashboardStatsEmblaRef}>
+          <div className="flex gap-3">
+            {stats.map((stat) => (
+              <div key={stat.label} className="min-w-0 flex-[0_0_100%]">
+                <StatCard {...stat} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Grid for tablet and above */}
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => (
+          <StatCard key={stat.label} {...stat} />
+        ))}
+      </div>
+    </>
   );
 }

@@ -14,6 +14,7 @@ export function useDrawNameEventsQuery(
   options: UseDrawNameEventsQueryOptions = {},
 ) {
   const normalizedParams = {
+    scope: params.scope ?? "all",
     per_page: params.per_page ?? 10,
     page: params.page ?? 1,
     searchQuery: params.searchQuery ?? "",

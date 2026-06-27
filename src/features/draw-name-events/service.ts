@@ -12,7 +12,14 @@ import type {
 const DRAW_NAME_EVENTS_ENDPOINT = "/draw-name-event";
 
 export async function getDrawNameEvents(params: DrawNameEventsParams = {}) {
-  return getApi<DrawNameEventsResponse>(DRAW_NAME_EVENTS_ENDPOINT, {
+  const endpoint =
+    params.scope === "organizer"
+      ? `${DRAW_NAME_EVENTS_ENDPOINT}/created`
+      : params.scope === "participant"
+        ? `${DRAW_NAME_EVENTS_ENDPOINT}/participated`
+        : DRAW_NAME_EVENTS_ENDPOINT;
+
+  return getApi<DrawNameEventsResponse>(endpoint, {
     params: {
       per_page: params.per_page ?? 10,
       page: params.page ?? 1,

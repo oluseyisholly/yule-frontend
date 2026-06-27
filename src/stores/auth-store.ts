@@ -17,6 +17,20 @@ type AuthStoreState = {
   setAuthSession: (authUser: AuthUser) => void;
   setSsoSigningIn: (value: boolean) => void;
   setCurrentContactId: (contactId: string | null) => void;
+  updateUserProfile: (
+    payload: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      phoneNumber: string;
+      businessCity: string;
+      state: string;
+      country: string;
+      currency: string;
+      profilePhotoUrl: string | null;
+      address: string;
+    }>,
+  ) => void;
   clearAuthSession: () => void;
 };
 
@@ -66,6 +80,46 @@ export const useAuthStore = create<AuthStoreState>()(
         }),
       setSsoSigningIn: (value) => set({ isSsoSigningIn: value }),
       setCurrentContactId: (contactId) => set({ currentContactId: contactId }),
+      updateUserProfile: (payload) =>
+        set((state) => {
+          if (!state.user) {
+            return state;
+          }
+
+          const nextProfile = state.user.profile
+            ? {
+                ...state.user.profile,
+                businessCity:
+                  payload.businessCity ?? state.user.profile.businessCity,
+                state: payload.state ?? state.user.profile.state,
+                country: payload.country ?? state.user.profile.country,
+                currency: payload.currency ?? state.user.profile.currency,
+                profilePhotoUrl:
+                  payload.profilePhotoUrl ?? state.user.profile.profilePhotoUrl,
+                address: payload.address ?? state.user.profile.address,
+                accountId: {
+                  ...state.user.profile.accountId,
+                  firstName:
+                    payload.firstName ?? state.user.profile.accountId.firstName,
+                  lastName:
+                    payload.lastName ?? state.user.profile.accountId.lastName,
+                  email: payload.email ?? state.user.profile.accountId.email,
+                  phoneNumber:
+                    payload.phoneNumber ??
+                    state.user.profile.accountId.phoneNumber,
+                },
+              }
+            : state.user.profile;
+
+          return {
+            user: {
+              ...state.user,
+              ...payload,
+              profile: nextProfile,
+            },
+            profile: nextProfile,
+          };
+        }),
       clearAuthSession: () => set(initialAuthState),
     }),
     {

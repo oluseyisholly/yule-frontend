@@ -314,7 +314,7 @@ export default function OverlaySelect({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "flex h-[48px] w-full items-center justify-between rounded-[10px] border border-[#ECE8F7] bg-white px-4 text-sm text-[#434343] transition-colors hover:border-[#D6CCF5]",
+          "flex h-[48px] w-full items-center justify-between rounded-[10px] border border-[#ECE8F7] bg-white px-4 !text-[16px] text-[#434343] transition-colors hover:border-[#D6CCF5]",
           triggerClassName,
         )}
         aria-haspopup="listbox"

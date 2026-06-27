@@ -1,6 +1,8 @@
 import { deleteApi, getApi, patchApi, postApi } from "@/lib/api";
 import type {
   ContactsParams,
+  CreateBulkContactsPayload,
+  CreateBulkContactsResponse,
   ContactsResponse,
   CreateContactPayload,
   CreateContactResponse,
@@ -32,6 +34,13 @@ export async function getContacts(params: ContactsParams = {}) {
 export async function createContact(payload: CreateContactPayload) {
   return postApi<CreateContactResponse, CreateContactPayload>(
     CONTACTS_ENDPOINT,
+    payload,
+  );
+}
+
+export async function createBulkContacts(payload: CreateBulkContactsPayload) {
+  return postApi<CreateBulkContactsResponse, CreateBulkContactsPayload>(
+    `${CONTACTS_ENDPOINT}/bulk`,
     payload,
   );
 }

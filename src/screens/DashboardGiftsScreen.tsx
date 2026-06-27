@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image, { type StaticImageData } from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 import {
   CalendarDaysIcon,
   MoreHorizontal,
@@ -1112,6 +1114,9 @@ export default function DashboardGiftsScreen() {
   const [giftInviteSearchValue, setGiftInviteSearchValue] = useState("");
   const [isGiftInviteCopyListOpen, setIsGiftInviteCopyListOpen] =
     useState(false);
+  const [giftsStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 4000, stopOnInteraction: true }),
+  ]);
   const [
     isCompleteGiftingEventConfirmationOpen,
     setIsCompleteGiftingEventConfirmationOpen,
@@ -1153,10 +1158,15 @@ export default function DashboardGiftsScreen() {
     isError: isAvailableEventTypesError,
     isLoading: isAvailableEventTypesLoading,
     refetch: refetchAvailableEventTypes,
-  } = useAvailableEventTypesQuery({
-    per_page: 25,
-    page: 1,
-  });
+  } = useAvailableEventTypesQuery(
+    {
+      per_page: 25,
+      page: 1,
+    },
+    {
+      enabled: isGiftFlowOpen && currentGiftFlowStep === "event",
+    },
+  );
   const isSentTab = activeTab === "sent";
   const isReceivedTab = activeTab === "received";
   const isEventsTab = activeTab === "events";
@@ -2413,11 +2423,27 @@ export default function DashboardGiftsScreen() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {giftStats.map((stat) => (
-          <GiftsStatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+      <>
+        {/* Carousel for mobile */}
+        <div className="sm:hidden">
+          <div className="overflow-hidden" ref={giftsStatsEmblaRef}>
+            <div className="flex gap-3">
+              {giftStats.map((stat) => (
+                <div key={stat.label} className="min-w-0 flex-[0_0_100%]">
+                  <GiftsStatCard {...stat} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Grid for tablet and above */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {giftStats.map((stat) => (
+            <GiftsStatCard key={stat.label} {...stat} />
+          ))}
+        </div>
+      </>
 
       <section className="rounded-[24px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5">
         <div className="flex flex-col gap-4 border-b border-[#F1EDF8] pb-4 lg:flex-row lg:items-end lg:justify-between">

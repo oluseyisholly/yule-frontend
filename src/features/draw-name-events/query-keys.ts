@@ -7,6 +7,7 @@ export const drawNameEventQueryKeys = {
   list: (params: DrawNameEventsParams = {}) =>
     [
       ...drawNameEventQueryKeys.lists(),
+      params.scope ?? "all",
       params.per_page ?? 10,
       params.page ?? 1,
       params.searchQuery ?? "",

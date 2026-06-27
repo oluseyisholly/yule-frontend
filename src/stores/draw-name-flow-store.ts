@@ -13,6 +13,8 @@ export type DrawNameFlowRole = "creator" | "participant";
 type DrawNameFlowDraftFields = {
   lastVisitedStep: DrawNameModalStep | null;
   selectedEventId: string;
+  selectedOnedaBusinessIds: string[];
+  selectedOnedaContactIds: string[];
   exclusionChoice: "yes" | "no" | "";
   eventDate: string;
   groupName: string;
@@ -84,6 +86,8 @@ export const EMPTY_DRAW_NAME_ADD_RECORD_DRAFT: DrawNameAddRecordDraftState = {
 export const EMPTY_DRAW_NAME_FLOW_SELECTION: DrawNameFlowSelectionState = {
   lastVisitedStep: null,
   selectedEventId: "",
+  selectedOnedaBusinessIds: [],
+  selectedOnedaContactIds: [],
   exclusionChoice: "",
   eventDate: "",
   groupName: "",

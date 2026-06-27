@@ -1,5 +1,7 @@
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 import { useDrawNameMetricsQuery } from "@/features/draw-name-events/hooks/useDrawNameMetricsQuery";
 
 function GiftBoxStatIcon() {
@@ -167,6 +169,9 @@ type StatCardProps = {
 
 const DrawNamesStatsInner = () => {
   const { data: metrics = null } = useDrawNameMetricsQuery(true);
+  const [emblaRef] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 4000, stopOnInteraction: true }),
+  ]);
 
   const d = metrics ?? {
     totalGifts: { value: 0, percentageChangeThisMonth: 0 },
@@ -212,11 +217,27 @@ const DrawNamesStatsInner = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <StatCard key={stat.label} {...stat} />
-      ))}
-    </div>
+    <>
+      {/* Carousel for mobile */}
+      <div className="sm:hidden">
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex gap-3">
+            {stats.map((stat) => (
+              <div key={stat.label} className="min-w-0 flex-[0_0_100%]">
+                <StatCard {...stat} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Grid for tablet and above */}
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => (
+          <StatCard key={stat.label} {...stat} />
+        ))}
+      </div>
+    </>
   );
 };
 
