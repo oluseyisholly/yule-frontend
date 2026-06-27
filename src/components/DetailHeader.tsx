@@ -63,10 +63,10 @@ export default function DetailHeader({
         .join(" ")}
     >
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <DetailHeaderAvatar avatar={avatar} badge={avatarBadge} />
+        {/* <DetailHeaderAvatar avatar={avatar} badge={avatarBadge} /> */}
 
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-[#1E1E1E] sm:text-xl">
+          <h1 className="text-lg font-semibold text-[#1E1E1E] lg:text-2xl">
             {title}
           </h1>
           {subtitle ? (
