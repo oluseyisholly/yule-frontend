@@ -143,6 +143,38 @@ function formatCurrency(
   }
 }
 
+function formatBudgetRange(
+  minimumValue?: string | number | null,
+  maximumValue?: string | number | null,
+  currency: string = "NGN",
+) {
+  const hasMinimum =
+    minimumValue !== null &&
+    minimumValue !== undefined &&
+    Number.isFinite(Number(minimumValue));
+  const hasMaximum =
+    maximumValue !== null &&
+    maximumValue !== undefined &&
+    Number.isFinite(Number(maximumValue));
+
+  if (hasMinimum && hasMaximum) {
+    return `${formatCurrency(minimumValue, currency)} - ${formatCurrency(
+      maximumValue,
+      currency,
+    )}`;
+  }
+
+  if (hasMinimum) {
+    return formatCurrency(minimumValue, currency);
+  }
+
+  if (hasMaximum) {
+    return formatCurrency(maximumValue, currency);
+  }
+
+  return formatCurrency(0, currency);
+}
+
 function toInitials(firstName?: string | null, lastName?: string | null) {
   const firstInitial = firstName?.trim().charAt(0) ?? "";
   const lastInitial = lastName?.trim().charAt(0) ?? "";
@@ -528,7 +560,11 @@ export default function GiftingEventDetailsScreen({
       createdAt: formatMonthYear(record.createdAt),
       status: formatStatus(record),
       eventDate: formatDate(record.event.eventDate),
-      giftBudget: formatCurrency(record.giftBudget, record.currency?.trim() || "NGN"),
+      giftBudgetRange: formatBudgetRange(
+        record.minimumGiftBudget,
+        record.maximumGiftBudget,
+        record.currency?.trim() || "NGN",
+      ),
       gifts: String(eventGivenGiftsResponse?.data.total ?? 0),
       totalParticipants: String(participants.length),
       participants,
@@ -542,7 +578,7 @@ export default function GiftingEventDetailsScreen({
     sourceFlowSelection?.lastVisitedStep &&
     isGiftModalStep(sourceFlowSelection.lastVisitedStep)
       ? sourceFlowSelection.lastVisitedStep
-      : "event";
+      : "recipient-choice";
 
   const giftRows = useMemo(
     () => buildGiftRows(eventGivenGiftsResponse?.data?.data ?? []),
@@ -810,7 +846,10 @@ export default function GiftingEventDetailsScreen({
           <div className="overflow-hidden rounded-[20px]">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
               <SummaryStat label="Event Date" value={detail.eventDate} />
-              <SummaryStat label="Gift Budget" value={detail.giftBudget} />
+              <SummaryStat
+                label="Gift Budget Range"
+                value={detail.giftBudgetRange}
+              />
               <SummaryStat label="Gifts" value={detail.gifts} />
               <SummaryStat
                 label="Total Participants"

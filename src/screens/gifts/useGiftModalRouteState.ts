@@ -119,7 +119,9 @@ export function useGiftModalRouteState() {
       nextEventId?: string | null,
       nextGiftingEventId?: string | null,
     ) => {
-      const nextStep = isGiftModalStep(step ?? null) ? step ?? "event" : "event";
+      const nextStep = isGiftModalStep(step ?? null)
+        ? step ?? "recipient-choice"
+        : "recipient-choice";
 
       navigateModalStep(
         nextStep,

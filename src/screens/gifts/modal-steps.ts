@@ -1,8 +1,12 @@
 export const VALID_GIFT_MODAL_STEPS = [
+  "recipient-choice",
+  "source",
   "event",
+  "budget",
   "event-date",
   "event-name",
   "record",
+  "review-records",
   "add-record",
   "gift-selection",
   "invite",

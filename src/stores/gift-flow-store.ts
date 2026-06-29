@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { GiftRecipientChoiceValue } from "@/components/GiftRecipientChoiceStep";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import type { GiftModalStep } from "@/screens/gifts/modal-steps";
 
@@ -9,6 +10,10 @@ export type GiftFlowMode = "create" | "edit";
 
 type GiftFlowDraftFields = {
   lastVisitedStep: GiftModalStep | null;
+  celebrationTarget: GiftRecipientChoiceValue;
+  selectedBudgetOption: string;
+  minimumGiftBudget: number | null;
+  maximumGiftBudget: number | null;
   selectedEventTypeId: string;
   eventDate: string;
   giftDeadline: string;
@@ -38,6 +43,10 @@ type GiftFlowStore = {
 
 export const EMPTY_GIFT_FLOW_SELECTION: GiftFlowSelectionState = {
   lastVisitedStep: null,
+  celebrationTarget: "myself",
+  selectedBudgetOption: "",
+  minimumGiftBudget: null,
+  maximumGiftBudget: null,
   selectedEventTypeId: "",
   eventDate: "",
   giftDeadline: "",
@@ -66,6 +75,10 @@ function hasFlowSelectionChanged(
 ) {
   return (
     currentSelection.lastVisitedStep !== nextSelection.lastVisitedStep ||
+    currentSelection.celebrationTarget !== nextSelection.celebrationTarget ||
+    currentSelection.selectedBudgetOption !== nextSelection.selectedBudgetOption ||
+    currentSelection.minimumGiftBudget !== nextSelection.minimumGiftBudget ||
+    currentSelection.maximumGiftBudget !== nextSelection.maximumGiftBudget ||
     currentSelection.selectedEventTypeId !== nextSelection.selectedEventTypeId ||
     currentSelection.eventDate !== nextSelection.eventDate ||
     currentSelection.giftDeadline !== nextSelection.giftDeadline ||

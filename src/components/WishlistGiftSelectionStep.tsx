@@ -38,6 +38,8 @@ type WishlistGiftSelectionStepProps = {
     product: MarketplaceProduct,
     checked: boolean,
   ) => void;
+  initialMinimumPrice?: number | null;
+  initialMaximumPrice?: number | null;
   maximumSpend?: number;
   onBack?: () => void;
   onNext: () => void;
@@ -349,6 +351,8 @@ export default function WishlistGiftSelectionStep({
   selectedIds,
   onSelectedIdsChange,
   onSelectedProductToggle,
+  initialMinimumPrice,
+  initialMaximumPrice,
   maximumSpend,
   onBack,
   onNext,
@@ -368,13 +372,25 @@ export default function WishlistGiftSelectionStep({
   const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
   const [selectedSubCategorySlug, setSelectedSubCategorySlug] = useState("");
   const [selectedCondition, setSelectedCondition] = useState("");
-  const [minimumPrice, setMinimumPrice] = useState("");
-  const [maximumPrice, setMaximumPrice] = useState("");
+  const [minimumPrice, setMinimumPrice] = useState(
+    initialMinimumPrice ? String(initialMinimumPrice) : "",
+  );
+  const [maximumPrice, setMaximumPrice] = useState(
+    initialMaximumPrice ? String(initialMaximumPrice) : "",
+  );
   const onSelectedProductToggleRef = useRef(onSelectedProductToggle);
 
   useEffect(() => {
     onSelectedProductToggleRef.current = onSelectedProductToggle;
   }, [onSelectedProductToggle]);
+
+  useEffect(() => {
+    setMinimumPrice(initialMinimumPrice ? String(initialMinimumPrice) : "");
+  }, [initialMinimumPrice]);
+
+  useEffect(() => {
+    setMaximumPrice(initialMaximumPrice ? String(initialMaximumPrice) : "");
+  }, [initialMaximumPrice]);
 
   const deferredQuery = useDeferredValue(query);
   const {

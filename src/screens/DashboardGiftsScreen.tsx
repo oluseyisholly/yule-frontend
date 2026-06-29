@@ -24,10 +24,21 @@ import BackButton from "@/components/BackButton";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import CustomColleagueReview, {
+  type CustomColleagueReviewItem,
+} from "@/components/CustomColleagueReview";
 import DrawNameInviteStep, {
   type DrawNameInviteParticipant,
 } from "@/components/DrawNameInviteStep";
 import EventDateStep from "@/components/EventDateStep";
+import GiftBudgetStep, {
+  deriveGiftBudgetOption,
+  resolveGiftBudgetRange,
+  type GiftBudgetOptionKey,
+} from "@/components/GiftBudgetStep";
+import GiftRecipientChoiceStep, {
+  type GiftRecipientChoiceValue,
+} from "@/components/GiftRecipientChoiceStep";
 import GroupNameStep from "@/components/GroupNameStep";
 import ModalButton from "@/components/ModalButtons";
 import OverlayRecordPicker from "@/components/OverlayRecordPicker";
@@ -140,6 +151,8 @@ type GiftingEventRow = {
   id: string;
   giftingEventId: string;
   eventId: string;
+  minimumGiftBudget: number | null;
+  maximumGiftBudget: number | null;
   eventTypeId: string;
   eventName: string;
   eventTypeKey?: string | null;
@@ -600,6 +613,8 @@ function toGiftingEventStatus(status?: string | null): GiftingEventStatusLabel {
 function hasGiftFlowDraft(selection: GiftFlowSelectionState) {
   return (
     selection.lastVisitedStep !== EMPTY_GIFT_FLOW_SELECTION.lastVisitedStep ||
+    selection.celebrationTarget !==
+      EMPTY_GIFT_FLOW_SELECTION.celebrationTarget ||
     selection.selectedEventTypeId !==
       EMPTY_GIFT_FLOW_SELECTION.selectedEventTypeId ||
     selection.eventDate !== EMPTY_GIFT_FLOW_SELECTION.eventDate ||
@@ -709,6 +724,14 @@ function toGiftingEventRow(
     id: record.id,
     giftingEventId: record.id,
     eventId: record.eventId,
+    minimumGiftBudget:
+      typeof record.minimumGiftBudget === "number"
+        ? record.minimumGiftBudget
+        : null,
+    maximumGiftBudget:
+      typeof record.maximumGiftBudget === "number"
+        ? record.maximumGiftBudget
+        : null,
     eventTypeId: record.event.eventTypeId,
     eventName: record.event.title?.trim() || "Untitled event",
     eventTypeKey: eventTypeKey ?? null,
@@ -1161,7 +1184,12 @@ export default function DashboardGiftsScreen() {
   ] = useState(false);
   const [isSendGiftEmailConfirmationOpen, setIsSendGiftEmailConfirmationOpen] =
     useState(false);
+  const [customGiftBudgetMinimum, setCustomGiftBudgetMinimum] = useState("");
+  const [customGiftBudgetMaximum, setCustomGiftBudgetMaximum] = useState("");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [addRecordReturnStep, setAddRecordReturnStep] = useState<
+    "record" | "review-records"
+  >("record");
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
   const [customContactRecordItems, setCustomContactRecordItems] = useState<
@@ -1180,6 +1208,10 @@ export default function DashboardGiftsScreen() {
     flowSelection.selectedParticipantContactIds;
   const selectedGiftIds = flowSelection.selectedGiftIds;
   const selectedGiftProductsById = flowSelection.selectedGiftProductsById;
+  const selectedCelebrationTarget = flowSelection.celebrationTarget;
+  const selectedBudgetOption = flowSelection.selectedBudgetOption;
+  const selectedMinimumGiftBudget = flowSelection.minimumGiftBudget;
+  const selectedMaximumGiftBudget = flowSelection.maximumGiftBudget;
   const selectedGiftEventTypeId = flowSelection.selectedEventTypeId;
   const selectedGiftEventDate = flowSelection.eventDate;
   const giftEventName = flowSelection.eventName;
@@ -1468,6 +1500,19 @@ export default function DashboardGiftsScreen() {
       resolvedCurrentContactId,
     ],
   );
+  const selectedGiftReviewItems = useMemo<CustomColleagueReviewItem[]>(
+    () =>
+      selectedParticipantContactIds
+        .map((id) => contactRecordOptions.find((item) => item.id === id))
+        .filter((item): item is SearchableRecordItem => Boolean(item))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          email: item.email || "",
+          isAdmin: false,
+        })),
+    [contactRecordOptions, selectedParticipantContactIds],
+  );
   const counterpartLabel = isSentTab ? "Sent to" : "Received from";
   const giftRows = isSentTab ? sentRows : receivedRows;
 
@@ -1509,6 +1554,15 @@ export default function DashboardGiftsScreen() {
     setCurrentPage(1);
   }, [activeTab, debouncedQuery]);
 
+  useEffect(() => {
+    setCustomGiftBudgetMinimum(
+      selectedMinimumGiftBudget ? String(selectedMinimumGiftBudget) : "",
+    );
+    setCustomGiftBudgetMaximum(
+      selectedMaximumGiftBudget ? String(selectedMaximumGiftBudget) : "",
+    );
+  }, [selectedMaximumGiftBudget, selectedMinimumGiftBudget]);
+
   const totalPages = isEventsTab
     ? Math.max(1, giftingEventsResponse?.data.totalPages ?? 1)
     : isSentTab
@@ -1526,7 +1580,30 @@ export default function DashboardGiftsScreen() {
 
   const handleOpenGiftFlow = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
-    openGiftFlowModal("event", "create", null, null);
+    openGiftFlowModal("recipient-choice", "create", null, null);
+  };
+
+  const handleGiftRecipientChoiceSelect = (
+    value: GiftRecipientChoiceValue,
+  ) => {
+    setGiftFlowDraftFields(flowSelectionKey, {
+      celebrationTarget: value,
+    });
+    setGiftFlowStep(
+      value === "someone-special" ? "source" : "event",
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleGiftSourceNext = () => {
+    setGiftFlowStep(
+      eventId ? "record" : "event",
+      mode,
+      eventId,
+      giftingEventId,
+    );
   };
 
   const openGiftingEventFlow = (
@@ -1559,6 +1636,14 @@ export default function DashboardGiftsScreen() {
 
     setGiftFlowDraftFields(editFlowKey, {
       lastVisitedStep: nextStep,
+      celebrationTarget: sourceSelection.celebrationTarget,
+      selectedBudgetOption:
+        sourceSelection.selectedBudgetOption ||
+        deriveGiftBudgetOption(row.minimumGiftBudget, row.maximumGiftBudget),
+      minimumGiftBudget:
+        sourceSelection.minimumGiftBudget ?? row.minimumGiftBudget,
+      maximumGiftBudget:
+        sourceSelection.maximumGiftBudget ?? row.maximumGiftBudget,
       selectedEventTypeId:
         sourceSelection.selectedEventTypeId || row.eventTypeId,
       eventDate: sourceSelection.eventDate || row.eventDateValue,
@@ -1625,7 +1710,7 @@ export default function DashboardGiftsScreen() {
       sourceSelection.lastVisitedStep &&
       isGiftModalStep(sourceSelection.lastVisitedStep)
         ? sourceSelection.lastVisitedStep
-        : "event";
+        : "recipient-choice";
 
     openGiftingEventFlow(row, resumeStep);
   };
@@ -1736,7 +1821,12 @@ export default function DashboardGiftsScreen() {
         return;
       }
 
-      setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+      setGiftFlowStep(
+        selectedCelebrationTarget === "myself" ? "budget" : "event-date",
+        mode,
+        eventId,
+        giftingEventId,
+      );
       return;
     }
 
@@ -1756,7 +1846,12 @@ export default function DashboardGiftsScreen() {
       );
 
       setGiftFlowDraftFields(nextFlowKey, {
-        lastVisitedStep: "event-date",
+        lastVisitedStep:
+          selectedCelebrationTarget === "myself" ? "budget" : "event-date",
+        celebrationTarget: selectedCelebrationTarget,
+        selectedBudgetOption,
+        minimumGiftBudget: selectedMinimumGiftBudget,
+        maximumGiftBudget: selectedMaximumGiftBudget,
         selectedEventTypeId: selectedEventTypeOption.value,
         eventDate: selectedGiftEventDate,
         eventName: response.data.event.title || selectedEventTypeOption.label,
@@ -1782,7 +1877,12 @@ export default function DashboardGiftsScreen() {
       }
 
       toast.success(response.message);
-      setGiftFlowStep("event-date", "create", nextEventId, nextGiftingEventId);
+      setGiftFlowStep(
+        selectedCelebrationTarget === "myself" ? "budget" : "event-date",
+        "create",
+        nextEventId,
+        nextGiftingEventId,
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1821,6 +1921,60 @@ export default function DashboardGiftsScreen() {
     }
 
     setGiftFlowStep("event-name", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftBudgetNext = async () => {
+    if (!giftingEventId) {
+      toast.error("Unable to resolve this gifting event right now.");
+      return;
+    }
+
+    const resolvedBudgetRange = resolveGiftBudgetRange(
+      selectedBudgetOption as GiftBudgetOptionKey | "",
+      customGiftBudgetMinimum,
+      customGiftBudgetMaximum,
+    );
+
+    if (
+      selectedBudgetOption === "custom" &&
+      (!resolvedBudgetRange.minimumGiftBudget ||
+        !resolvedBudgetRange.maximumGiftBudget)
+    ) {
+      toast.error("Please enter both minimum and maximum budgets.");
+      return;
+    }
+
+    if (
+      resolvedBudgetRange.minimumGiftBudget !== null &&
+      resolvedBudgetRange.maximumGiftBudget !== null &&
+      resolvedBudgetRange.minimumGiftBudget >
+        resolvedBudgetRange.maximumGiftBudget
+    ) {
+      toast.error("Minimum budget cannot be greater than maximum budget.");
+      return;
+    }
+
+    try {
+      await updateGiftingEventMutation.mutateAsync({
+        id: giftingEventId,
+        payload: {
+          minimumGiftBudget: resolvedBudgetRange.minimumGiftBudget ?? undefined,
+          maximumGiftBudget: resolvedBudgetRange.maximumGiftBudget ?? undefined,
+        },
+      });
+
+      setGiftFlowDraftFields(flowSelectionKey, {
+        minimumGiftBudget: resolvedBudgetRange.minimumGiftBudget,
+        maximumGiftBudget: resolvedBudgetRange.maximumGiftBudget,
+      });
+      setGiftFlowStep("gift-selection", mode, eventId, giftingEventId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update this gifting event right now.",
+      );
+    }
   };
 
   const handleSaveGiftEventDetails = async () => {
@@ -1872,13 +2026,20 @@ export default function DashboardGiftsScreen() {
     !newColleagueForm.firstName.trim() ||
     !newColleagueForm.lastName.trim();
 
-  const handleOpenAddNewColleague = () => {
+  const handleOpenAddNewColleague = (
+    returnStep: "record" | "review-records" = "record",
+  ) => {
+    setAddRecordReturnStep(returnStep);
     setEditingRecordId(null);
     setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
     setGiftFlowStep("add-record", mode, eventId, giftingEventId);
   };
 
-  const handleOpenEditColleague = (item: SearchableRecordItem) => {
+  const handleOpenEditColleague = (
+    item: SearchableRecordItem,
+    returnStep: "record" | "review-records" = "record",
+  ) => {
+    setAddRecordReturnStep(returnStep);
     setEditingRecordId(item.id);
     setNewColleagueForm({
       gender: item.gender || "",
@@ -1947,7 +2108,7 @@ export default function DashboardGiftsScreen() {
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
       await refetchContacts();
-      setGiftFlowStep("record", mode, eventId, giftingEventId);
+      setGiftFlowStep(addRecordReturnStep, mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1993,6 +2154,15 @@ export default function DashboardGiftsScreen() {
   };
 
   const handleGiftParticipantsNext = async () => {
+    if (!selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant.");
+      return;
+    }
+
+    setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftReviewNext = async () => {
     if (!eventId) {
       toast.error("Unable to resolve this gifting event right now.");
       return;
@@ -2412,7 +2582,13 @@ export default function DashboardGiftsScreen() {
   ]);
 
   useEffect(() => {
-    if (isGiftFlowOpen && currentGiftFlowStep !== "event" && !giftingEventId) {
+    if (
+      isGiftFlowOpen &&
+      currentGiftFlowStep !== "event" &&
+      currentGiftFlowStep !== "source" &&
+      currentGiftFlowStep !== "recipient-choice" &&
+      !giftingEventId
+    ) {
       closeGiftFlowModal();
     }
   }, [closeGiftFlowModal, isGiftFlowOpen, currentGiftFlowStep, giftingEventId]);
@@ -2857,8 +3033,16 @@ export default function DashboardGiftsScreen() {
             }
             onSelectedProductToggle={handleGiftFlowProductToggle}
             onBack={() =>
-              setGiftFlowStep("record", mode, eventId, giftingEventId)
+              setGiftFlowStep(
+                selectedCelebrationTarget === "myself" ? "budget" : "record",
+                mode,
+                eventId,
+                giftingEventId,
+              )
             }
+            initialMinimumPrice={selectedMinimumGiftBudget}
+            initialMaximumPrice={selectedMaximumGiftBudget}
+            maximumSpend={selectedMaximumGiftBudget ?? undefined}
             onNext={handleGiftFlowSelectionNext}
             nextDisabled={
               !selectedGiftIds.length ||
@@ -2912,6 +3096,77 @@ export default function DashboardGiftsScreen() {
             headingAlign="left"
             showGoToEventNameLink={false}
           />
+        ) : currentGiftFlowStep === "budget" ? (
+          <GiftBudgetStep
+            selectedOption={selectedBudgetOption as GiftBudgetOptionKey | ""}
+            customMinimumValue={customGiftBudgetMinimum}
+            customMaximumValue={customGiftBudgetMaximum}
+            onSelectOption={(value) =>
+              setGiftFlowDraftFields(flowSelectionKey, {
+                selectedBudgetOption: value,
+              })
+            }
+            onCustomMinimumValueChange={setCustomGiftBudgetMinimum}
+            onCustomMaximumValueChange={setCustomGiftBudgetMaximum}
+            onBack={() =>
+              setGiftFlowStep("event", mode, eventId, giftingEventId)
+            }
+            onNext={handleGiftBudgetNext}
+            nextDisabled={
+              !selectedBudgetOption || updateGiftingEventMutation.isPending
+            }
+            nextLabel={
+              updateGiftingEventMutation.isPending ? "Saving..." : "Next"
+            }
+          />
+        ) : currentGiftFlowStep === "recipient-choice" ? (
+          <GiftRecipientChoiceStep
+            value={selectedCelebrationTarget}
+            onChange={handleGiftRecipientChoiceSelect}
+          />
+        ) : currentGiftFlowStep === "source" ? (
+          <div className="space-y-12 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Who&apos;d you like to gift with?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px] space-y-4">
+              <ModalButton
+                variant="secondary"
+                onClick={handleGiftSourceNext}
+                className="w-full"
+              >
+                From Record
+              </ModalButton>
+              <ModalButton
+                type="button"
+                variant="secondary"
+                disabled
+                className="w-full cursor-not-allowed border-[#E4DCF8] bg-[#F7F4FF] text-[#A59CC7] opacity-100 hover:bg-[#F7F4FF]"
+              >
+                From Oneda
+              </ModalButton>
+            </div>
+
+            <div className="flex justify-center">
+              <BackButton
+                onClick={() =>
+                  setGiftFlowStep(
+                    "recipient-choice",
+                    mode,
+                    eventId,
+                    giftingEventId,
+                  )
+                }
+                className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              />
+            </div>
+          </div>
         ) : currentGiftFlowStep === "event-name" ? (
           <GroupNameStep
             value={giftEventName}
@@ -2939,7 +3194,12 @@ export default function DashboardGiftsScreen() {
             onBack={() => {
               setEditingRecordId(null);
               setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
-              setGiftFlowStep("record", mode, eventId, giftingEventId);
+              setGiftFlowStep(
+                addRecordReturnStep,
+                mode,
+                eventId,
+                giftingEventId,
+              );
             }}
             onSave={handleSaveNewColleague}
             saveDisabled={isSaveNewColleagueDisabled}
@@ -2996,8 +3256,8 @@ export default function DashboardGiftsScreen() {
                   />
                 }
                 addActionLabel="Add New"
-                onAddAction={handleOpenAddNewColleague}
-                onEditItem={handleOpenEditColleague}
+                onAddAction={() => handleOpenAddNewColleague("record")}
+                onEditItem={(item) => handleOpenEditColleague(item, "record")}
                 onDeleteItem={setRecordPendingDelete}
                 suspendDismiss={Boolean(recordPendingDelete)}
                 footer={
@@ -3039,66 +3299,113 @@ export default function DashboardGiftsScreen() {
               </div>
             ) : null}
           </div>
-        ) : (
-          <div className="space-y-6 sm:space-y-7">
-            <div className="space-y-2 text-left">
-              <p className="text-[18px] font-medium leading-tight text-[#1E1E1E] sm:text-[20px]">
-                Hi {greetingName},
-              </p>
-              <p className="text-[18px] font-normal text-[#434343] sm:text-[20px]">
-                What event are you celebrating?
-              </p>
-            </div>
-
-            {isAvailableEventTypesLoading ? (
-              <ModalPanelSkeleton />
-            ) : (
-              <OverlaySelect
-                value={
-                  selectedGiftEventTypeId ||
-                  EMPTY_GIFT_FLOW_SELECTION.selectedEventTypeId
-                }
-                onValueChange={(value) =>
-                  setGiftFlowDraftFields(flowSelectionKey, {
-                    selectedEventTypeId: value,
-                  })
-                }
-                options={eventTypeOptions}
-                placeholder="Select Event"
-                panelTitle="Select Event"
-                searchPlaceholder=""
-                addActionLabel="Add New"
-                onCreateOption={handleCreateEventOption}
-                onUpdateOption={handleUpdateEventOption}
-                onDeleteOption={handleDeleteEventOption}
-                triggerClassName="text-[10px]"
-              />
-            )}
-
-            {isAvailableEventTypesError ? (
-              <button
-                type="button"
-                onClick={() => void refetchAvailableEventTypes()}
-                className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
-              >
-                Retry loading events
-              </button>
-            ) : null}
-
-            <ModalButton
-              type="button"
-              onClick={handleGiftFlowEventNext}
-              disabled={
-                !selectedGiftEventTypeId ||
-                createGiftingEventMutation.isPending ||
-                updateGiftingEventMutation.isPending
+        ) : currentGiftFlowStep === "review-records" ? (
+          <CustomColleagueReview
+            greetingName={greetingName}
+            items={selectedGiftReviewItems}
+            prompt="Who'd you like to gift?"
+            onAddNew={() => handleOpenAddNewColleague("review-records")}
+            onBack={() =>
+              setGiftFlowStep("source", mode, eventId, giftingEventId)
+            }
+            onNext={handleGiftReviewNext}
+            onEdit={(id) => {
+              const item = contactRecordOptions.find((record) => record.id === id);
+              if (item) {
+                handleOpenEditColleague(item, "review-records");
               }
-            >
-              {createGiftingEventMutation.isPending ||
-              updateGiftingEventMutation.isPending
-                ? "Saving..."
-                : "Next"}
-            </ModalButton>
+            }}
+            onDelete={(id) => {
+              const item = contactRecordOptions.find((record) => record.id === id);
+              if (item) {
+                setRecordPendingDelete(item);
+              }
+            }}
+            nextDisabled={
+              selectedGiftReviewItems.length === 0 ||
+              createParticipantsBulkMutation.isPending
+            }
+          />
+        ) : (
+          <div className="flex min-h-[320px] flex-col items-center justify-center px-2 text-center sm:min-h-[340px]">
+            <div className="w-full max-w-[410px] space-y-8">
+              <div className="space-y-2">
+                <h2 className="mx-auto max-w-[360px] text-[28px] font-semibold leading-[1.18] tracking-[-0.03em] text-[#1E1E1E] sm:text-[31px]">
+                  What is the Occasion About
+                </h2>
+              </div>
+
+              {isAvailableEventTypesLoading ? (
+                <div className="mx-auto w-full max-w-[380px]">
+                  <ModalPanelSkeleton />
+                </div>
+              ) : (
+                <div className="mx-auto w-full max-w-[380px]">
+                  <OverlaySelect
+                    value={
+                      selectedGiftEventTypeId ||
+                      EMPTY_GIFT_FLOW_SELECTION.selectedEventTypeId
+                    }
+                    onValueChange={(value) =>
+                      setGiftFlowDraftFields(flowSelectionKey, {
+                        selectedEventTypeId: value,
+                      })
+                    }
+                    options={eventTypeOptions}
+                    placeholder="Select Event"
+                    panelTitle="Select Event"
+                    searchPlaceholder=""
+                    addActionLabel="Add New"
+                    onCreateOption={handleCreateEventOption}
+                    onUpdateOption={handleUpdateEventOption}
+                    onDeleteOption={handleDeleteEventOption}
+                    triggerClassName="h-[52px] rounded-full border-[#ECE8F7] px-5 text-[16px] font-medium text-[#666666] sm:text-[17px]"
+                  />
+                </div>
+              )}
+
+              {isAvailableEventTypesError ? (
+                <button
+                  type="button"
+                  onClick={() => void refetchAvailableEventTypes()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading events
+                </button>
+              ) : null}
+
+              <div className="flex items-center justify-center gap-4">
+                <BackButton
+                  onClick={() =>
+                    setGiftFlowStep(
+                      selectedCelebrationTarget === "someone-special"
+                        ? "source"
+                        : "recipient-choice",
+                      mode,
+                      eventId,
+                      giftingEventId,
+                    )
+                  }
+                  className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                  iconClassName="size-[24px]"
+                />
+
+                <ModalButton
+                  type="button"
+                  onClick={handleGiftFlowEventNext}
+                  disabled={
+                    !selectedGiftEventTypeId ||
+                    createGiftingEventMutation.isPending ||
+                    updateGiftingEventMutation.isPending
+                  }
+                >
+                  {createGiftingEventMutation.isPending ||
+                  updateGiftingEventMutation.isPending
+                    ? "Saving..."
+                    : "Next"}
+                </ModalButton>
+              </div>
+            </div>
           </div>
         )}
       </ContentModal>

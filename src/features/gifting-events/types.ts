@@ -3,7 +3,8 @@ export type GiftingEventStatus = "draft" | "ongoing" | "completed" | string;
 export type GiftingEventCurrency = "NGN" | string;
 
 export type GiftingEventCreatePayload = {
-  giftBudget?: number;
+  minimumGiftBudget?: number;
+  maximumGiftBudget?: number;
   currency?: GiftingEventCurrency;
   giftDeadline?: string;
   allowAnonymousGifting?: boolean;
@@ -49,7 +50,8 @@ export type GiftingEventParticipant = {
 export type GiftingEventRecord = {
   id: string;
   eventId: string;
-  giftBudget: number;
+  minimumGiftBudget?: number | null;
+  maximumGiftBudget?: number | null;
   currency: GiftingEventCurrency;
   giftDeadline: string;
   allowAnonymousGifting: boolean;
