@@ -83,7 +83,7 @@ export type ExternalProfileResponse = {
   data: ExternalProfileRecord;
 };
 
-export type UpdateExternalProfilePayload = {
+export type UpdateExternalProfilePayload = Partial<{
   firstName: string;
   lastName: string;
   email: string;
@@ -93,7 +93,7 @@ export type UpdateExternalProfilePayload = {
   phoneNumber: string;
   currency: string;
   profilePhotoUrl: string;
-};
+}>;
 
 export type UpdateExternalProfileResponse = {
   success?: boolean;
