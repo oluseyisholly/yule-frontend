@@ -3,6 +3,7 @@ export type Contact = {
   firstName: string;
   lastName: string;
   email: string;
+  profileUrl?: string | null;
   gender: "male" | "female" | string;
   phone: string;
   phoneNumber?: string;
@@ -87,6 +88,7 @@ export type SyncContactPayload = {
   phoneNumber: string;
   email: string;
   userId: string;
+  profileUrl: string;
 };
 
 export type SyncContactResponse = {

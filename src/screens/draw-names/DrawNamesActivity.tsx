@@ -9,6 +9,7 @@ import EditPencilIcon from "@/components/icons/EditPencilIcon";
 import DeleteIcon from "@/components/icons/DeleteIcon";
 import FilterIcon from "@/components/icons/FilterIcon";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
+import UserAvatar from "@/components/UserAvatar";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import { TableLoadingState } from "@/components/ui/context-skeletons";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,7 @@ function mapParticipantBadge(
     name: fullName,
     role: participant.role === "creator" ? "Admin" : "Participant",
     initials: toInitials(actor.firstName, actor.lastName),
+    profileUrl: actor.profileUrl?.trim() || null,
     bg,
     color,
     status: drawEvent.isDrawCompleted ? "Drawn" : "Pending",
@@ -225,13 +227,15 @@ function ParticipantStack({
   return (
     <div className="flex items-center -space-x-2">
       {participants.map((participant, index) => (
-        <span
+        <UserAvatar
           key={`${participant.initials}-${index}`}
-          className="flex size-8 items-center justify-center rounded-full border-1 border-white text-[9px] font-semibold"
-          style={{ backgroundColor: participant.bg, color: participant.color }}
-        >
-          {participant.initials}
-        </span>
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-8 border border-white text-[9px] font-semibold"
+        />
       ))}
       {overflowCount > 0 ? (
         <span className="flex size-8 items-center justify-center rounded-full border-1 border-white bg-[#EFE6FD] text-[9px] font-semibold text-[#3300C9]">

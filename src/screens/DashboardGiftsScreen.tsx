@@ -35,6 +35,7 @@ import OverlaySelect, {
   type OverlaySelectOption,
 } from "@/components/OverlaySelect";
 import type { SearchableRecordItem } from "@/components/SearchableRecordPicker";
+import UserAvatar from "@/components/UserAvatar";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
 import FilterIcon from "@/components/icons/FilterIcon";
 import Pagination from "@/components/Pagination";
@@ -119,6 +120,7 @@ type GiftingEventStatusLabel = "Draft" | "Ongoing" | "Completed";
 type GiftRowPerson = {
   name: string;
   email?: string;
+  profileUrl?: string | null;
 };
 
 type GiftRow = {
@@ -381,6 +383,7 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -414,6 +417,7 @@ function mapGiftingEventParticipantToRecordItem(
     lastName: contact.lastName,
     phoneNumber: "",
     gender: "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -503,6 +507,7 @@ function toGivenGiftPeople(people?: GivenGroupedGiftPerson[] | null) {
     normalizedPeople.push({
       name,
       email: person.email?.trim() || undefined,
+      profileUrl: person.profileUrl?.trim() || null,
     });
   });
 
@@ -567,10 +572,11 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
     status: toReceivedStatus(gift),
     receivedFrom: giverName
-      ? [
+        ? [
           {
             name: giverName,
             email: giverContact?.email?.trim() || undefined,
+            profileUrl: giverContact?.profileUrl?.trim() || null,
           },
         ]
       : [],
@@ -666,6 +672,7 @@ function toGiftingEventRow(
       const mappedParticipant: GiftRowPerson = {
         name,
         email: participant.eventContact?.email?.trim() || undefined,
+        profileUrl: participant.eventContact?.profileUrl?.trim() || null,
       };
 
       return mappedParticipant;
@@ -814,6 +821,28 @@ function RecipientAvatar({ name }: { name: string }) {
   );
 }
 
+function RecipientAvatarWithImage({
+  name,
+  profileUrl,
+}: {
+  name: string;
+  profileUrl?: string | null;
+}) {
+  const { bg, color } = getRecipientStyle(name);
+
+  return (
+    <UserAvatar
+      name={name}
+      initials={toInitials(name)}
+      imageUrl={profileUrl}
+      bgColor={bg}
+      textColor={color}
+      className="size-8 border border-white text-[9px] font-semibold"
+      title={name}
+    />
+  );
+}
+
 function RecipientCell({ people }: { people: GiftRowPerson[] }) {
   if (people.length === 0) {
     return <span className="text-sm text-[#7D7D7D]">-</span>;
@@ -828,7 +857,10 @@ function RecipientCell({ people }: { people: GiftRowPerson[] }) {
 
     return (
       <div className="flex items-center gap-2.5">
-        <RecipientAvatar name={person.name} />
+        <RecipientAvatarWithImage
+          name={person.name}
+          profileUrl={person.profileUrl}
+        />
         <span className="text-sm font-medium text-[#1E1E1E]">
           {person.name}
         </span>
@@ -843,7 +875,11 @@ function RecipientCell({ people }: { people: GiftRowPerson[] }) {
     <div className="flex items-center">
       <div className="flex items-center -space-x-2">
         {visiblePeople.map((person) => (
-          <RecipientAvatar key={person.name} name={person.name} />
+            <RecipientAvatarWithImage
+              key={person.name}
+              name={person.name}
+              profileUrl={person.profileUrl}
+            />
         ))}
         {overflowCount > 0 ? (
           <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
@@ -869,14 +905,16 @@ function ParticipantStack({ people }: { people: GiftRowPerson[] }) {
         const { bg, color } = getRecipientStyle(person.name);
 
         return (
-          <span
+          <UserAvatar
             key={person.name}
-            className="flex size-8 items-center justify-center rounded-full border border-white text-[9px] font-semibold"
-            style={{ backgroundColor: bg, color }}
+            name={person.name}
+            initials={toInitials(person.name)}
+            imageUrl={person.profileUrl}
+            bgColor={bg}
+            textColor={color}
+            className="size-8 border border-white text-[9px] font-semibold"
             title={person.name}
-          >
-            {toInitials(person.name)}
-          </span>
+          />
         );
       })}
       {overflowCount > 0 ? (

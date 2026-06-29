@@ -3,6 +3,7 @@ import { getExternalBusinessProfiles } from "@/features/auth/service";
 
 export type OnedaProfile = {
   _id: string;
+  profilePhotoUrl?: string | null;
   accountId: {
     _id: string;
     firstName: string;

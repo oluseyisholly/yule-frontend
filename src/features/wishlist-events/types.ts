@@ -26,6 +26,7 @@ export type WishlistEventParticipantActor = {
   firstName: string;
   lastName: string;
   email: string;
+  profileUrl?: string | null;
 };
 
 export type WishlistEventParticipant = {

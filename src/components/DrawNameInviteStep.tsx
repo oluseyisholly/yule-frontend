@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import BackButton from "@/components/BackButton";
+import UserAvatar from "@/components/UserAvatar";
 import { InviteLinksLoadingSkeleton } from "@/components/ui/context-skeletons";
 import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ export type DrawNameInviteParticipant = {
   initials: string;
   avatarBg: string;
   avatarColor: string;
+  profileUrl?: string | null;
   inviteUrl?: string | null;
 };
 
@@ -175,15 +177,15 @@ export default function DrawNameInviteStep({
                   className="flex items-center justify-between gap-3 border-b border-[#F1EDF8] py-3 last:border-b-0"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                      style={{
-                        backgroundColor: participant.avatarBg,
-                        color: participant.avatarColor,
-                      }}
-                    >
-                      {participant.initials}
-                    </span>
+                    <UserAvatar
+                      name={participant.name}
+                      initials={participant.initials}
+                      imageUrl={participant.profileUrl}
+                      bgColor={participant.avatarBg}
+                      textColor={participant.avatarColor}
+                      className="size-11 text-sm font-semibold"
+                      title={participant.name}
+                    />
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-[#1E1E1E]">

@@ -432,8 +432,12 @@ export default function WishListPublicScreen({
       );
       setSelectedGiftIds([]);
       router.refresh();
-    } catch {
-      // Request errors are already normalized and surfaced by the API layer.
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to claim this gift right now.",
+      );
     } finally {
       setIsClaiming(false);
     }

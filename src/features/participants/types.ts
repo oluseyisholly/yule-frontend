@@ -48,6 +48,7 @@ export type EventParticipantContact = {
   firstName: string;
   lastName: string;
   email: string;
+  profileUrl?: string | null;
 };
 
 export type ParticipantPerson = {
@@ -56,6 +57,7 @@ export type ParticipantPerson = {
   lastName?: string;
   email?: string;
   phoneNumber?: string;
+  profileUrl?: string | null;
 };
 
 export type EventParticipant = {

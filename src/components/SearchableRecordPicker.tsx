@@ -15,6 +15,7 @@ import {
   RecordPickerLoadingSkeleton,
 } from "@/components/ui/context-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import UserAvatar from "@/components/UserAvatar";
 import { cn } from "@/lib/utils";
 
 export type SearchableRecordItem = {
@@ -28,6 +29,7 @@ export type SearchableRecordItem = {
   lastName?: string;
   phoneNumber?: string;
   gender?: "male" | "female" | "";
+  profileUrl?: string | null;
   avatar?: ReactNode;
   initials?: string;
   avatarBg?: string;
@@ -82,18 +84,15 @@ function AvatarBubble({
   }
 
   return (
-    <span
-      className={cn(
-        "flex items-center justify-center rounded-full text-sm font-semibold",
-        className,
-      )}
-      style={{
-        backgroundColor: item.avatarBg ?? "#EFE6FD",
-        color: item.avatarColor ?? "#3300C9",
-      }}
-    >
-      {item.initials ?? item.name.slice(0, 2).toUpperCase()}
-    </span>
+    <UserAvatar
+      name={item.name}
+      initials={item.initials ?? item.name.slice(0, 2).toUpperCase()}
+      imageUrl={item.profileUrl}
+      bgColor={item.avatarBg ?? "#EFE6FD"}
+      textColor={item.avatarColor ?? "#3300C9"}
+      className={cn("text-sm font-semibold", className)}
+      title={item.name}
+    />
   );
 }
 

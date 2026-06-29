@@ -7,6 +7,7 @@ export type HangoutEventActor = {
   firstName: string;
   lastName: string;
   email: string;
+  profileUrl?: string | null;
 };
 
 export type HangoutEventParticipant = {

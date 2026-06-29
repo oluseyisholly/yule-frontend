@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
 import toast from "react-hot-toast";
+import { Spinner } from "@/components/ui/spinner";
 import HomeScreen from "@/screens/HomeScreen";
 import { getExternalProfile } from "@/features/auth/service";
 import type { AuthUser, SsoTokenPayload } from "@/features/auth/types";
@@ -65,9 +66,15 @@ export default function LandingPageEntry() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuthSession = useAuthStore((state) => state.setAuthSession);
-  const setCurrentContactId = useAuthStore((state) => state.setCurrentContactId);
+  const setCurrentContactId = useAuthStore(
+    (state) => state.setCurrentContactId,
+  );
   const setIsSsoSigningIn = useAuthStore((state) => state.setSsoSigningIn);
+  const isSsoSigningIn = useAuthStore((state) => state.isSsoSigningIn);
   const processedAccessTokenRef = useRef<string | null>(null);
+  const hasPendingAccessToken =
+    Boolean(searchParams.get("accessToken")?.trim()) ||
+    Boolean(searchParams.get("refreshToken")?.trim());
 
   useEffect(() => {
     const accessToken = searchParams.get("accessToken")?.trim() ?? "";
@@ -106,9 +113,14 @@ export default function LandingPageEntry() {
         const storedEmail =
           storedAuthState.user?.email?.trim().toLowerCase() || "";
 
-        if (storedEmail && storedEmail === normalizedEmail && storedAuthState.user) {
+        if (
+          storedEmail &&
+          storedEmail === normalizedEmail &&
+          storedAuthState.user
+        ) {
           const resumedSession: AuthUser = {
-            id: storedAuthState.user.id?.trim() || decodedToken.id?.trim() || id,
+            id:
+              storedAuthState.user.id?.trim() || decodedToken.id?.trim() || id,
             firstName: storedAuthState.user.firstName?.trim() || "",
             lastName: storedAuthState.user.lastName?.trim() || "",
             phoneNumber: storedAuthState.user.phoneNumber?.trim() || "",
@@ -117,7 +129,9 @@ export default function LandingPageEntry() {
             refreshToken: refreshToken || storedAuthState.refreshToken || null,
             profileId: storedAuthState.user.id?.trim() || id,
             mode:
-              decodedToken.mode?.trim() || storedAuthState.user.mode?.trim() || null,
+              decodedToken.mode?.trim() ||
+              storedAuthState.user.mode?.trim() ||
+              null,
             hostBusinessId:
               decodedToken.hostBusinessId?.trim() ||
               storedAuthState.user.hostBusinessId?.trim() ||
@@ -126,7 +140,8 @@ export default function LandingPageEntry() {
               decodedToken.hostAccountId?.trim() ||
               storedAuthState.user.hostAccountId?.trim() ||
               null,
-            profile: storedAuthState.profile ?? storedAuthState.user.profile ?? null,
+            profile:
+              storedAuthState.profile ?? storedAuthState.user.profile ?? null,
           };
 
           if (!isCancelled) {
@@ -149,7 +164,7 @@ export default function LandingPageEntry() {
           email,
           token: accessToken,
           refreshToken: refreshToken || null,
-          profileId:id,
+          profileId: id,
           mode: decodedToken.mode?.trim() || null,
           hostBusinessId: decodedToken.hostBusinessId?.trim() || null,
           hostAccountId: decodedToken.hostAccountId?.trim() || null,
@@ -160,7 +175,10 @@ export default function LandingPageEntry() {
           setAuthSession(provisionalSession);
         }
 
-        const profileResponse = await getExternalProfile(profileId, accessToken);
+        const profileResponse = await getExternalProfile(
+          profileId,
+          accessToken,
+        );
         const profileRecord = profileResponse.data;
         const account = profileRecord.accountId;
 
@@ -178,6 +196,7 @@ export default function LandingPageEntry() {
           hostAccountId:
             decodedToken.hostAccountId?.trim() || account._id?.trim() || null,
           profile: profileRecord,
+          profilePhotoUrl: profileResponse.data.profilePhotoUrl?.trim() || null,
         };
 
         if (!isCancelled) {
@@ -191,6 +210,7 @@ export default function LandingPageEntry() {
           phoneNumber: resolvedSession.phoneNumber || "",
           email: resolvedSession.email,
           userId: id,
+          profileUrl: profileRecord.profilePhotoUrl?.trim() || "",
         });
 
         try {
@@ -231,7 +251,33 @@ export default function LandingPageEntry() {
     return () => {
       isCancelled = true;
     };
-  }, [router, searchParams, setAuthSession, setCurrentContactId, setIsSsoSigningIn]);
+  }, [
+    router,
+    searchParams,
+    setAuthSession,
+    setCurrentContactId,
+    setIsSsoSigningIn,
+  ]);
 
-  return <HomeScreen />;
+  return (
+    <>
+      <HomeScreen />
+
+      {isSsoSigningIn || hasPendingAccessToken ? (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#120829]/55 px-6 backdrop-blur-[2px]">
+          <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-[28px] border border-white/15 bg-white px-8 py-8 text-center shadow-[0_24px_60px_rgba(18,8,41,0.28)]">
+            <Spinner className="size-10 text-[#3300C9]" />
+            <div className="space-y-1">
+              <p className="text-[18px] font-semibold text-[#1E1E1E]">
+                Signing you in
+              </p>
+              <p className="text-sm text-[#6E6A78]">
+                Please wait while we finish setting up your session.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }

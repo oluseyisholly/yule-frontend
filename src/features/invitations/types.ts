@@ -6,6 +6,7 @@ export type InvitationContact = {
   lastName: string;
   email: string;
   phoneNumber?: string;
+  profileUrl?: string | null;
 };
 
 export type InvitationRecord = {

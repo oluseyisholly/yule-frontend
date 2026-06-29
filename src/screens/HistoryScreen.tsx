@@ -11,6 +11,7 @@ import {
   ShoppingBagIcon,
 } from "lucide-react";
 import Checkbox from "@/components/Checkbox";
+import UserAvatar from "@/components/UserAvatar";
 import PageHeader from "@/components/dashboard/PageHeader";
 import FilterIcon from "@/components/icons/FilterIcon";
 import Pagination from "@/components/Pagination";
@@ -36,6 +37,7 @@ type HistoryParticipant = {
   id: string;
   name: string;
   initials: string;
+  profileUrl?: string | null;
   bg: string;
   color: string;
 };
@@ -130,6 +132,7 @@ function mapHistoryParticipant(
     id: participant.id,
     name,
     initials: toParticipantInitials(name) || "HY",
+    profileUrl: actor?.profileUrl?.trim() || null,
     bg,
     color,
   };
@@ -190,17 +193,16 @@ function ParticipantStack({
   return (
     <div className="flex items-center -space-x-2">
       {visibleParticipants.map((participant) => (
-        <span
+        <UserAvatar
           key={participant.id}
-          className="flex size-8 items-center justify-center rounded-full border border-white text-[9px] font-semibold"
-          style={{
-            backgroundColor: participant.bg,
-            color: participant.color,
-          }}
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-8 border border-white text-[9px] font-semibold"
           title={participant.name}
-        >
-          {participant.initials}
-        </span>
+        />
       ))}
       {overflowCount > 0 ? (
         <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">

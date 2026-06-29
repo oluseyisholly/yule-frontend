@@ -138,6 +138,7 @@ export type GivenGroupedGiftPerson = {
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
+  profileUrl?: string | null;
 };
 
 export type GivenGroupedGiftEvent = {
@@ -194,6 +195,7 @@ export type ReceivedGiftParticipantContact = {
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
+  profileUrl?: string | null;
 };
 
 export type ReceivedGiftParticipant = {

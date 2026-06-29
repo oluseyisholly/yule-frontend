@@ -176,6 +176,7 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -209,6 +210,7 @@ function mapEventParticipantToRecordItem(
     lastName: contact.lastName,
     phoneNumber: "",
     gender: "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -887,7 +889,7 @@ export default function DrawNameStartModal({
         name: `${profile.accountId.firstName} ${profile.accountId.lastName}`,
         email: profile.accountId.email,
         subtitle: profile.accountId.email,
-        avatar: "",
+        profileUrl: profile.profilePhotoUrl?.trim() || null,
         isSelectable: true,
       })),
     [onedaProfiles],
@@ -986,6 +988,7 @@ export default function DrawNameStartModal({
           initials,
           avatarBg,
           avatarColor,
+          profileUrl: actor.profileUrl?.trim() || null,
           inviteUrl: invitation.inviteUrl ?? null,
         };
       }),

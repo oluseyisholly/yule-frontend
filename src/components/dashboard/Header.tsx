@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   BellIcon,
@@ -13,7 +14,9 @@ import {
   XIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import ProfilePhotoCropModal from "@/components/ProfilePhotoCropModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +26,7 @@ import {
 } from "@/components/ui/popover";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getDashboardNavItemByPathname } from "@/components/dashboard/navigation";
+import { updateExternalProfile } from "@/features/auth/service";
 import { cn } from "@/lib/utils";
 import { clearStoredAuthSession, useAuthStore } from "@/stores/auth-store";
 import { AUTH_APP_BASE_URL_MANAGE_ACCOUNT } from "@/lib/external-links";
@@ -148,6 +152,40 @@ function getInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+function HeaderAvatar({
+  name,
+  photoUrl,
+  sizeClassName,
+  textClassName,
+}: {
+  name: string;
+  photoUrl?: string | null;
+  sizeClassName: string;
+  textClassName: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#efe6fd] font-semibold text-[#3300C9]",
+        sizeClassName,
+        textClassName,
+      )}
+    >
+      {photoUrl ? (
+        <Image
+          src={photoUrl}
+          alt={name || "Profile photo"}
+          fill
+          className="object-cover"
+          sizes="96px"
+        />
+      ) : (
+        getInitials(name)
+      )}
+    </span>
+  );
+}
+
 function ProfileMenuRow({
   icon,
   label,
@@ -186,16 +224,33 @@ function DashboardProfileMenu({
   profileName,
   profileEmail,
   activeBusinessName,
+  profilePhotoUrl,
 }: {
   trigger: React.ReactNode;
   profileName: string;
   profileEmail: string;
   activeBusinessName: string;
+  profilePhotoUrl?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pendingCropImageSrc, setPendingCropImageSrc] = useState<string | null>(
+    null,
+  );
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const authUser = useAuthStore((state) => state.user);
+  const persistedProfile = useAuthStore((state) => state.profile);
+  const authToken = useAuthStore((state) => state.token);
+  const updateUserProfile = useAuthStore((state) => state.updateUserProfile);
   const greetingName =
     profileName.split(" ").filter(Boolean)[0]?.trim() || "there";
+  const profileId =
+    authUser?.profile?._id?.trim() ||
+    persistedProfile?._id?.trim() ||
+    authUser?.profileId?.trim() ||
+    null;
 
   const handleNavigate = (href: string) => {
     setOpen(false);
@@ -208,84 +263,172 @@ function DashboardProfileMenu({
     window.location.assign("/");
   };
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={12}
-        className="w-[min(370px,calc(75vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
-      >
-        <div className="relative px-6 pb-7 pt-4 text-center">
-          <p className="px-10 text-[14px] font-medium text-[#616777]">
-            {profileEmail}
-          </p>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close profile menu"
-            className="absolute right-6 top-4 rounded-full p-1 text-[#7E8495] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
-          >
-            <XIcon className="size-4" />
-          </button>
+  const handleProfilePhotoSelection = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
 
-          <div className="relative mx-auto mt-5 flex size-[92px] items-center justify-center rounded-full bg-[#EFE6FD] text-[38px] font-semibold text-[#3300C9]">
-            {getInitials(profileName)}
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!selectedFile.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        toast.error("Unable to prepare that image right now.");
+        return;
+      }
+
+      setPendingCropImageSrc(reader.result);
+      setIsCropModalOpen(true);
+    };
+    reader.onerror = () => {
+      toast.error("Unable to read that image right now.");
+    };
+    reader.readAsDataURL(selectedFile);
+  };
+
+  const handleCloseCropModal = () => {
+    setPendingCropImageSrc(null);
+    setIsCropModalOpen(false);
+  };
+
+  const handleProfilePhotoCropped = async (croppedImageSrc: string) => {
+    if (!profileId || !authToken) {
+      toast.error("Unable to resolve your profile right now.");
+      return;
+    }
+
+    try {
+      setIsUpdatingPhoto(true);
+
+      await updateExternalProfile(profileId, authToken, {
+        profilePhotoUrl: croppedImageSrc,
+      });
+
+      updateUserProfile({
+        profilePhotoUrl: croppedImageSrc,
+      });
+
+      setPendingCropImageSrc(null);
+      setIsCropModalOpen(false);
+      toast.success("Profile photo updated successfully.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update your profile photo right now.",
+      );
+    } finally {
+      setIsUpdatingPhoto(false);
+    }
+  };
+
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={12}
+          className="w-[min(370px,calc(100vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
+        >
+          <div className="relative px-4 pb-6 pt-4 text-center sm:px-6 sm:pb-7">
+            <p className="px-8 text-[13px] font-medium break-words text-[#616777] sm:px-10 sm:text-[14px]">
+              {profileEmail}
+            </p>
             <button
               type="button"
-              onClick={() => {
-                setOpen(false);
-              }}
-              aria-label="Profile photo"
-              className="absolute bottom-0 right-1 flex size-8 items-center justify-center rounded-full border-[3px] border-white bg-black text-white shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+              onClick={() => setOpen(false)}
+              aria-label="Close profile menu"
+              className="absolute right-4 top-4 rounded-full p-1 text-[#7E8495] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343] sm:right-6"
             >
-              <CameraIcon className="size-3.5" />
+              <XIcon className="size-4" />
             </button>
+
+            <div className="relative mx-auto mt-5 flex size-[92px] items-center justify-center">
+              <HeaderAvatar
+                name={profileName}
+                photoUrl={profilePhotoUrl}
+                sizeClassName="size-[92px]"
+                textClassName="text-[38px]"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Update profile photo"
+                disabled={isUpdatingPhoto}
+                className="absolute bottom-0 right-0 z-10 flex size-8 items-center justify-center rounded-full border-[3px] border-white bg-black text-white shadow-[0_8px_18px_rgba(0,0,0,0.16)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <CameraIcon className="size-3.5" />
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleProfilePhotoSelection}
+            />
+
+            <h3 className="mt-4 text-[18px] font-semibold text-[#1E1E1E]">
+              Hi, {greetingName}!
+            </h3>
+
+            <p className="mt-2 flex items-center justify-center gap-2 text-[15px] text-[#6F7483]">
+              <BriefcaseBusinessIcon className="size-4 shrink-0" />
+              <span className="max-w-full truncate">{profileName}</span>
+            </p>
+
+            <a
+              href={AUTH_APP_BASE_URL_MANAGE_ACCOUNT}
+              className="mt-3 inline-flex h-[40px] w-full max-w-[280px] items-center justify-center rounded-full border border-[#D9DDEA] px-4 text-center text-[15px] font-medium text-[#434343] transition-colors hover:bg-[#FAF8FF] sm:px-6 sm:text-[16px]"
+            >
+              Manage your Viktri account
+            </a>
           </div>
 
-          <h3 className="mt-4 text-[18px] font-semibold text-[#1E1E1E]">
-            Hi, {greetingName}!
-          </h3>
+          <div className="border-t border-[#ECE8F7] py-2">
+            <ProfileMenuRow
+              icon={<LogOutIcon className="size-4.5" />}
+              label="Log out"
+              onClick={handleLogout}
+              tone="danger"
+            />
+          </div>
 
-          <p className="mt-2 flex items-center justify-center gap-2 text-[15px] text-[#6F7483]">
-            <BriefcaseBusinessIcon className="size-4" />
-            <span>{profileName}</span>
-          </p>
+          <div className="border-t border-[#ECE8F7] px-4 py-4 text-center text-[13px] text-[#8B90A0] sm:px-6 sm:text-[14px]">
+            <Link
+              href="/privacy"
+              className="transition-colors hover:text-[#3300C9]"
+            >
+              Privacy Policy
+            </Link>
+            <span className="px-2">·</span>
+            <Link
+              href="/terms"
+              className="transition-colors hover:text-[#3300C9]"
+            >
+              Terms of Service
+            </Link>
+          </div>
+        </PopoverContent>
+      </Popover>
 
-          <a
-            href={AUTH_APP_BASE_URL_MANAGE_ACCOUNT}
-            className="mt-3 inline-flex h-[40px] items-center justify-center rounded-full border border-[#D9DDEA] px-6 text-[16px] font-medium text-[#434343] transition-colors hover:bg-[#FAF8FF]"
-          >
-            Manage your Viktri account
-          </a>
-        </div>
-
-        <div className="border-t border-[#ECE8F7] py-2">
-          <ProfileMenuRow
-            icon={<LogOutIcon className="size-4.5" />}
-            label="Log out"
-            onClick={handleLogout}
-            tone="danger"
-          />
-        </div>
-
-        <div className="border-t border-[#ECE8F7] px-6 py-4 text-center text-[14px] text-[#8B90A0]">
-          <Link
-            href="/privacy"
-            className="transition-colors hover:text-[#3300C9]"
-          >
-            Privacy Policy
-          </Link>
-          <span className="px-2">·</span>
-          <Link
-            href="/terms"
-            className="transition-colors hover:text-[#3300C9]"
-          >
-            Terms of Service
-          </Link>
-        </div>
-      </PopoverContent>
-    </Popover>
+      <ProfilePhotoCropModal
+        open={isCropModalOpen}
+        imageSrc={pendingCropImageSrc}
+        onClose={handleCloseCropModal}
+        onConfirm={handleProfilePhotoCropped}
+      />
+    </>
   );
 }
 
@@ -307,6 +450,7 @@ export default function DashboardHeader({
       [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
       "Yule User",
     email: user?.email?.trim() || "No email",
+    photoUrl: user?.profile?.profilePhotoUrl?.trim() || null,
   };
 
   return (
@@ -362,13 +506,19 @@ export default function DashboardHeader({
               profileName={dashboardHeaderProfile.name}
               profileEmail={dashboardHeaderProfile.email}
               activeBusinessName={activeBusinessName}
+              profilePhotoUrl={dashboardHeaderProfile.photoUrl}
               trigger={
                 <button
                   type="button"
                   aria-label="Profile"
-                  className="flex size-9 items-center justify-center rounded-full bg-[#efe6fd] text-xs font-semibold text-[#3300C9]"
+                  className="flex size-9 items-center justify-center rounded-full"
                 >
-                  {getInitials(dashboardHeaderProfile.name)}
+                  <HeaderAvatar
+                    name={dashboardHeaderProfile.name}
+                    photoUrl={dashboardHeaderProfile.photoUrl}
+                    sizeClassName="size-9"
+                    textClassName="text-xs"
+                  />
                 </button>
               }
             />
@@ -404,14 +554,18 @@ export default function DashboardHeader({
               profileName={dashboardHeaderProfile.name}
               profileEmail={dashboardHeaderProfile.email}
               activeBusinessName={activeBusinessName}
+              profilePhotoUrl={dashboardHeaderProfile.photoUrl}
               trigger={
                 <button
                   type="button"
                   className="flex items-center gap-3 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-left transition-colors hover:bg-[#faf8ff]"
                 >
-                  <span className="flex size-10 items-center justify-center rounded-full bg-[#efe6fd] text-sm font-semibold text-[#3300C9]">
-                    {getInitials(dashboardHeaderProfile.name)}
-                  </span>
+                  <HeaderAvatar
+                    name={dashboardHeaderProfile.name}
+                    photoUrl={dashboardHeaderProfile.photoUrl}
+                    sizeClassName="size-10"
+                    textClassName="text-sm"
+                  />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[#1e1e1e]">
                       {dashboardHeaderProfile.name}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Button from "@/components/Button";
 import ThemeToggle from "@/components/ThemeToggle";
+import UserAvatar from "@/components/UserAvatar";
 import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
 import { useAuthStore } from "@/stores/auth-store";
@@ -31,12 +32,14 @@ function SignedInUserCard({
   name,
   email,
   initials,
+  imageUrl,
   onClick,
   className = "",
 }: {
   name: string;
   email: string;
   initials: string;
+  imageUrl?: string | null;
   onClick?: () => void;
   className?: string;
 }) {
@@ -46,9 +49,14 @@ function SignedInUserCard({
       onClick={onClick}
       className={`flex min-w-0 items-center gap-3 rounded-full border border-transparent px-1 py-2.5 transition-colors hover:border-[#F1EBFF] ${className}`}
     >
-      <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#EEE6FF] text-[16px] font-semibold text-[#3300C9]">
-        {initials}
-      </span>
+      <UserAvatar
+        name={name}
+        initials={initials}
+        imageUrl={imageUrl}
+        bgColor="#EEE6FF"
+        textColor="#3300C9"
+        className="h-[42px] w-[42px] text-[16px] font-semibold"
+      />
 
       <span className="min-w-0 hidden md:block">
         <span className="block truncate text-[16px] font-medium leading-tight text-[#3300C9]">
@@ -99,6 +107,7 @@ export default function Header() {
     "Yule User";
   const email = authUser?.email?.trim() || "No email address";
   const initials = getInitials(authUser?.firstName, authUser?.lastName);
+  const profileImageUrl = authUser?.profile?.profilePhotoUrl?.trim() || null;
   const shouldShowSignedInCard = isAuthenticated && Boolean(authUser);
 
   const closeMenu = () => setIsOpen(false);
@@ -151,6 +160,7 @@ export default function Header() {
               name={fullName}
               email={email}
               initials={initials}
+              imageUrl={profileImageUrl}
               className="max-w-[280px]"
             />
           ) : (
@@ -228,6 +238,7 @@ export default function Header() {
               name={fullName}
               email={email}
               initials={initials}
+              imageUrl={profileImageUrl}
               onClick={closeMenu}
               className="w-full"
             />

@@ -25,6 +25,7 @@ export type AuthUser = {
   hostBusinessId?: string | null;
   hostAccountId?: string | null;
   profile?: ExternalProfileRecord | null;
+  profilePhotoUrl?: string | null;
 };
 
 export type SsoTokenPayload = {

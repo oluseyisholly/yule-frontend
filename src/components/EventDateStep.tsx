@@ -138,7 +138,7 @@ export default function EventDateStep({
               side="bottom"
               align="start"
               sideOffset={8}
-              avoidCollisions={false}
+              collisionPadding={16}
               className="z-[130] w-auto overflow-visible rounded-[20px] border-none bg-white p-0 shadow-[0_20px_48px_rgba(26,19,61,0.12)]"
             >
               <CalendarComponent

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/Button";
 import { BackIcon } from "@/components/BackLink";
+import UserAvatar from "@/components/UserAvatar";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { EventDetailScreenSkeleton } from "@/components/ui/context-skeletons";
 import { Calendar } from "@/components/ui/calender";
@@ -44,6 +45,7 @@ type HangoutParticipantBubble = {
   bg: string;
   color: string;
   name: string;
+  profileUrl?: string | null;
 };
 
 type HangoutParticipantDetail = HangoutParticipantBubble & {
@@ -193,7 +195,7 @@ function BookingDateField({
           side="bottom"
           align="start"
           sideOffset={8}
-          avoidCollisions={false}
+          collisionPadding={16}
           className="z-[130] w-auto overflow-visible rounded-[20px] border-none bg-white p-0 shadow-[0_20px_48px_rgba(26,19,61,0.12)]"
         >
           <CalendarComponent
@@ -230,17 +232,16 @@ function ParticipantStack({
   return (
     <div className="flex items-center -space-x-2">
       {visibleParticipants.map((participant) => (
-        <span
+        <UserAvatar
           key={participant.id}
-          className="flex size-7 items-center justify-center rounded-full border border-white text-[9px] font-semibold"
-          style={{
-            backgroundColor: participant.bg,
-            color: participant.color,
-          }}
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-7 border border-white text-[9px] font-semibold"
           title={participant.name}
-        >
-          {participant.initials}
-        </span>
+        />
       ))}
 
       {overflowCount > 0 ? (
@@ -260,15 +261,15 @@ function ParticipantDetailRow({
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[#F1EDF8] py-3 last:border-b-0">
       <div className="flex min-w-0 items-center gap-3">
-        <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-          style={{
-            backgroundColor: participant.bg,
-            color: participant.color,
-          }}
-        >
-          {participant.initials}
-        </span>
+        <UserAvatar
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-11 shrink-0 text-sm font-semibold"
+          title={participant.name}
+        />
 
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-[#1E1E1E]">
@@ -481,6 +482,7 @@ export default function HangoutDetailsScreen({
             bg,
             color,
             name,
+            profileUrl: participant.eventContact?.profileUrl?.trim() || null,
           });
 
           return accumulator;
@@ -515,6 +517,7 @@ export default function HangoutDetailsScreen({
             bg,
             color,
             name,
+            profileUrl: participant.eventContact?.profileUrl?.trim() || null,
             email: participant.eventContact?.email?.trim() || "",
             role: participant.role || "participant",
           });

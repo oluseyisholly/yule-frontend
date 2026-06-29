@@ -73,6 +73,7 @@ export type DrawNameEventListParticipantActor = {
   firstName: string;
   lastName: string;
   email: string;
+  profileUrl?: string | null;
 };
 
 export type DrawNameEventListParticipant = {

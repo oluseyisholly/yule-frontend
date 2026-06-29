@@ -52,6 +52,7 @@ import {
 import Table, { type TableData } from "@/components/ui/Table";
 import { Input } from "@/components/ui/input";
 import ViewIcon from "@/components/icons/ViewIcon";
+import UserAvatar from "@/components/UserAvatar";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
 import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
@@ -98,6 +99,7 @@ type WishListParticipant = {
   id: number;
   name: string;
   initials: string;
+  profileUrl?: string | null;
   bg: string;
   color: string;
 };
@@ -204,8 +206,10 @@ const wishListCelebrationTypeOptions: Array<{
   { value: "both", label: "Both Gifts & Hangouts" },
 ];
 
-function createParticipants(names: string[]) {
-  return names.map((name, index) => {
+function createParticipants(
+  participants: Array<{ name: string; profileUrl?: string | null }>,
+) {
+  return participants.map(({ name, profileUrl }, index) => {
     const [first = "", second = ""] = name.split(" ");
     const initials = `${first.charAt(0)}${second.charAt(0)}`
       .trim()
@@ -216,6 +220,7 @@ function createParticipants(names: string[]) {
       id: index + 1,
       name,
       initials: initials || "WL",
+      profileUrl: profileUrl?.trim() || null,
       bg: palette.bg,
       color: palette.color,
     };
@@ -469,7 +474,16 @@ function getParticipantDisplayName(participant: WishlistEventParticipant) {
 }
 
 function mapWishlistParticipants(participants: WishlistEventParticipant[] = []) {
-  return createParticipants(participants.map(getParticipantDisplayName));
+  return createParticipants(
+    participants.map((participant) => {
+      const actor = participant.eventContact ?? participant.user;
+
+      return {
+        name: getParticipantDisplayName(participant),
+        profileUrl: actor?.profileUrl?.trim() || null,
+      };
+    }),
+  );
 }
 
 function mapWishlistRecordToRow(
@@ -608,14 +622,16 @@ function ParticipantStack({
   return (
     <div className="flex items-center -space-x-2">
       {participants.map((participant, index) => (
-        <span
+        <UserAvatar
           key={`${participant.name}-${index}`}
-          className="flex size-8 items-center justify-center rounded-full border border-white text-[9px] font-semibold"
-          style={{ backgroundColor: participant.bg, color: participant.color }}
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-8 border border-white text-[9px] font-semibold"
           title={participant.name}
-        >
-          {participant.initials}
-        </span>
+        />
       ))}
       {overflowCount > 0 ? (
         <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">

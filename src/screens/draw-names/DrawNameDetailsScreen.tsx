@@ -12,6 +12,7 @@ import {
 import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import DetailHeader from "@/components/DetailHeader";
+import UserAvatar from "@/components/UserAvatar";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ type DetailParticipant = {
   name: string;
   role: string;
   initials: string;
+  profileUrl?: string | null;
   color: string;
   bg: string;
   status: "Drawn" | "Pending";
@@ -176,6 +178,7 @@ function mapParticipant(
     name: fullName,
     role: participant.role === "creator" ? "Admin" : "Participant",
     initials: toInitials(actor.firstName, actor.lastName),
+    profileUrl: actor.profileUrl?.trim() || null,
     bg,
     color,
     status: participant.isPairActive ? "Drawn" : "Pending",
@@ -277,15 +280,15 @@ function DrawNameActionIcon({ className }: { className?: string }) {
 
 function ParticipantAvatar({ participant }: { participant: DetailParticipant }) {
   return (
-    <span
-      className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-      style={{
-        backgroundColor: participant.bg,
-        color: participant.color,
-      }}
-    >
-      {participant.initials}
-    </span>
+    <UserAvatar
+      name={participant.name}
+      initials={participant.initials}
+      imageUrl={participant.profileUrl}
+      bgColor={participant.bg}
+      textColor={participant.color}
+      className="size-11 text-sm font-semibold"
+      title={participant.name}
+    />
   );
 }
 
@@ -296,17 +299,15 @@ function PairedAvatarBadge({
 }) {
   return (
     <span className="relative flex size-[46px] items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white shadow-[0_10px_26px_rgba(26,19,61,0.18)] sm:size-[54px] sm:border-[4px]">
-      <span
-        className="flex size-full items-center justify-center rounded-full text-[15px] font-semibold"
-        style={{
-          backgroundColor: participant.bg,
-          color: participant.color,
-        }}
+      <UserAvatar
+        name={participant.name}
+        initials={participant.initials}
+        imageUrl={participant.profileUrl}
+        bgColor={participant.bg}
+        textColor={participant.color}
+        className="size-full text-[15px] font-semibold"
         title={participant.name}
-        aria-label={`Paired with ${participant.name}`}
-      >
-        {participant.initials}
-      </span>
+      />
 
       <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[#191A1F]/45">
         <Link2Icon className="size-4 text-white" strokeWidth={2.1} />

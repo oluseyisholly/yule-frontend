@@ -5,6 +5,7 @@ export type ParticipantBadge = {
   name: string;
   role: string;
   initials: string;
+  profileUrl?: string | null;
   color: string;
   bg: string;
   status?: "Drawn" | "Pending";

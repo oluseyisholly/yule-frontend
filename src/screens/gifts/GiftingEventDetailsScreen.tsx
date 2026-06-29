@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import Checkbox from "@/components/Checkbox";
 import DetailHeader from "@/components/DetailHeader";
+import UserAvatar from "@/components/UserAvatar";
 import Pagination from "@/components/Pagination";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import FilterIcon from "@/components/icons/FilterIcon";
@@ -56,6 +57,7 @@ type DetailParticipant = {
   name: string;
   role: string;
   initials: string;
+  profileUrl?: string | null;
   color: string;
   bg: string;
   email: string;
@@ -244,6 +246,7 @@ function mapParticipant(
     name: fullName,
     role: participant.role === "creator" ? "Admin" : "Participant",
     initials: toInitials(actor.firstName, actor.lastName),
+    profileUrl: actor.profileUrl?.trim() || null,
     bg,
     color,
     email: actor.email || "",
@@ -285,15 +288,15 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 
 function ParticipantAvatar({ participant }: { participant: DetailParticipant }) {
   return (
-    <span
-      className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-      style={{
-        backgroundColor: participant.bg,
-        color: participant.color,
-      }}
-    >
-      {participant.initials}
-    </span>
+    <UserAvatar
+      name={participant.name}
+      initials={participant.initials}
+      imageUrl={participant.profileUrl}
+      bgColor={participant.bg}
+      textColor={participant.color}
+      className="size-11 text-sm font-semibold"
+      title={participant.name}
+    />
   );
 }
 

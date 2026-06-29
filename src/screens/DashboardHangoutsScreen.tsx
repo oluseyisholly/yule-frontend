@@ -37,6 +37,7 @@ import OverlaySelect, {
   type OverlaySelectOption,
 } from "@/components/OverlaySelect";
 import type { SearchableRecordItem } from "@/components/SearchableRecordPicker";
+import UserAvatar from "@/components/UserAvatar";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
 import DeleteIcon from "@/components/icons/DeleteIcon";
 import EditPencilIcon from "@/components/icons/EditPencilIcon";
@@ -120,6 +121,7 @@ type HangoutMetric = {
 type HangoutParticipantBubble = {
   id: string;
   initials: string;
+  profileUrl?: string | null;
   bg: string;
   color: string;
   name: string;
@@ -265,17 +267,16 @@ function ParticipantStack({
   return (
     <div className="flex items-center -space-x-2">
       {visibleParticipants.map((participant) => (
-        <span
+        <UserAvatar
           key={participant.id}
-          className="flex size-8 items-center justify-center rounded-full border border-white text-[9px] font-semibold"
-          style={{
-            backgroundColor: participant.bg,
-            color: participant.color,
-          }}
+          name={participant.name}
+          initials={participant.initials}
+          imageUrl={participant.profileUrl}
+          bgColor={participant.bg}
+          textColor={participant.color}
+          className="size-8 border border-white text-[9px] font-semibold"
           title={participant.name}
-        >
-          {participant.initials}
-        </span>
+        />
       ))}
 
       {overflowCount > 0 ? (
@@ -632,6 +633,7 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -665,6 +667,7 @@ function mapHangoutParticipantToRecordItem(
     lastName: contact.lastName,
     phoneNumber: "",
     gender: "",
+    profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
     avatarColor,
@@ -724,6 +727,7 @@ function toHangoutParticipantBubble(
   return {
     id: contactId,
     initials,
+    profileUrl: participant.eventContact?.profileUrl?.trim() || null,
     bg: avatarBg,
     color: avatarColor,
     name,
