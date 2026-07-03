@@ -7,7 +7,6 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   EyeIcon,
-  MailIcon,
   PencilIcon,
   Trash2Icon,
   UserRoundIcon,
@@ -137,14 +136,15 @@ function normalizeStatus(value?: string | null) {
 function toInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.charAt(0) ?? "";
-  const second = parts.length > 1 ? parts[1]?.charAt(0) ?? "" : "";
+  const second = parts.length > 1 ? (parts[1]?.charAt(0) ?? "") : "";
 
   return `${first}${second}`.toUpperCase() || "SM";
 }
 
 function getRecipientDetails(record: ScheduledEventMessageRecord) {
   const contact = record.participant?.eventContact;
-  const contactName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
+  const contactName =
+    `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
   const name =
     record.recipientName?.trim() ||
     contactName ||
@@ -228,7 +228,9 @@ function ScheduleGiftCard({
   scheduleMessageId: string;
 }) {
   const giftId =
-    gift.participantGiftId?.trim() || gift.id?.trim() || gift.productSlug?.trim();
+    gift.participantGiftId?.trim() ||
+    gift.id?.trim() ||
+    gift.productSlug?.trim();
   const people = gift.people ?? [];
   const visiblePeople = people.slice(0, 2);
   const overflowCount = Math.max((gift.recipientCount ?? people.length) - 2, 0);
@@ -482,7 +484,7 @@ export default function ScheduledEventMessageDetailsScreen({
             }
           />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
             <SummaryStat
               icon={<CalendarDaysIcon className="size-4" />}
               label="Event Date"
@@ -494,83 +496,78 @@ export default function ScheduledEventMessageDetailsScreen({
               value={formatDateTime(record.scheduledAt)}
             />
             <SummaryStat
-              icon={<MailIcon className="size-4" />}
-              label="Message Status"
-              value={formatStatus(record.status)}
-            />
-            <SummaryStat
               icon={<UserRoundIcon className="size-4" />}
               label="Recipient"
               value={recipient.name}
             />
           </div>
 
-          <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-[16px] font-semibold text-[#000000]">
-                  Gifts
-                </h2>
-                <p className="mt-1 text-[12px] text-[#7D7D7D]">
-                  Gifts assigned to this scheduled message recipient.
-                </p>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[16px] font-semibold text-[#000000]">
+                    Gifts
+                  </h2>
+                  <p className="mt-1 text-[12px] text-[#7D7D7D]">
+                    Gifts assigned to this scheduled message recipient.
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#F4F0FF] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
+                  {eventGiftsResponse?.data.total ?? 0} gift
+                  {(eventGiftsResponse?.data.total ?? 0) === 1 ? "" : "s"}
+                </span>
               </div>
-              <span className="rounded-full bg-[#F4F0FF] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
-                {eventGiftsResponse?.data.total ?? 0} gift
-                {(eventGiftsResponse?.data.total ?? 0) === 1 ? "" : "s"}
-              </span>
+
+              {isEventGiftsLoading ? (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-[286px] animate-pulse rounded-[18px] bg-[#F7F4FF]"
+                    />
+                  ))}
+                </div>
+              ) : isEventGiftsError ? (
+                <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-8 text-center">
+                  <p className="text-sm text-[#7D7D7D]">
+                    Unable to load gifts for this scheduled message.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => refetchEventGifts()}
+                    className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (eventGiftsResponse?.data.data ?? []).length > 0 ? (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                  {(eventGiftsResponse?.data.data ?? []).map((gift, index) => (
+                    <ScheduleGiftCard
+                      key={
+                        gift.id ||
+                        gift.participantGiftId ||
+                        gift.productSlug ||
+                        `${gift.title}-${index}`
+                      }
+                      gift={gift}
+                      scheduleMessageId={record.id}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-10 text-center">
+                  <p className="text-sm font-medium text-[#1E1E1E]">
+                    No gifts assigned yet.
+                  </p>
+                  <p className="mt-1 text-sm text-[#7D7D7D]">
+                    Gifts connected to this scheduled message will appear here.
+                  </p>
+                </div>
+              )}
             </div>
 
-            {isEventGiftsLoading ? (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-[286px] animate-pulse rounded-[18px] bg-[#F7F4FF]"
-                  />
-                ))}
-              </div>
-            ) : isEventGiftsError ? (
-              <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-8 text-center">
-                <p className="text-sm text-[#7D7D7D]">
-                  Unable to load gifts for this scheduled message.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => refetchEventGifts()}
-                  className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : (eventGiftsResponse?.data.data ?? []).length > 0 ? (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {(eventGiftsResponse?.data.data ?? []).map((gift, index) => (
-                  <ScheduleGiftCard
-                    key={
-                      gift.id ||
-                      gift.participantGiftId ||
-                      gift.productSlug ||
-                      `${gift.title}-${index}`
-                    }
-                    gift={gift}
-                    scheduleMessageId={record.id}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-10 text-center">
-                <p className="text-sm font-medium text-[#1E1E1E]">
-                  No gifts assigned yet.
-                </p>
-                <p className="mt-1 text-sm text-[#7D7D7D]">
-                  Gifts connected to this scheduled message will appear here.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,520px)]">
             <aside className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
               <h2 className="text-[16px] font-semibold text-[#000000]">
                 Recipient Details
@@ -607,6 +604,8 @@ export default function ScheduledEventMessageDetailsScreen({
                 <DetailLine label="Event ID" value={record.eventId || "-"} /> */}
               </div>
             </aside>
+
+            
           </div>
         </div>
       </section>
