@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CalendarDaysIcon,
   ClockIcon,
+  EyeIcon,
   MailIcon,
   PencilIcon,
   Trash2Icon,
@@ -18,6 +20,14 @@ import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { EventDetailScreenSkeleton } from "@/components/ui/context-skeletons";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useEventGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useEventGivenGroupedGiftsQuery";
+import type { GivenGroupedGift } from "@/features/gifts/types";
 import { useDeleteScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useDeleteScheduledEventMessageMutation";
 import { useScheduledEventMessageQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageQuery";
 import type { ScheduledEventMessageRecord } from "@/features/scheduled-event-messages/types";
@@ -71,6 +81,30 @@ function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
+function formatCurrency(
+  value?: string | number | null,
+  currency: string = "NGN",
+) {
+  const numericValue =
+    typeof value === "number" ? value : Number(value?.toString() ?? 0);
+
+  if (!Number.isFinite(numericValue)) {
+    return currency === "NGN" ? "₦0" : `${currency} 0`;
+  }
+
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(numericValue);
+  } catch {
+    return `${currency} ${new Intl.NumberFormat("en-NG", {
+      maximumFractionDigits: 0,
+    }).format(numericValue)}`;
+  }
+}
+
 function formatStatus(value?: string | null) {
   if (!value?.trim()) {
     return "Pending";
@@ -78,6 +112,18 @@ function formatStatus(value?: string | null) {
 
   return value
     .trim()
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
+}
+
+function formatCategoryLabel(value?: string | null) {
+  if (!value?.trim()) {
+    return "Gift";
+  }
+
+  return value
     .split(/[_\s-]+/)
     .filter(Boolean)
     .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
@@ -174,11 +220,109 @@ function DetailLine({
   );
 }
 
+function ScheduleGiftCard({
+  gift,
+  scheduleMessageId,
+}: {
+  gift: GivenGroupedGift;
+  scheduleMessageId: string;
+}) {
+  const giftId =
+    gift.participantGiftId?.trim() || gift.id?.trim() || gift.productSlug?.trim();
+  const people = gift.people ?? [];
+  const visiblePeople = people.slice(0, 2);
+  const overflowCount = Math.max((gift.recipientCount ?? people.length) - 2, 0);
+
+  return (
+    <article className="flex min-h-full flex-col rounded-[18px] border border-[#F0EEFF] bg-white p-3 shadow-[0_8px_24px_rgba(29,18,68,0.04)]">
+      <div className="relative h-[150px] overflow-hidden rounded-[14px] bg-[#F6F2FF]">
+        {gift.imageUrl ? (
+          <img
+            src={gift.imageUrl}
+            alt={gift.title || "Assigned gift"}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-sm font-medium text-[#3300C9]">
+            Gift
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col pt-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-[14px] font-semibold text-[#1E1E1E]">
+              {gift.title?.trim() || "Selected gift"}
+            </h3>
+            <p className="mt-1 text-[11px] font-medium text-[#FF6600]">
+              {formatCategoryLabel(gift.condition || gift.categorySlug)}
+            </p>
+          </div>
+          <p className="shrink-0 text-[13px] font-semibold text-[#1E1E1E]">
+            {formatCurrency(gift.amount, gift.currency?.trim() || "NGN")}
+          </p>
+        </div>
+
+        <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#7D7D7D]">
+          {gift.description?.trim() ||
+            "No description available for this gift yet."}
+        </p>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center -space-x-2">
+            {visiblePeople.map((person, index) => {
+              const name =
+                `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim() ||
+                person.email ||
+                "Recipient";
+
+              return (
+                <UserAvatar
+                  key={`${name}-${index}`}
+                  name={name}
+                  initials={toInitials(name)}
+                  imageUrl={person.profileUrl}
+                  bgColor="#EFE6FD"
+                  textColor="#3300C9"
+                  className="size-7 border border-white text-[9px] font-semibold"
+                  title={name}
+                />
+              );
+            })}
+            {overflowCount > 0 ? (
+              <span className="flex size-7 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
+                +{overflowCount}
+              </span>
+            ) : null}
+          </div>
+
+          <Link
+            href={
+              giftId
+                ? `/dashboard/schedule/${scheduleMessageId}/gift/${encodeURIComponent(giftId)}`
+                : "#"
+            }
+            aria-disabled={!giftId}
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#3300C9] px-4 text-[12px] font-medium text-white transition-colors hover:bg-[#2D00B4]",
+              !giftId && "pointer-events-none opacity-50",
+            )}
+          >
+            View Gift
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function ScheduledEventMessageDetailsScreen({
   scheduledEventMessageId,
 }: ScheduledEventMessageDetailsScreenProps) {
   const router = useRouter();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const deleteMessageMutation = useDeleteScheduledEventMessageMutation();
   const {
     data: scheduledMessageResponse,
@@ -188,6 +332,21 @@ export default function ScheduledEventMessageDetailsScreen({
   } = useScheduledEventMessageQuery(scheduledEventMessageId);
 
   const record = scheduledMessageResponse?.data ?? null;
+  const {
+    data: eventGiftsResponse,
+    isLoading: isEventGiftsLoading,
+    isError: isEventGiftsError,
+    refetch: refetchEventGifts,
+  } = useEventGivenGroupedGiftsQuery(
+    record?.eventId ?? null,
+    {
+      page: 1,
+      per_page: 8,
+    },
+    {
+      enabled: Boolean(record?.eventId),
+    },
+  );
   const recipient = useMemo(
     () => (record ? getRecipientDetails(record) : null),
     [record],
@@ -284,6 +443,15 @@ export default function ScheduledEventMessageDetailsScreen({
                 <>
                   <Button
                     type="button"
+                    onClick={() => setIsMessageModalOpen(true)}
+                    variant="outline"
+                    className="h-10 rounded-full border-[#D8CEF7] bg-white px-5 text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]"
+                  >
+                    <EyeIcon className="size-4" />
+                    View Message
+                  </Button>
+                  <Button
+                    type="button"
                     onClick={handleEdit}
                     className="h-10 rounded-full bg-[#3300C9] px-5 text-sm font-medium text-white hover:bg-[#2D00B4]"
                   >
@@ -300,7 +468,17 @@ export default function ScheduledEventMessageDetailsScreen({
                     Delete
                   </Button>
                 </>
-              ) : null
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => setIsMessageModalOpen(true)}
+                  variant="outline"
+                  className="h-10 rounded-full border-[#D8CEF7] bg-white px-5 text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]"
+                >
+                  <EyeIcon className="size-4" />
+                  View Message
+                </Button>
+              )
             }
           />
 
@@ -325,6 +503,71 @@ export default function ScheduledEventMessageDetailsScreen({
               label="Recipient"
               value={recipient.name}
             />
+          </div>
+
+          <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[16px] font-semibold text-[#000000]">
+                  Gifts
+                </h2>
+                <p className="mt-1 text-[12px] text-[#7D7D7D]">
+                  Gifts assigned to this scheduled message recipient.
+                </p>
+              </div>
+              <span className="rounded-full bg-[#F4F0FF] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
+                {eventGiftsResponse?.data.total ?? 0} gift
+                {(eventGiftsResponse?.data.total ?? 0) === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {isEventGiftsLoading ? (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-[286px] animate-pulse rounded-[18px] bg-[#F7F4FF]"
+                  />
+                ))}
+              </div>
+            ) : isEventGiftsError ? (
+              <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-8 text-center">
+                <p className="text-sm text-[#7D7D7D]">
+                  Unable to load gifts for this scheduled message.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetchEventGifts()}
+                  className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (eventGiftsResponse?.data.data ?? []).length > 0 ? (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {(eventGiftsResponse?.data.data ?? []).map((gift, index) => (
+                  <ScheduleGiftCard
+                    key={
+                      gift.id ||
+                      gift.participantGiftId ||
+                      gift.productSlug ||
+                      `${gift.title}-${index}`
+                    }
+                    gift={gift}
+                    scheduleMessageId={record.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-10 text-center">
+                <p className="text-sm font-medium text-[#1E1E1E]">
+                  No gifts assigned yet.
+                </p>
+                <p className="mt-1 text-sm text-[#7D7D7D]">
+                  Gifts connected to this scheduled message will appear here.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.9fr)]">
@@ -445,6 +688,43 @@ export default function ScheduledEventMessageDetailsScreen({
         isLoading={deleteMessageMutation.isPending}
         closeOnOverlayClick={false}
       />
+
+      <Dialog open={isMessageModalOpen} onOpenChange={setIsMessageModalOpen}>
+        <DialogContent className="max-w-[620px] rounded-[22px] p-0">
+          <DialogHeader className="border-b border-[#F0EEFF] px-6 py-5 text-left">
+            <DialogTitle className="text-xl font-semibold text-[#1E1E1E]">
+              View Message
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 px-6 py-5">
+            <DetailLine label="Subject" value={record.subject || "-"} />
+            <div className="rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-4">
+              <p className="text-[12px] font-medium text-[#7D7D7D]">
+                Message Body
+              </p>
+              <p className="mt-3 max-h-[360px] overflow-y-auto whitespace-pre-line text-[14px] leading-7 text-[#1E1E1E]">
+                {record.message || "-"}
+              </p>
+            </div>
+            {record.giftUrl ? (
+              <DetailLine
+                label="Gift URL"
+                value={
+                  <a
+                    href={record.giftUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#3300C9] underline-offset-4 hover:underline"
+                  >
+                    {record.giftUrl}
+                  </a>
+                }
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

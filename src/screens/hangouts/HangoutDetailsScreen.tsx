@@ -8,6 +8,7 @@ import {
   CalendarDaysIcon,
   ChevronDownIcon,
   Link2Icon,
+  MessageCircleIcon,
   MapPinIcon,
   UsersIcon,
 } from "lucide-react";
@@ -829,6 +830,18 @@ export default function HangoutDetailsScreen({
                       ? "Saving..."
                       : "Save Details"
                     : "Reserve"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={() =>
+                    toast("Vendor messaging will be connected next.")
+                  }
+                  className="h-[44px] w-full rounded-full border-[#D8CEF7] bg-white text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]"
+                >
+                  <MessageCircleIcon className="size-4" />
+                  Message Vendor
                 </Button>
               </div>
             </div>
