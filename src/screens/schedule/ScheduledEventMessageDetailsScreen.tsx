@@ -570,73 +570,7 @@ export default function ScheduledEventMessageDetailsScreen({
             )}
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.9fr)]">
-            <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-[16px] font-semibold text-[#000000]">
-                    Message Record
-                  </h2>
-                  <p className="mt-1 text-[12px] text-[#7D7D7D]">
-                    Review the message, delivery timing, and current status.
-                  </p>
-                </div>
-                <StatusPill status={record.status} />
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <DetailLine label="Subject" value={record.subject || "-"} />
-                <DetailLine
-                  label="Created"
-                  value={formatDateTime(record.createdAt)}
-                />
-                {/* <DetailLine
-                  label="Sent At"
-                  value={formatDateTime(record.sentAt)}
-                /> */}
-                {/* <DetailLine
-                  label="Gift Link Expires"
-                  value={formatDateTime(record.giftUrlExpiresAt)}
-                /> */}
-              </div>
-
-              <div className="mt-3 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-4">
-                <p className="text-[12px] font-medium text-[#7D7D7D]">
-                  Message Body
-                </p>
-                <p className="mt-3 whitespace-pre-line text-[14px] leading-7 text-[#1E1E1E]">
-                  {record.message || "-"}
-                </p>
-              </div>
-
-              {record.giftUrl ? (
-                <DetailLine
-                  label="Gift URL"
-                  value={
-                    <a
-                      href={record.giftUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[#3300C9] underline-offset-4 hover:underline"
-                    >
-                      {record.giftUrl}
-                    </a>
-                  }
-                />
-              ) : null}
-
-              {record.failureReason ? (
-                <div className="mt-3 rounded-[18px] border border-[#F6C8C8] bg-[#FFF7F7] px-4 py-4">
-                  <p className="text-[12px] font-medium text-[#E04F4F]">
-                    Failure Reason
-                  </p>
-                  <p className="mt-2 text-[14px] leading-6 text-[#1E1E1E]">
-                    {record.failureReason}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,520px)]">
             <aside className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
               <h2 className="text-[16px] font-semibold text-[#000000]">
                 Recipient Details
@@ -698,7 +632,30 @@ export default function ScheduledEventMessageDetailsScreen({
           </DialogHeader>
 
           <div className="space-y-4 px-6 py-5">
-            <DetailLine label="Subject" value={record.subject || "-"} />
+            <div className="grid gap-3 md:grid-cols-2">
+              <DetailLine label="Subject" value={record.subject || "-"} />
+              <DetailLine
+                label="Created"
+                value={formatDateTime(record.createdAt)}
+              />
+              <DetailLine
+                label="Scheduled Date"
+                value={formatDateTime(record.scheduledAt)}
+              />
+              <DetailLine
+                label="Message Status"
+                value={<StatusPill status={record.status} />}
+              />
+              <DetailLine
+                label="Sent At"
+                value={formatDateTime(record.sentAt)}
+              />
+              <DetailLine
+                label="Gift Link Expires"
+                value={formatDateTime(record.giftUrlExpiresAt)}
+              />
+            </div>
+
             <div className="rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-4">
               <p className="text-[12px] font-medium text-[#7D7D7D]">
                 Message Body

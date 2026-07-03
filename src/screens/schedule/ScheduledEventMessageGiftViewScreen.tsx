@@ -65,6 +65,52 @@ function formatCreatedBy(record?: {
   return fullName || contact?.email?.trim() || "Yule";
 }
 
+function toPersonName(person?: {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+}) {
+  if (!person) {
+    return "";
+  }
+
+  return (
+    `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim() ||
+    person.email?.trim() ||
+    ""
+  );
+}
+
+function formatAssignedPeople(gift?: GivenGroupedGift | null) {
+  const people = gift?.people ?? [];
+
+  if (people.length === 0) {
+    const count = gift?.recipientCount ?? 0;
+
+    if (count > 0) {
+      return `${count} recipient${count === 1 ? "" : "s"}`;
+    }
+
+    return "-";
+  }
+
+  const visibleNames = people
+    .slice(0, 2)
+    .map((person) => toPersonName(person))
+    .filter(Boolean);
+  const overflowCount = Math.max(people.length - visibleNames.length, 0);
+
+  return `${visibleNames.join(", ")}${overflowCount > 0 ? ` +${overflowCount}` : ""}`;
+}
+
+function getGiftLookupIds(gift: GivenGroupedGift) {
+  return [
+    gift.id?.trim(),
+    gift.participantGiftId?.trim(),
+    gift.productSlug?.trim(),
+  ].filter((value): value is string => Boolean(value));
+}
+
 function buildProductFromGift(gift: GivenGroupedGift): MarketplaceProduct {
   return {
     _id: gift.participantGiftId?.trim() || gift.id?.trim() || "selected-gift",
@@ -114,13 +160,9 @@ export default function ScheduledEventMessageGiftViewScreen({
   const giftRow = useMemo(
     () =>
       (eventGiftsResponse?.data.data ?? []).find((gift) => {
-        const ids = [
-          gift.id?.trim(),
-          gift.participantGiftId?.trim(),
-          gift.productSlug?.trim(),
-        ].filter(Boolean);
+        const ids = getGiftLookupIds(gift);
 
-        return ids.includes(decodedGiftId);
+        return ids.some((id) => id === decodedGiftId);
       }) ?? null,
     [decodedGiftId, eventGiftsResponse?.data.data],
   );
@@ -133,6 +175,41 @@ export default function ScheduledEventMessageGiftViewScreen({
     enabled: Boolean(productId),
   });
   const selectedGiftDetailProduct = useMemo(() => {
+    if (marketplaceProduct && giftRow) {
+      return {
+        ...marketplaceProduct,
+        title: marketplaceProduct.title || giftRow.title || "Selected gift",
+        description:
+          marketplaceProduct.description ||
+          giftRow.description?.trim() ||
+          undefined,
+        amount:
+          Number.isFinite(marketplaceProduct.amount) && marketplaceProduct.amount > 0
+            ? marketplaceProduct.amount
+            : Number(giftRow.amount ?? 0),
+        images:
+          marketplaceProduct.images?.length > 0
+            ? marketplaceProduct.images
+            : giftRow.imageUrl?.trim()
+              ? [giftRow.imageUrl.trim()]
+              : [],
+        condition:
+          marketplaceProduct.condition ||
+          (giftRow.condition?.trim() as MarketplaceProduct["condition"]),
+        location: {
+          state:
+            marketplaceProduct.location?.state ||
+            giftRow.locationState?.trim() ||
+            undefined,
+          city:
+            marketplaceProduct.location?.city ||
+            giftRow.locationCity?.trim() ||
+            undefined,
+          lga: marketplaceProduct.location?.lga,
+        },
+      };
+    }
+
     if (marketplaceProduct) {
       return marketplaceProduct;
     }
@@ -168,7 +245,7 @@ export default function ScheduledEventMessageGiftViewScreen({
     );
   }
 
-  if (isEventGiftsError || (isMarketplaceProductError && !giftRow)) {
+  if (isEventGiftsError && isMarketplaceProductError && !giftRow) {
     return (
       <div className="space-y-5">
         <BackLink href={backHref} label="View Gift" />
@@ -215,8 +292,8 @@ export default function ScheduledEventMessageGiftViewScreen({
       summaryItems={[
         { label: "Event Date", value: formatDate(record.event?.eventDate) },
         { label: "Scheduled Date", value: formatDate(record.scheduledAt) },
+        { label: "Assigned To", value: formatAssignedPeople(giftRow) },
         { label: "Message Status", value: formatStatus(record.status) },
-        { label: "Recipient", value: record.recipientName || "Recipient" },
       ]}
       product={selectedGiftDetailProduct}
       onDelete={() => {
