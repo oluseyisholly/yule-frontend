@@ -725,7 +725,9 @@ function mapExternalBusinessToRecordItem(
   };
 }
 
-function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
+function mapOnedaProfileToRecordItem(
+  profile: OnedaProfile,
+): SearchableRecordItem {
   const firstName = profile.accountId.firstName?.trim() || "";
   const lastName = profile.accountId.lastName?.trim() || "";
   const fullName = `${firstName} ${lastName}`.trim();
@@ -746,9 +748,9 @@ function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordIte
     phoneNumber: profile.accountId.phoneNumber?.trim() || "",
     gender: "",
     profileUrl: profile.profilePhotoUrl?.trim() || null,
-    initials: `${firstName.charAt(0)}${lastName.charAt(0)}`
-      .trim()
-      .toUpperCase() || "CT",
+    initials:
+      `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase() ||
+      "CT",
     avatarBg,
     avatarColor,
   };
@@ -1013,7 +1015,8 @@ export default function DashboardHangoutsScreen() {
   const selectedHangoutCheckInDate = currentFlowSelection.checkInDate;
   const selectedHangoutCheckOutDate = currentFlowSelection.checkOutDate;
   const selectedHangoutGuestCount = currentFlowSelection.guestCount;
-  const selectedOnedaBusinessIds = currentFlowSelection.selectedOnedaBusinessIds;
+  const selectedOnedaBusinessIds =
+    currentFlowSelection.selectedOnedaBusinessIds;
   const selectedOnedaContactIds = currentFlowSelection.selectedOnedaContactIds;
   const selectedListingIds = currentFlowSelection.selectedListingIds;
   const selectedListingsById = currentFlowSelection.selectedListingsById;
@@ -1097,7 +1100,9 @@ export default function DashboardHangoutsScreen() {
       (business) => getExternalBusinessRootId(business) === candidateId,
     );
 
-    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+    return selectedBusiness
+      ? getExternalBusinessRootId(selectedBusiness)
+      : null;
   }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
@@ -1281,7 +1286,9 @@ export default function DashboardHangoutsScreen() {
   const selectedParticipantReviewItems = useMemo(
     () =>
       selectedParticipantContactIds
-        .map((contactId) => contactRecordOptions.find((item) => item.id === contactId))
+        .map((contactId) =>
+          contactRecordOptions.find((item) => item.id === contactId),
+        )
         .filter((item): item is SearchableRecordItem => Boolean(item))
         .map((item) => ({
           id: item.id,
@@ -2478,13 +2485,6 @@ export default function DashboardHangoutsScreen() {
         render: (row) => <HangoutVenueCell row={row} />,
       },
       {
-        id: "location",
-        header: "Location",
-        accessor: "location",
-        headerClassName: "min-w-[120px] px-3 py-2 text-left",
-        cellClassName: "px-3 py-3",
-      },
-      {
         id: "eventName",
         header: "Event Name",
         accessor: "eventName",
@@ -2520,11 +2520,20 @@ export default function DashboardHangoutsScreen() {
         cellClassName: "px-3 py-3",
       },
       {
+        id: "time_status",
+        header: "preiod Status",
+        headerClassName: "min-w-[100px] px-3 py-2 text-left",
+        cellClassName: "px-3 py-3",
+        render: (row) => <StatusPill status={row.status} />,
+      },
+      {
         id: "status",
         header: "Status",
         headerClassName: "min-w-[100px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
-        render: (row) => <StatusPill status={row.status} />,
+        render: (row) => (
+          <StatusPill status={row?.eventStatus as HangoutStatusLabel} />
+        ),
       },
       {
         id: "actions",
@@ -2938,14 +2947,19 @@ export default function DashboardHangoutsScreen() {
               >
                 From Record
               </ModalButton>
-              <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+              <ModalButton
+                onClick={handleOpenOnedaBusinessStep}
+                className="w-full"
+              >
                 From Oneda
               </ModalButton>
             </div>
 
             <div className="flex justify-center">
               <BackButton
-                onClick={() => setHangoutFlowStep("check-out-date", mode, eventId)}
+                onClick={() =>
+                  setHangoutFlowStep("check-out-date", mode, eventId)
+                }
                 className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
               />
             </div>
@@ -2969,7 +2983,9 @@ export default function DashboardHangoutsScreen() {
                 placeholder="Search for business"
                 panelTitle="Search for business"
                 searchPlaceholder=""
-                isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+                isLoading={
+                  isOnedaBusinessesLoading || isOnedaBusinessesFetching
+                }
                 emptyStateText={
                   isOnedaBusinessesError
                     ? "Unable to load businesses."
@@ -2985,7 +3001,9 @@ export default function DashboardHangoutsScreen() {
                 footer={
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <BackButton
-                      onClick={() => setHangoutFlowStep("source", mode, eventId)}
+                      onClick={() =>
+                        setHangoutFlowStep("source", mode, eventId)
+                      }
                       className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                       iconClassName="size-[24px]"
                     />
@@ -3105,7 +3123,9 @@ export default function DashboardHangoutsScreen() {
             onBack={() => setHangoutFlowStep("source", mode, eventId)}
             onNext={handleHangoutReviewNext}
             onEdit={(id) => {
-              const item = contactRecordOptions.find((record) => record.id === id);
+              const item = contactRecordOptions.find(
+                (record) => record.id === id,
+              );
               if (item) {
                 handleOpenEditColleague(item);
               }
@@ -3188,9 +3208,7 @@ export default function DashboardHangoutsScreen() {
                 }
                 triggerBottomAction={
                   <BackButton
-                    onClick={() =>
-                      setHangoutFlowStep("source", mode, eventId)
-                    }
+                    onClick={() => setHangoutFlowStep("source", mode, eventId)}
                     className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"
                   />

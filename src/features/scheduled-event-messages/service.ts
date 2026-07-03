@@ -21,6 +21,7 @@ export async function getCreatedScheduledEventMessages(
       params: {
         page: params.page ?? 1,
         per_page: params.per_page ?? 20,
+        ...(params.eventTiming ? { eventTiming: params.eventTiming } : {}),
         ...(resolvedSearchQuery ? { searchQuery: resolvedSearchQuery } : {}),
       },
     },

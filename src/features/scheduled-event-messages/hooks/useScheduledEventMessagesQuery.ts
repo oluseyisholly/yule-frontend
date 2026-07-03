@@ -17,6 +17,7 @@ export function useScheduledEventMessagesQuery(
     page: params.page ?? 1,
     per_page: params.per_page ?? 20,
     searchQuery: params.searchQuery ?? "",
+    eventTiming: params.eventTiming,
   };
 
   return useQuery({

@@ -60,6 +60,7 @@ export type ScheduledEventMessagesParams = {
   page?: number;
   per_page?: number;
   searchQuery?: string;
+  eventTiming?: "upcoming" | "previous";
 };
 
 export type ScheduledEventMessagesPage = {

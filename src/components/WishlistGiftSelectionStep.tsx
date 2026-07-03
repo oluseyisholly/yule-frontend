@@ -611,7 +611,7 @@ export default function WishlistGiftSelectionStep({
         </div>
       </div>
 
-      <div className="rounded-[16px] border border-dashed border-[#E5DFF4] bg-white p-4">
+      {/* <div className="rounded-[16px] border border-dashed border-[#E5DFF4] bg-white p-4">
         <p className="text-[13px] font-semibold text-[#434343]">Coming soon</p>
         <div className="mt-3 grid grid-cols-1 gap-3">
           <WishlistFilterDropdown
@@ -629,7 +629,7 @@ export default function WishlistGiftSelectionStep({
             className="w-full"
           />
         </div>
-      </div>
+      </div> */}
     </>
   );
 

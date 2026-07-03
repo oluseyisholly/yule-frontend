@@ -28,6 +28,8 @@ import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomColleagueReview from "@/components/CustomColleagueReview";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EventDateStep from "@/components/EventDateStep";
+import DeleteIcon from "@/components/icons/DeleteIcon";
+import EditPencilIcon from "@/components/icons/EditPencilIcon";
 import FilterIcon from "@/components/icons/FilterIcon";
 import ViewIcon from "@/components/icons/ViewIcon";
 import ModalButton from "@/components/ModalButtons";
@@ -89,8 +91,16 @@ import {
   type ScheduleMessageFlowStep,
 } from "@/screens/schedule/modal-steps";
 import { useAuthStore } from "@/stores/auth-store";
+import {
+  buildScheduleMessageFlowSelectionKey,
+  normalizeScheduleMessageFlowSelection,
+  useScheduleMessageFlowStore,
+  type ScheduleMessageFlowForm,
+  type ScheduleMessageFlowMode,
+} from "@/stores/schedule-message-flow-store";
 
 type ScheduleStatus = "Upcoming" | "Past";
+type ScheduleEventTiming = "upcoming" | "previous";
 
 type ScheduleMetric = {
   value: string;
@@ -112,7 +122,9 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events",
     hint: "+12% this month",
     hintColor: "#3300C9",
-    icon: <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
+    icon: (
+      <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
+    ),
     iconBg: "#EFE6FD",
   },
   {
@@ -126,26 +138,20 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events this month",
     hint: "+2 new this week",
     hintColor: "#24A959",
-    icon: <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />,
+    icon: (
+      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
+    ),
     iconBg: "#D9F4E2",
   },
   {
     value: "$264",
     label: "Amount Spent",
-    icon: <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />,
+    icon: (
+      <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />
+    ),
     iconBg: "#FDE0DE",
   },
 ];
-
-const EMPTY_FORM = {
-  subject: "",
-  message: "",
-  giftUrl: "",
-  giftUrlExpiresAt: "",
-  scheduledAt: "",
-  eventName: "",
-  eventDate: "",
-};
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -168,7 +174,9 @@ function toDateTimeLocalValue(value?: string | null) {
 
   if (Number.isNaN(date.getTime())) return "";
 
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  const offsetDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60000,
+  );
   return offsetDate.toISOString().slice(0, 16);
 }
 
@@ -246,7 +254,8 @@ function getInitials(firstName?: string | null, lastName?: string | null) {
 
 function getParticipantName(participant?: ParticipatedEventParticipant | null) {
   const contact = participant?.eventContact;
-  const fullName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
+  const fullName =
+    `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
 
   return fullName || contact?.email || "Unnamed participant";
 }
@@ -263,12 +272,21 @@ function getRecordStatus(row: ScheduledEventMessageRecord): ScheduleStatus {
   return "Upcoming";
 }
 
+function getScheduleEventTiming(tab: ScheduleStatus): ScheduleEventTiming {
+  return tab === "Upcoming" ? "upcoming" : "previous";
+}
+
+function isScheduledEventCompleted(row: ScheduledEventMessageRecord) {
+  return row.event?.status?.trim().toLowerCase() === "completed";
+}
+
 function mapContactToRecordItem(contact: Contact): SearchableRecordItem {
   const firstName = contact.firstName?.trim() || "";
   const lastName = contact.lastName?.trim() || "";
   const fullName = `${firstName} ${lastName}`.trim();
   const email = contact.email?.trim() || "";
-  const phoneNumber = contact.phoneNumber?.trim() || contact.phone?.trim() || "";
+  const phoneNumber =
+    contact.phoneNumber?.trim() || contact.phone?.trim() || "";
 
   return {
     id: contact.id,
@@ -330,7 +348,9 @@ function mapExternalBusinessToRecordItem(
   };
 }
 
-function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
+function mapOnedaProfileToRecordItem(
+  profile: OnedaProfile,
+): SearchableRecordItem {
   const firstName = profile.accountId.firstName?.trim() || "";
   const lastName = profile.accountId.lastName?.trim() || "";
   const fullName = `${firstName} ${lastName}`.trim();
@@ -371,7 +391,9 @@ function getFirstParticipantFromBulkResponse(
       (participant) =>
         participant.eventContactId &&
         selectedContactIds.includes(participant.eventContactId),
-    ) ?? participants[0] ?? null
+    ) ??
+    participants[0] ??
+    null
   );
 }
 
@@ -428,7 +450,9 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
         <button
           type="button"
           aria-label={`${metric.label} options`}
-          onClick={() => toast(`${metric.label} options will be connected next.`)}
+          onClick={() =>
+            toast(`${metric.label} options will be connected next.`)
+          }
           className="rounded-full p-1 text-[#B0ACBC] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
         >
           <MoreHorizontal className="size-4" />
@@ -453,13 +477,7 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
   );
 }
 
-function AvatarBubble({
-  name,
-  initials,
-}: {
-  name: string;
-  initials: string;
-}) {
+function AvatarBubble({ name, initials }: { name: string; initials: string }) {
   return (
     <span
       className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EFE6FD] text-[10px] font-semibold text-[#3300C9]"
@@ -488,7 +506,8 @@ function RecipientCell({ row }: { row: ScheduledEventMessageRecord }) {
 
 function StatusPill({ status }: { status: string }) {
   const normalizedStatus = status.trim().toLowerCase();
-  const isSent = normalizedStatus === "sent" || normalizedStatus === "completed";
+  const isSent =
+    normalizedStatus === "sent" || normalizedStatus === "completed";
   const isFailed = normalizedStatus === "failed";
 
   return (
@@ -509,13 +528,17 @@ function StatusPill({ status }: { status: string }) {
 
 function ScheduleRowActions({
   row,
+  onView,
   onEdit,
   onDelete,
 }: {
   row: ScheduledEventMessageRecord;
+  onView: (row: ScheduledEventMessageRecord) => void;
   onEdit: (row: ScheduledEventMessageRecord) => void;
   onDelete: (row: ScheduledEventMessageRecord) => void;
 }) {
+  const isCompleted = isScheduledEventCompleted(row);
+
   return (
     <div className="flex justify-end">
       <DropdownMenu>
@@ -533,16 +556,40 @@ function ScheduleRowActions({
           className="w-44 rounded-xl border-[#ECE8F7] bg-white p-1.5 shadow-[0_16px_40px_rgba(51,0,201,0.08)]"
         >
           <DropdownMenuItem
-            onSelect={() => onEdit(row)}
+            onSelect={() => onView(row)}
             className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"
           >
             <ViewIcon className="size-4 text-[#292D32]" />
-            Edit Message
+            View
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => onDelete(row)}
-            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#D14B4B] focus:bg-[#FFF1F1] focus:text-[#D14B4B]"
+            disabled={isCompleted}
+            onSelect={() => {
+              if (!isCompleted) {
+                onEdit(row);
+              }
+            }}
+            className={cn(
+              "cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]",
+              isCompleted && "cursor-not-allowed opacity-45",
+            )}
           >
+            <EditPencilIcon className="size-4 text-[#292D32]" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={isCompleted}
+            onSelect={() => {
+              if (!isCompleted) {
+                onDelete(row);
+              }
+            }}
+            className={cn(
+              "cursor-pointer rounded-lg px-3 py-2 text-sm text-[#D14B4B] focus:bg-[#FFF1F1] focus:text-[#D14B4B]",
+              isCompleted && "cursor-not-allowed opacity-45",
+            )}
+          >
+            <DeleteIcon className="size-4" />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -557,42 +604,134 @@ export default function ScheduleScreen() {
   const searchParams = useSearchParams();
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
-  const routeStep = pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
-  const currentStep = routeStep && isScheduleMessageFlowStep(routeStep)
-    ? routeStep
-    : null;
-  const mode = searchParams.get("mode") === "message" ? "message" : "schedule";
+  const routeStep =
+    pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
+  const currentStep =
+    routeStep && isScheduleMessageFlowStep(routeStep) ? routeStep : null;
+  const mode: ScheduleMessageFlowMode =
+    searchParams.get("mode") === "message" ? "message" : "schedule";
   const editingMessageId =
     searchParams.get("scheduleEventMessageId") ??
     searchParams.get("eventMessagingEventId") ??
     searchParams.get("messageId");
   const routeEventId = searchParams.get("eventId") ?? "";
+  const flowSelectionKey = useMemo(
+    () => buildScheduleMessageFlowSelectionKey(mode, editingMessageId, routeEventId),
+    [editingMessageId, mode, routeEventId],
+  );
+  const flowSelectionsByKey = useScheduleMessageFlowStore(
+    (state) => state.flowSelectionsByKey,
+  );
+  const setScheduleDraftFields = useScheduleMessageFlowStore(
+    (state) => state.setDraftFields,
+  );
+  const setStoredSelectedParticipantIds = useScheduleMessageFlowStore(
+    (state) => state.setSelectedParticipantIds,
+  );
+  const setStoredSelectedParticipantRecords = useScheduleMessageFlowStore(
+    (state) => state.setSelectedParticipantRecords,
+  );
+  const setStoredSelectedGiftIds = useScheduleMessageFlowStore(
+    (state) => state.setSelectedGiftIds,
+  );
+  const setStoredSelectedGiftProductsById = useScheduleMessageFlowStore(
+    (state) => state.setSelectedGiftProductsById,
+  );
+  const setStoredCustomContactRecordItems = useScheduleMessageFlowStore(
+    (state) => state.setCustomContactRecordItems,
+  );
+  const resetFlowSelection = useScheduleMessageFlowStore(
+    (state) => state.resetFlowSelection,
+  );
+  const flowSelection = useMemo(
+    () =>
+      normalizeScheduleMessageFlowSelection(
+        flowSelectionsByKey[flowSelectionKey],
+      ),
+    [flowSelectionKey, flowSelectionsByKey],
+  );
   const [activeTab, setActiveTab] = useState<ScheduleStatus>("Upcoming");
   const [query, setQuery] = useState("");
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedEventTypeId, setSelectedEventTypeId] = useState("");
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [selectedRecipientParticipantId, setSelectedRecipientParticipantId] =
-    useState("");
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
-  const [selectedParticipantRecords, setSelectedParticipantRecords] = useState<
-    SearchableRecordItem[]
-  >([]);
-  const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<string[]>([]);
-  const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<string[]>([]);
-  const [selectedGiftIds, setSelectedGiftIds] = useState<string[]>([]);
-  const [selectedGiftProductsById, setSelectedGiftProductsById] = useState<
-    Record<string, MarketplaceProduct>
-  >({});
-  const [customContactRecordItems, setCustomContactRecordItems] = useState<
-    SearchableRecordItem[]
-  >([]);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const selectedEventTypeId = flowSelection.selectedEventTypeId;
+  const selectedEventId = flowSelection.selectedEventId;
+  const selectedRecipientParticipantId =
+    flowSelection.selectedRecipientParticipantId;
+  const selectedParticipantIds = flowSelection.selectedParticipantIds;
+  const selectedParticipantRecords = flowSelection.selectedParticipantRecords;
+  const selectedOnedaBusinessIds = flowSelection.selectedOnedaBusinessIds;
+  const selectedOnedaContactIds = flowSelection.selectedOnedaContactIds;
+  const selectedGiftIds = flowSelection.selectedGiftIds;
+  const selectedGiftProductsById = flowSelection.selectedGiftProductsById;
+  const customContactRecordItems = flowSelection.customContactRecordItems;
+  const form = flowSelection.form;
+  const setSelectedEventTypeId = (value: string) =>
+    setScheduleDraftFields(flowSelectionKey, { selectedEventTypeId: value });
+  const setSelectedEventId = (value: string) =>
+    setScheduleDraftFields(flowSelectionKey, { selectedEventId: value });
+  const setSelectedRecipientParticipantId = (value: string) =>
+    setScheduleDraftFields(flowSelectionKey, {
+      selectedRecipientParticipantId: value,
+    });
+  const setSelectedParticipantIds = (
+    next: string[] | ((current: string[]) => string[]),
+  ) =>
+    setStoredSelectedParticipantIds(
+      flowSelectionKey,
+      typeof next === "function" ? next(selectedParticipantIds) : next,
+    );
+  const setSelectedParticipantRecords = (
+    next:
+      | SearchableRecordItem[]
+      | ((current: SearchableRecordItem[]) => SearchableRecordItem[]),
+  ) =>
+    setStoredSelectedParticipantRecords(
+      flowSelectionKey,
+      typeof next === "function" ? next(selectedParticipantRecords) : next,
+    );
+  const setSelectedOnedaBusinessIds = (ids: string[]) =>
+    setScheduleDraftFields(flowSelectionKey, { selectedOnedaBusinessIds: ids });
+  const setSelectedOnedaContactIds = (ids: string[]) =>
+    setScheduleDraftFields(flowSelectionKey, { selectedOnedaContactIds: ids });
+  const setSelectedGiftIds = (ids: string[]) =>
+    setStoredSelectedGiftIds(flowSelectionKey, ids);
+  const setSelectedGiftProductsById = (
+    next:
+      | Record<string, MarketplaceProduct>
+      | ((
+          current: Record<string, MarketplaceProduct>,
+        ) => Record<string, MarketplaceProduct>),
+  ) => {
+    setStoredSelectedGiftProductsById(
+      flowSelectionKey,
+      typeof next === "function" ? next(selectedGiftProductsById) : next,
+    );
+  };
+  const setCustomContactRecordItems = (
+    next:
+      | SearchableRecordItem[]
+      | ((current: SearchableRecordItem[]) => SearchableRecordItem[]),
+  ) => {
+    setStoredCustomContactRecordItems(
+      flowSelectionKey,
+      typeof next === "function" ? next(customContactRecordItems) : next,
+    );
+  };
+  const setForm = (
+    next:
+      | ScheduleMessageFlowForm
+      | ((current: ScheduleMessageFlowForm) => ScheduleMessageFlowForm),
+  ) => {
+    setScheduleDraftFields(flowSelectionKey, {
+      form: typeof next === "function" ? next(form) : next,
+    });
+  };
   const [pendingDeleteRow, setPendingDeleteRow] =
     useState<ScheduledEventMessageRecord | null>(null);
-  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
+  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
+    useState(false);
   const [isScheduledCalendarOpen, setIsScheduledCalendarOpen] = useState(false);
   const [scheduleMetricsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
@@ -600,6 +739,9 @@ export default function ScheduleScreen() {
 
   const isFlowOpen = Boolean(currentStep);
   const isEditing = Boolean(editingMessageId);
+  const isViewing = searchParams.get("view") === "true";
+  const isInlineGiftSelectionStep =
+    isFlowOpen && currentStep === "gift-selection";
   const greetingName = authUser?.firstName?.trim() || "there";
   const onedaAccountId =
     authUser?.profile?.accountId?._id?.trim() ||
@@ -616,13 +758,12 @@ export default function ScheduleScreen() {
     page: currentPage,
     per_page: PAGE_SIZE,
     searchQuery: query,
+    eventTiming: getScheduleEventTiming(activeTab),
   });
-  const { data: editingMessageResponse } = useScheduledEventMessageQuery(
-    editingMessageId,
-    {
+  const { data: editingMessageResponse, refetch: refetchEditingMessage } =
+    useScheduledEventMessageQuery(editingMessageId, {
       enabled: isFlowOpen && Boolean(editingMessageId),
-    },
-  );
+    });
   const {
     data: availableEventTypesResponse,
     isLoading: isAvailableEventTypesLoading,
@@ -683,7 +824,9 @@ export default function ScheduleScreen() {
       (business) => getExternalBusinessRootId(business) === candidateId,
     );
 
-    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+    return selectedBusiness
+      ? getExternalBusinessRootId(selectedBusiness)
+      : null;
   }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
@@ -784,6 +927,16 @@ export default function ScheduleScreen() {
   }, [messageRows]);
 
   useEffect(() => {
+    if (!currentStep) {
+      return;
+    }
+
+    setScheduleDraftFields(flowSelectionKey, {
+      lastVisitedStep: currentStep,
+    });
+  }, [currentStep, flowSelectionKey, setScheduleDraftFields]);
+
+  useEffect(() => {
     setScheduledCalendarMonth(scheduledDate ?? today);
   }, [scheduledDate, today]);
 
@@ -795,14 +948,15 @@ export default function ScheduleScreen() {
     const participantContact = record.participant?.eventContact;
     const participantContactId =
       participantContact?.id ?? record.participant?.eventContactId ?? "";
+    const reviewRecordId = participantContactId || record.participantId || "";
 
     setSelectedEventId(record.eventId);
     setSelectedEventTypeId(record.event.eventTypeId);
     setSelectedRecipientParticipantId(record.participantId);
 
-    if (participantContactId) {
+    if (reviewRecordId) {
       const selectedRecord: SearchableRecordItem = {
-        id: participantContactId,
+        id: reviewRecordId,
         name:
           `${participantContact?.firstName ?? ""} ${participantContact?.lastName ?? ""}`.trim() ||
           participantContact?.email ||
@@ -817,23 +971,38 @@ export default function ScheduleScreen() {
         profileUrl: participantContact?.profileUrl ?? null,
       };
 
-      setSelectedParticipantIds([participantContactId]);
+      // Prefer the contact ID when it is available. If the API only returns
+      // participantId, it is still enough to render the confirmation because
+      // the participant has already been persisted on the server.
+      setSelectedParticipantIds([participantContactId || reviewRecordId]);
       setSelectedParticipantRecords([selectedRecord]);
       setCustomContactRecordItems((current) =>
         mergeRecordItems(current, [selectedRecord]),
       );
-    } else {
-      setSelectedParticipantIds([]);
-      setSelectedParticipantRecords([]);
     }
+
+    const eventDateValue = toDateOnlyValue(record.event.eventDate);
+    const existingScheduledTime = getTimeFromDateTimeLocalValue(
+      toDateTimeLocalValue(record.scheduledAt),
+    );
+    const scheduledAtValue = eventDateValue
+      ? mergeDateAndTimeToDateTimeLocalValue(
+          new Date(`${eventDateValue}T00:00:00`),
+          existingScheduledTime || DEFAULT_SCHEDULE_TIME,
+        )
+      : toDateTimeLocalValue(record.scheduledAt);
+
+    // Do not clear a locally selected recipient just because the draft
+    // has not been linked to a participant yet. The selection is persisted
+    // before entering the review step.
     setForm({
-      subject: record.subject ?? "",
+      subject: record.subject || record.event.title || "",
       message: record.message ?? "",
       giftUrl: record.giftUrl ?? "",
       giftUrlExpiresAt: toDateTimeLocalValue(record.giftUrlExpiresAt),
-      scheduledAt: toDateTimeLocalValue(record.scheduledAt),
+      scheduledAt: scheduledAtValue,
       eventName: record.event.title ?? "",
-      eventDate: toDateOnlyValue(record.event.eventDate),
+      eventDate: eventDateValue,
     });
   }, [editingMessageResponse?.data, isEditing]);
 
@@ -884,17 +1053,9 @@ export default function ScheduleScreen() {
   };
 
   const startFlow = (nextMode: "message" | "schedule") => {
-    setSelectedEventTypeId("");
-    setSelectedEventId("");
-    setSelectedRecipientParticipantId("");
-    setSelectedParticipantIds([]);
-    setSelectedParticipantRecords([]);
-    setSelectedOnedaBusinessIds([]);
-    setSelectedOnedaContactIds([]);
-    setSelectedGiftIds([]);
-    setSelectedGiftProductsById({});
-    setCustomContactRecordItems([]);
-    setForm(EMPTY_FORM);
+    resetFlowSelection(
+      buildScheduleMessageFlowSelectionKey(nextMode, null, null),
+    );
     router.push(`/dashboard/schedule/flow/event?mode=${nextMode}`);
   };
 
@@ -906,7 +1067,9 @@ export default function ScheduleScreen() {
       value: response.data?.id ?? "",
       label: response.data?.name ?? name,
       icon: getEventTypeIcon(response.data?.key ?? null),
-      isManageable: Boolean(response.data?.user_id ?? response.data?.createdById),
+      isManageable: Boolean(
+        response.data?.user_id ?? response.data?.createdById,
+      ),
     } satisfies OverlaySelectOption;
   };
 
@@ -963,6 +1126,98 @@ export default function ScheduleScreen() {
     updateRoute("oneda-contact");
   };
 
+  const requireEventMessagingEventId = () => {
+    if (!editingMessageId) {
+      toast.error("Please start this message event first.");
+      return null;
+    }
+
+    return editingMessageId;
+  };
+
+  const persistRecipientSelection = async (
+    contactIds: string[],
+    records: SearchableRecordItem[],
+  ) => {
+    const eventMessagingEventId = requireEventMessagingEventId();
+
+    if (!eventMessagingEventId) {
+      return null;
+    }
+
+    if (!selectedEventId) {
+      toast.error("Unable to resolve this event right now.");
+      return null;
+    }
+
+    if (!contactIds.length || !records.length) {
+      toast.error("Please select at least one recipient.");
+      return null;
+    }
+
+    const participantsResponse =
+      await createParticipantsBulkMutation.mutateAsync({
+        eventId: selectedEventId,
+        role: "participant",
+        contactIds,
+      });
+
+    const recipientParticipant = getFirstParticipantFromBulkResponse(
+      participantsResponse.data,
+      contactIds,
+    );
+
+    if (!recipientParticipant) {
+      toast.error("Unable to resolve the selected recipient right now.");
+      return null;
+    }
+
+    await updateMessageMutation.mutateAsync({
+      id: eventMessagingEventId,
+      payload: {
+        eventId: selectedEventId,
+        participantId: recipientParticipant.id,
+      },
+    });
+
+    setSelectedParticipantIds(contactIds);
+    setSelectedParticipantRecords(records);
+    setSelectedRecipientParticipantId(recipientParticipant.id);
+
+    // Refresh before navigation so the next route can rebuild its state
+    // from the server even when this component is remounted.
+    await refetchEditingMessage();
+
+    return recipientParticipant;
+  };
+
+  const handleRecordNext = async () => {
+    if (!selectedParticipantIds.length || !selectedParticipantRecords.length) {
+      toast.error("Please select at least one recipient.");
+      return;
+    }
+
+    try {
+      const recipientParticipant = await persistRecipientSelection(
+        selectedParticipantIds,
+        selectedParticipantRecords,
+      );
+
+      if (!recipientParticipant) {
+        return;
+      }
+
+      toast.success("Recipient saved successfully.");
+      updateRoute("review-records");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the selected recipient right now.",
+      );
+    }
+  };
+
   const handleOnedaContactNext = async () => {
     if (!selectedOnedaContactIds.length) {
       toast.error("Please select at least one contact to continue.");
@@ -999,9 +1254,17 @@ export default function ScheduleScreen() {
       setCustomContactRecordItems((current) =>
         mergeRecordItems(current, importedRecords),
       );
-      setSelectedParticipantIds([importedRecord.id]);
-      setSelectedParticipantRecords([importedRecord]);
       setRecordSearchValue("");
+
+      const recipientParticipant = await persistRecipientSelection(
+        [importedRecord.id],
+        [importedRecord],
+      );
+
+      if (!recipientParticipant) {
+        return;
+      }
+
       toast.success(response.message);
       void refetchContacts();
       updateRoute("review-records");
@@ -1015,46 +1278,33 @@ export default function ScheduleScreen() {
   };
 
   const handleReviewRecordsNext = async () => {
-    const eventMessagingEventId = requireEventMessagingEventId();
-    if (!eventMessagingEventId) return;
-
-    if (!selectedEventId) {
-      toast.error("Unable to resolve this event right now.");
-      return;
-    }
-
-    if (!selectedParticipantIds.length) {
+    if (!selectedParticipantIds.length || !selectedParticipantRecords.length) {
       toast.error("Please select at least one recipient.");
       return;
     }
 
+    const participantId =
+      selectedRecipientParticipantId ||
+      editingMessageResponse?.data?.participantId ||
+      "";
+
+    if (participantId) {
+      setSelectedRecipientParticipantId(participantId);
+      updateRoute("compose");
+      return;
+    }
+
     try {
-      const participantsResponse = await createParticipantsBulkMutation.mutateAsync({
-        eventId: selectedEventId,
-        role: "participant",
-        contactIds: selectedParticipantIds,
-      });
-      const recipientParticipant = getFirstParticipantFromBulkResponse(
-        participantsResponse.data,
+      const recipientParticipant = await persistRecipientSelection(
         selectedParticipantIds,
+        selectedParticipantRecords,
       );
 
       if (!recipientParticipant) {
-        toast.error("Unable to resolve the selected recipient right now.");
         return;
       }
 
-      setSelectedRecipientParticipantId(recipientParticipant.id);
-
-      await updateMessageMutation.mutateAsync({
-        id: eventMessagingEventId,
-        payload: {
-          eventId: selectedEventId,
-          participantId: recipientParticipant.id,
-        },
-      });
-
-      toast.success("Recipients saved successfully.");
+      toast.success("Recipient saved successfully.");
       updateRoute("compose");
     } catch (error) {
       toast.error(
@@ -1063,15 +1313,6 @@ export default function ScheduleScreen() {
           : "Unable to save selected recipients right now.",
       );
     }
-  };
-
-  const requireEventMessagingEventId = () => {
-    if (!editingMessageId) {
-      toast.error("Please start this message event first.");
-      return null;
-    }
-
-    return editingMessageId;
   };
 
   const handleEventTypeNext = async () => {
@@ -1085,6 +1326,7 @@ export default function ScheduleScreen() {
     setForm((current) => ({
       ...current,
       eventName: current.eventName || eventTitle,
+      subject: current.subject || eventTitle,
     }));
 
     const draftEventDate = form.eventDate
@@ -1140,6 +1382,13 @@ export default function ScheduleScreen() {
   };
 
   const handleEditRow = (row: ScheduledEventMessageRecord) => {
+    setPendingDeleteRow(null);
+
+    if (isScheduledEventCompleted(row)) {
+      handleViewRow(row);
+      return;
+    }
+
     const nextMode = row.scheduledAt ? "schedule" : "message";
     const params = new URLSearchParams({
       mode: nextMode,
@@ -1150,8 +1399,14 @@ export default function ScheduleScreen() {
     router.push(`/dashboard/schedule/flow/event?${params.toString()}`);
   };
 
+  const handleViewRow = (row: ScheduledEventMessageRecord) => {
+    setPendingDeleteRow(null);
+    router.push(`/dashboard/schedule/${row.id}`);
+  };
+
   const allChecked =
-    messageRows.length > 0 && messageRows.every((row) => selectedIds.includes(row.id));
+    messageRows.length > 0 &&
+    messageRows.every((row) => selectedIds.includes(row.id));
 
   const toggleAll = () => {
     setSelectedIds(allChecked ? [] : messageRows.map((row) => row.id));
@@ -1196,8 +1451,16 @@ export default function ScheduleScreen() {
   const handleDeleteRow = async () => {
     if (!pendingDeleteRow) return;
 
+    if (isScheduledEventCompleted(pendingDeleteRow)) {
+      toast.error("Completed message events cannot be deleted.");
+      setPendingDeleteRow(null);
+      return;
+    }
+
     try {
-      const response = await deleteMessageMutation.mutateAsync(pendingDeleteRow.id);
+      const response = await deleteMessageMutation.mutateAsync(
+        pendingDeleteRow.id,
+      );
       toast.success(response.message || "Message deleted successfully.");
       setPendingDeleteRow(null);
     } catch (error) {
@@ -1247,7 +1510,8 @@ export default function ScheduleScreen() {
       {
         id: "scheduledDate",
         header: "Scheduled Date",
-        accessor: (row) => formatDate(row.scheduledAt ?? row.sentAt ?? row.createdAt),
+        accessor: (row) =>
+          formatDate(row.scheduledAt ?? row.sentAt ?? row.createdAt),
         headerClassName: "min-w-[120px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
@@ -1259,11 +1523,18 @@ export default function ScheduleScreen() {
         cellClassName: "px-3 py-3",
       },
       {
-        id: "status",
-        header: "Status",
+        id: "message_status",
+        header: "Message Status",
         headerClassName: "min-w-[110px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
         render: (row) => <StatusPill status={row.status} />,
+      },
+      {
+        id: "Status",
+        header: "Status",
+        headerClassName: "min-w-[110px] px-3 py-2 text-left",
+        cellClassName: "px-3 py-3",
+        render: (row) => <StatusPill status={row?.event?.status as string} />,
       },
       {
         id: "actions",
@@ -1273,13 +1544,14 @@ export default function ScheduleScreen() {
         render: (row) => (
           <ScheduleRowActions
             row={row}
+            onView={handleViewRow}
             onEdit={handleEditRow}
             onDelete={setPendingDeleteRow}
           />
         ),
       },
     ],
-    rows: messageRows.filter((row) => getRecordStatus(row) === activeTab),
+    rows: messageRows,
     getRowKey: (row) => row.id,
     headerRowClassName: "text-[12px] font-medium text-[#7D7D7D]",
     headerCellClassName: "bg-transparent",
@@ -1385,6 +1657,14 @@ export default function ScheduleScreen() {
           });
 
           setSelectedEventId(response.data.eventId);
+          setForm((current) => ({
+            ...current,
+            scheduledAt: mergeDateAndTimeToDateTimeLocalValue(
+              new Date(`${current.eventDate}T00:00:00`),
+              getTimeFromDateTimeLocalValue(current.scheduledAt) ||
+                DEFAULT_SCHEDULE_TIME,
+            ),
+          }));
           updateRoute("source", {
             eventId: response.data.eventId,
             scheduleEventMessageId: response.data.id,
@@ -1422,10 +1702,7 @@ export default function ScheduleScreen() {
         >
           From Record
         </ModalButton>
-        <ModalButton
-          onClick={handleOpenOnedaBusinessStep}
-          className="w-full"
-        >
+        <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
           From Oneda
         </ModalButton>
       </div>
@@ -1499,12 +1776,18 @@ export default function ScheduleScreen() {
                 iconClassName="size-[24px]"
               />
               <ModalButton
-                onClick={() => {
-                  updateRoute("review-records");
-                }}
-                disabled={!selectedParticipantIds.length}
+                onClick={handleRecordNext}
+                disabled={
+                  !selectedParticipantIds.length ||
+                  !selectedParticipantRecords.length ||
+                  createParticipantsBulkMutation.isPending ||
+                  updateMessageMutation.isPending
+                }
               >
-                Next
+                {createParticipantsBulkMutation.isPending ||
+                updateMessageMutation.isPending
+                  ? "Saving..."
+                  : "Next"}
               </ModalButton>
             </div>
           }
@@ -1526,8 +1809,6 @@ export default function ScheduleScreen() {
     </div>
   );
 
-  
-
   const reviewRecordsStep = (
     <CustomColleagueReview
       greetingName="there"
@@ -1546,7 +1827,8 @@ export default function ScheduleScreen() {
       }}
       nextDisabled={
         !selectedParticipantReviewItems.length ||
-        createParticipantsBulkMutation.isPending
+        createParticipantsBulkMutation.isPending ||
+        updateMessageMutation.isPending
       }
     />
   );
@@ -1667,10 +1949,16 @@ export default function ScheduleScreen() {
                 onClick={handleOnedaContactNext}
                 disabled={
                   !selectedOnedaContactIds.length ||
-                  createBulkContactsMutation.isPending
+                  createBulkContactsMutation.isPending ||
+                  createParticipantsBulkMutation.isPending ||
+                  updateMessageMutation.isPending
                 }
               >
-                {createBulkContactsMutation.isPending ? "Importing..." : "Next"}
+                {createBulkContactsMutation.isPending ||
+                createParticipantsBulkMutation.isPending ||
+                updateMessageMutation.isPending
+                  ? "Saving..."
+                  : "Next"}
               </ModalButton>
             </div>
           }
@@ -1742,7 +2030,9 @@ export default function ScheduleScreen() {
   };
 
   const handleScheduledTimeChange = (timeValue: string) => {
-    const baseDate = scheduledDate ?? today;
+    const baseDate = form.eventDate
+      ? new Date(`${form.eventDate}T00:00:00`)
+      : scheduledDate ?? today;
 
     setForm((current) => ({
       ...current,
@@ -1774,7 +2064,8 @@ export default function ScheduleScreen() {
     }
 
     const recipientParticipantId =
-      selectedRecipientParticipantId || editingMessageResponse?.data?.participantId;
+      selectedRecipientParticipantId ||
+      editingMessageResponse?.data?.participantId;
     const resolvedEventId = selectedEventId || routeEventId;
 
     if (!resolvedEventId) {
@@ -1848,7 +2139,9 @@ export default function ScheduleScreen() {
               aria-haspopup="dialog"
             >
               <span
-                className={form.scheduledAt ? "text-[#434343]" : "text-[#666666]"}
+                className={
+                  form.scheduledAt ? "text-[#434343]" : "text-[#666666]"
+                }
               >
                 {formatScheduledDatePickerValue(form.scheduledAt)}
               </span>
@@ -1880,8 +2173,44 @@ export default function ScheduleScreen() {
           <input
             type="time"
             value={scheduledTime || DEFAULT_SCHEDULE_TIME}
+            disabled={isViewing}
             onChange={(event) => handleScheduledTimeChange(event.target.value)}
-            className="h-[54px] w-full rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] outline-none transition-colors focus:border-[#3300C9]"
+            className={cn(
+              "h-[54px] w-full rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] outline-none transition-colors focus:border-[#3300C9]",
+              isViewing && "cursor-not-allowed bg-[#F8F7FC] text-[#7D7D7D]",
+            )}
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  const lockedScheduledDateTimeField = (
+    <div className="space-y-2">
+      <span className="block text-sm font-medium text-[#434343]">
+        Scheduled date
+      </span>
+      <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+        <div className="flex h-[54px] w-full items-center justify-between rounded-[18px] border border-[#ECE8F7] bg-[#F8F7FC] px-4 text-left text-[15px] font-normal text-[#434343]">
+          <span
+            className={form.scheduledAt ? "text-[#434343]" : "text-[#666666]"}
+          >
+            {formatScheduledDatePickerValue(form.scheduledAt)}
+          </span>
+          <CalendarDaysIcon className="size-5 text-[#8A8794]" />
+        </div>
+
+        <label className="block">
+          <span className="sr-only">Scheduled time</span>
+          <input
+            type="time"
+            value={scheduledTime || DEFAULT_SCHEDULE_TIME}
+            disabled={isViewing}
+            onChange={(event) => handleScheduledTimeChange(event.target.value)}
+            className={cn(
+              "h-[54px] w-full rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] outline-none transition-colors focus:border-[#3300C9]",
+              isViewing && "cursor-not-allowed bg-[#F8F7FC] text-[#7D7D7D]",
+            )}
           />
         </label>
       </div>
@@ -1892,92 +2221,114 @@ export default function ScheduleScreen() {
     <div className="mx-auto max-w-[620px] space-y-5 pt-3">
       <div className="text-center">
         <h2 className="text-[24px] font-semibold text-[#2F2F35]">
-          Write your message
+          {isViewing ? "View message" : "Write your message"}
         </h2>
         <p className="mt-2 text-sm text-[#7D7D7D]">
-          Add the message your recipient will receive.
+          {isViewing
+            ? "Review the message details for this scheduled event."
+            : "Add the message your recipient will receive."}
         </p>
       </div>
 
       <div className="space-y-4">
         <input
           value={form.subject}
+          readOnly={isViewing}
           onChange={(event) =>
             setForm((current) => ({ ...current, subject: event.target.value }))
           }
           placeholder="Message title"
-          className="h-[54px] w-full rounded-[18px] border border-[#ECE8F7] px-4 text-[15px] outline-none transition-colors focus:border-[#3300C9]"
+          className={cn(
+            "h-[54px] w-full rounded-[18px] border border-[#ECE8F7] px-4 text-[15px] outline-none transition-colors focus:border-[#3300C9]",
+            isViewing && "cursor-default bg-[#F8F7FC] text-[#434343]",
+          )}
         />
         <textarea
           value={form.message}
+          readOnly={isViewing}
           onChange={(event) =>
             setForm((current) => ({ ...current, message: event.target.value }))
           }
           placeholder="Message body"
           rows={5}
-          className="w-full resize-none rounded-[18px] border border-[#ECE8F7] px-4 py-3 text-[15px] outline-none transition-colors focus:border-[#3300C9]"
+          className={cn(
+            "w-full resize-none rounded-[18px] border border-[#ECE8F7] px-4 py-3 text-[15px] outline-none transition-colors focus:border-[#3300C9]",
+            isViewing && "cursor-default bg-[#F8F7FC] text-[#434343]",
+          )}
         />
-        {mode === "schedule" ? scheduledDateTimeField : null}
+        {mode === "schedule" ? lockedScheduledDateTimeField : null}
       </div>
 
       <div className="flex items-center justify-center gap-3 pt-2">
         <BackButton
-          onClick={() => updateRoute("review-records")}
+          onClick={() =>
+            isViewing ? closeFlow() : updateRoute("review-records")
+          }
           className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
         />
-        <ModalButton
-          onClick={async () => {
-            const eventMessagingEventId = requireEventMessagingEventId();
-            if (!eventMessagingEventId) return;
+        {isViewing ? (
+          <ModalButton onClick={closeFlow}>Close</ModalButton>
+        ) : (
+          <ModalButton
+            onClick={async () => {
+              const eventMessagingEventId = requireEventMessagingEventId();
+              if (!eventMessagingEventId) return;
 
-            if (!form.subject.trim() || !form.message.trim()) {
-              toast.error("Please add a subject and message.");
-              return;
-            }
+              if (!form.subject.trim() || !form.message.trim()) {
+                toast.error("Please add a subject and message.");
+                return;
+              }
 
-            if (mode === "schedule" && !form.scheduledAt) {
-              toast.error("Please choose when this message should be sent.");
-              return;
-            }
+              if (mode === "schedule" && !form.scheduledAt) {
+                toast.error("Please choose when this message should be sent.");
+                return;
+              }
 
-            try {
-              await updateMessageMutation.mutateAsync({
-                id: eventMessagingEventId,
-                payload: {
-                  ...(selectedEventId ? { eventId: selectedEventId } : {}),
-                  subject: form.subject.trim(),
-                  message: form.message.trim(),
-                  sendNow: mode === "message",
-                  ...(mode === "schedule"
-                    ? { scheduledAt: toIsoDateTime(form.scheduledAt) }
-                    : {}),
-                  ...(form.giftUrl.trim() ? { giftUrl: form.giftUrl.trim() } : {}),
-                  ...(form.giftUrlExpiresAt
-                    ? { giftUrlExpiresAt: toIsoDateTime(form.giftUrlExpiresAt) }
-                    : {}),
-                  metadata: {
-                    source: "dashboard",
+              try {
+                await updateMessageMutation.mutateAsync({
+                  id: eventMessagingEventId,
+                  payload: {
+                    ...(selectedEventId ? { eventId: selectedEventId } : {}),
+                    subject: form.subject.trim(),
+                    message: form.message.trim(),
+                    sendNow: mode === "message",
+                    ...(mode === "schedule"
+                      ? { scheduledAt: toIsoDateTime(form.scheduledAt) }
+                      : {}),
+                    ...(form.giftUrl.trim()
+                      ? { giftUrl: form.giftUrl.trim() }
+                      : {}),
+                    ...(form.giftUrlExpiresAt
+                      ? {
+                          giftUrlExpiresAt: toIsoDateTime(
+                            form.giftUrlExpiresAt,
+                          ),
+                        }
+                      : {}),
+                    metadata: {
+                      source: "dashboard",
+                    },
                   },
-                },
-              });
+                });
 
-              updateRoute("gift-selection");
-            } catch (error) {
-              toast.error(
-                error instanceof Error
-                  ? error.message
-                  : "Unable to save this message right now.",
-              );
+                updateRoute("gift-selection");
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to save this message right now.",
+                );
+              }
+            }}
+            disabled={
+              !form.subject.trim() ||
+              !form.message.trim() ||
+              (mode === "schedule" && !form.scheduledAt)
             }
-          }}
-          disabled={
-            !form.subject.trim() ||
-            !form.message.trim() ||
-            (mode === "schedule" && !form.scheduledAt)
-          }
-        >
-          Next
-        </ModalButton>
+          >
+            Next
+          </ModalButton>
+        )}
       </div>
     </div>
   );
@@ -2072,6 +2423,12 @@ export default function ScheduleScreen() {
 
   return (
     <div className="space-y-6">
+      {isInlineGiftSelectionStep ? (
+        <div className="mx-auto min-h-[760px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
+          <div className="h-full min-h-0">{giftSelectionStep}</div>
+        </div>
+      ) : (
+        <>
       <PageHeader
         title="Schedule Event & Message"
         description="Schedule events & Message ahead and keep in touch with your loved ones"
@@ -2145,7 +2502,10 @@ export default function ScheduleScreen() {
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setCurrentPage(1);
+                  }}
                   className={cn(
                     "border-b-2 px-1 pb-2 text-sm transition-colors",
                     activeTab === tab
@@ -2161,7 +2521,10 @@ export default function ScheduleScreen() {
             <div className="flex items-center gap-3">
               <SearchInput
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Search names......"
                 containerClassName="w-full sm:w-[280px]"
                 className="h-10 rounded-[16px] border-[#ECE8F7] bg-white text-sm text-[#434343] shadow-none placeholder:text-[#9A97A5] focus-visible:border-[#D7CEF2] focus-visible:ring-0"
@@ -2170,7 +2533,9 @@ export default function ScheduleScreen() {
               <button
                 type="button"
                 aria-label="Filter schedule"
-                onClick={() => toast("Schedule filters will be connected next.")}
+                onClick={() =>
+                  toast("Schedule filters will be connected next.")
+                }
                 className="flex size-10 items-center justify-center rounded-[12px] border border-[#ECE8F7] bg-white text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
               >
                 <FilterIcon className="size-4 text-[#434343]" aria-hidden />
@@ -2215,24 +2580,17 @@ export default function ScheduleScreen() {
           />
         </div>
       </section>
+        </>
+      )}
 
       <ContentModal
-        open={isFlowOpen}
+        open={isFlowOpen && !isInlineGiftSelectionStep}
         onClose={closeFlow}
         title={mode === "message" ? "Message" : "Schedule Message Event"}
         showHeader={false}
         closeOnOverlayClick={false}
-        dialogClassName={cn(
-          "rounded-[18px] bg-white sm:rounded-[20px]",
-          currentStep === "gift-selection"
-            ? "max-h-[92dvh] max-w-[1120px]"
-            : "max-w-[536px]",
-        )}
-        bodyClassName={cn(
-          currentStep === "gift-selection"
-            ? "max-h-[92dvh] overflow-y-auto px-3 py-4 sm:px-5 sm:py-5"
-            : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10",
-        )}
+        dialogClassName="max-w-[536px] rounded-[18px] bg-white sm:rounded-[20px]"
+        bodyClassName="px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
       >
         {currentStep === "event"
           ? eventStep
@@ -2244,21 +2602,19 @@ export default function ScheduleScreen() {
                 ? onedaBusinessStep
                 : currentStep === "oneda-contact"
                   ? onedaContactStep
-              : currentStep === "record"
-                ? recordStep
-                : currentStep === "review-records"
-                  ? reviewRecordsStep
-          : currentStep === "recipients"
-            ? recipientsStep
-            : currentStep === "compose"
-              ? composeStep
-              : currentStep === "gift-selection"
-                ? giftSelectionStep
-                : currentStep === "schedule"
-                  ? scheduleStep
-                  : currentStep === "success"
-                    ? successStep
-                    : null}
+                  : currentStep === "record"
+                    ? recordStep
+                    : currentStep === "review-records"
+                      ? reviewRecordsStep
+                      : currentStep === "recipients"
+                        ? recipientsStep
+                        : currentStep === "compose"
+                          ? composeStep
+                          : currentStep === "schedule"
+                              ? scheduleStep
+                              : currentStep === "success"
+                                ? successStep
+                                : null}
       </ContentModal>
 
       <ConfirmationModal

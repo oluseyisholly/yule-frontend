@@ -9,6 +9,7 @@ export const scheduledEventMessageQueryKeys = {
       params.per_page ?? 20,
       params.page ?? 1,
       params.searchQuery ?? "",
+      params.eventTiming ?? "",
     ] as const,
   detail: (id: string | null) =>
     [...scheduledEventMessageQueryKeys.all, "detail", id ?? ""] as const,
