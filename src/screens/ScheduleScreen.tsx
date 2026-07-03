@@ -112,9 +112,7 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events",
     hint: "+12% this month",
     hintColor: "#3300C9",
-    icon: (
-      <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
-    ),
+    icon: <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
     iconBg: "#EFE6FD",
   },
   {
@@ -128,17 +126,13 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events this month",
     hint: "+2 new this week",
     hintColor: "#24A959",
-    icon: (
-      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
-    ),
+    icon: <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />,
     iconBg: "#D9F4E2",
   },
   {
     value: "$264",
     label: "Amount Spent",
-    icon: (
-      <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />
-    ),
+    icon: <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />,
     iconBg: "#FDE0DE",
   },
 ];
@@ -174,9 +168,7 @@ function toDateTimeLocalValue(value?: string | null) {
 
   if (Number.isNaN(date.getTime())) return "";
 
-  const offsetDate = new Date(
-    date.getTime() - date.getTimezoneOffset() * 60000,
-  );
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return offsetDate.toISOString().slice(0, 16);
 }
 
@@ -254,8 +246,7 @@ function getInitials(firstName?: string | null, lastName?: string | null) {
 
 function getParticipantName(participant?: ParticipatedEventParticipant | null) {
   const contact = participant?.eventContact;
-  const fullName =
-    `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
+  const fullName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
 
   return fullName || contact?.email || "Unnamed participant";
 }
@@ -277,8 +268,7 @@ function mapContactToRecordItem(contact: Contact): SearchableRecordItem {
   const lastName = contact.lastName?.trim() || "";
   const fullName = `${firstName} ${lastName}`.trim();
   const email = contact.email?.trim() || "";
-  const phoneNumber =
-    contact.phoneNumber?.trim() || contact.phone?.trim() || "";
+  const phoneNumber = contact.phoneNumber?.trim() || contact.phone?.trim() || "";
 
   return {
     id: contact.id,
@@ -340,9 +330,7 @@ function mapExternalBusinessToRecordItem(
   };
 }
 
-function mapOnedaProfileToRecordItem(
-  profile: OnedaProfile,
-): SearchableRecordItem {
+function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
   const firstName = profile.accountId.firstName?.trim() || "";
   const lastName = profile.accountId.lastName?.trim() || "";
   const fullName = `${firstName} ${lastName}`.trim();
@@ -383,9 +371,7 @@ function getFirstParticipantFromBulkResponse(
       (participant) =>
         participant.eventContactId &&
         selectedContactIds.includes(participant.eventContactId),
-    ) ??
-    participants[0] ??
-    null
+    ) ?? participants[0] ?? null
   );
 }
 
@@ -442,9 +428,7 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
         <button
           type="button"
           aria-label={`${metric.label} options`}
-          onClick={() =>
-            toast(`${metric.label} options will be connected next.`)
-          }
+          onClick={() => toast(`${metric.label} options will be connected next.`)}
           className="rounded-full p-1 text-[#B0ACBC] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
         >
           <MoreHorizontal className="size-4" />
@@ -469,7 +453,13 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
   );
 }
 
-function AvatarBubble({ name, initials }: { name: string; initials: string }) {
+function AvatarBubble({
+  name,
+  initials,
+}: {
+  name: string;
+  initials: string;
+}) {
   return (
     <span
       className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EFE6FD] text-[10px] font-semibold text-[#3300C9]"
@@ -498,8 +488,7 @@ function RecipientCell({ row }: { row: ScheduledEventMessageRecord }) {
 
 function StatusPill({ status }: { status: string }) {
   const normalizedStatus = status.trim().toLowerCase();
-  const isSent =
-    normalizedStatus === "sent" || normalizedStatus === "completed";
+  const isSent = normalizedStatus === "sent" || normalizedStatus === "completed";
   const isFailed = normalizedStatus === "failed";
 
   return (
@@ -568,10 +557,10 @@ export default function ScheduleScreen() {
   const searchParams = useSearchParams();
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
-  const routeStep =
-    pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
-  const currentStep =
-    routeStep && isScheduleMessageFlowStep(routeStep) ? routeStep : null;
+  const routeStep = pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
+  const currentStep = routeStep && isScheduleMessageFlowStep(routeStep)
+    ? routeStep
+    : null;
   const mode = searchParams.get("mode") === "message" ? "message" : "schedule";
   const editingMessageId =
     searchParams.get("scheduleEventMessageId") ??
@@ -587,18 +576,12 @@ export default function ScheduleScreen() {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedRecipientParticipantId, setSelectedRecipientParticipantId] =
     useState("");
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<
-    string[]
-  >([]);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [selectedParticipantRecords, setSelectedParticipantRecords] = useState<
     SearchableRecordItem[]
   >([]);
-  const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
-    string[]
-  >([]);
-  const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<
-    string[]
-  >([]);
+  const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<string[]>([]);
+  const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<string[]>([]);
   const [selectedGiftIds, setSelectedGiftIds] = useState<string[]>([]);
   const [selectedGiftProductsById, setSelectedGiftProductsById] = useState<
     Record<string, MarketplaceProduct>
@@ -609,8 +592,7 @@ export default function ScheduleScreen() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [pendingDeleteRow, setPendingDeleteRow] =
     useState<ScheduledEventMessageRecord | null>(null);
-  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
-    useState(false);
+  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
   const [isScheduledCalendarOpen, setIsScheduledCalendarOpen] = useState(false);
   const [scheduleMetricsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
@@ -701,9 +683,7 @@ export default function ScheduleScreen() {
       (business) => getExternalBusinessRootId(business) === candidateId,
     );
 
-    return selectedBusiness
-      ? getExternalBusinessRootId(selectedBusiness)
-      : null;
+    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
   }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
@@ -926,9 +906,7 @@ export default function ScheduleScreen() {
       value: response.data?.id ?? "",
       label: response.data?.name ?? name,
       icon: getEventTypeIcon(response.data?.key ?? null),
-      isManageable: Boolean(
-        response.data?.user_id ?? response.data?.createdById,
-      ),
+      isManageable: Boolean(response.data?.user_id ?? response.data?.createdById),
     } satisfies OverlaySelectOption;
   };
 
@@ -1051,12 +1029,11 @@ export default function ScheduleScreen() {
     }
 
     try {
-      const participantsResponse =
-        await createParticipantsBulkMutation.mutateAsync({
-          eventId: selectedEventId,
-          role: "participant",
-          contactIds: selectedParticipantIds,
-        });
+      const participantsResponse = await createParticipantsBulkMutation.mutateAsync({
+        eventId: selectedEventId,
+        role: "participant",
+        contactIds: selectedParticipantIds,
+      });
       const recipientParticipant = getFirstParticipantFromBulkResponse(
         participantsResponse.data,
         selectedParticipantIds,
@@ -1174,8 +1151,7 @@ export default function ScheduleScreen() {
   };
 
   const allChecked =
-    messageRows.length > 0 &&
-    messageRows.every((row) => selectedIds.includes(row.id));
+    messageRows.length > 0 && messageRows.every((row) => selectedIds.includes(row.id));
 
   const toggleAll = () => {
     setSelectedIds(allChecked ? [] : messageRows.map((row) => row.id));
@@ -1221,9 +1197,7 @@ export default function ScheduleScreen() {
     if (!pendingDeleteRow) return;
 
     try {
-      const response = await deleteMessageMutation.mutateAsync(
-        pendingDeleteRow.id,
-      );
+      const response = await deleteMessageMutation.mutateAsync(pendingDeleteRow.id);
       toast.success(response.message || "Message deleted successfully.");
       setPendingDeleteRow(null);
     } catch (error) {
@@ -1273,8 +1247,7 @@ export default function ScheduleScreen() {
       {
         id: "scheduledDate",
         header: "Scheduled Date",
-        accessor: (row) =>
-          formatDate(row.scheduledAt ?? row.sentAt ?? row.createdAt),
+        accessor: (row) => formatDate(row.scheduledAt ?? row.sentAt ?? row.createdAt),
         headerClassName: "min-w-[120px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
@@ -1449,7 +1422,10 @@ export default function ScheduleScreen() {
         >
           From Record
         </ModalButton>
-        <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+        <ModalButton
+          onClick={handleOpenOnedaBusinessStep}
+          className="w-full"
+        >
           From Oneda
         </ModalButton>
       </div>
@@ -1549,6 +1525,8 @@ export default function ScheduleScreen() {
       ) : null}
     </div>
   );
+
+  
 
   const reviewRecordsStep = (
     <CustomColleagueReview
@@ -1796,8 +1774,7 @@ export default function ScheduleScreen() {
     }
 
     const recipientParticipantId =
-      selectedRecipientParticipantId ||
-      editingMessageResponse?.data?.participantId;
+      selectedRecipientParticipantId || editingMessageResponse?.data?.participantId;
     const resolvedEventId = selectedEventId || routeEventId;
 
     if (!resolvedEventId) {
@@ -1871,9 +1848,7 @@ export default function ScheduleScreen() {
               aria-haspopup="dialog"
             >
               <span
-                className={
-                  form.scheduledAt ? "text-[#434343]" : "text-[#666666]"
-                }
+                className={form.scheduledAt ? "text-[#434343]" : "text-[#666666]"}
               >
                 {formatScheduledDatePickerValue(form.scheduledAt)}
               </span>
@@ -1976,9 +1951,7 @@ export default function ScheduleScreen() {
                   ...(mode === "schedule"
                     ? { scheduledAt: toIsoDateTime(form.scheduledAt) }
                     : {}),
-                  ...(form.giftUrl.trim()
-                    ? { giftUrl: form.giftUrl.trim() }
-                    : {}),
+                  ...(form.giftUrl.trim() ? { giftUrl: form.giftUrl.trim() } : {}),
                   ...(form.giftUrlExpiresAt
                     ? { giftUrlExpiresAt: toIsoDateTime(form.giftUrlExpiresAt) }
                     : {}),
@@ -2197,9 +2170,7 @@ export default function ScheduleScreen() {
               <button
                 type="button"
                 aria-label="Filter schedule"
-                onClick={() =>
-                  toast("Schedule filters will be connected next.")
-                }
+                onClick={() => toast("Schedule filters will be connected next.")}
                 className="flex size-10 items-center justify-center rounded-[12px] border border-[#ECE8F7] bg-white text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
               >
                 <FilterIcon className="size-4 text-[#434343]" aria-hidden />
@@ -2273,21 +2244,21 @@ export default function ScheduleScreen() {
                 ? onedaBusinessStep
                 : currentStep === "oneda-contact"
                   ? onedaContactStep
-                  : currentStep === "record"
-                    ? recordStep
-                    : currentStep === "review-records"
-                      ? reviewRecordsStep
-                      : currentStep === "recipients"
-                        ? recipientsStep
-                        : currentStep === "compose"
-                          ? composeStep
-                          : currentStep === "gift-selection"
-                            ? giftSelectionStep
-                            : currentStep === "schedule"
-                              ? scheduleStep
-                              : currentStep === "success"
-                                ? successStep
-                                : null}
+              : currentStep === "record"
+                ? recordStep
+                : currentStep === "review-records"
+                  ? reviewRecordsStep
+          : currentStep === "recipients"
+            ? recipientsStep
+            : currentStep === "compose"
+              ? composeStep
+              : currentStep === "gift-selection"
+                ? giftSelectionStep
+                : currentStep === "schedule"
+                  ? scheduleStep
+                  : currentStep === "success"
+                    ? successStep
+                    : null}
       </ContentModal>
 
       <ConfirmationModal
