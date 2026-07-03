@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image, { type StaticImageData } from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   CalendarDaysIcon,
   ChevronDownIcon,
   Link2Icon,
-  MessageCircleIcon,
   MapPinIcon,
   UsersIcon,
 } from "lucide-react";
@@ -23,12 +21,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import featureImg1 from "@/assets/icons/featureImg1.svg";
-import featureImg2 from "@/assets/icons/featureImg2.svg";
-import featureImg3 from "@/assets/icons/featureImg3.svg";
-import featureImg4 from "@/assets/icons/featureImg4.svg";
-import featureImg5 from "@/assets/icons/featureImg5.svg";
-import featureImg6 from "@/assets/icons/featureImg6.svg";
 import { canManageHangoutEvent } from "@/features/hangout-events/access";
 import { useHangoutEventQuery } from "@/features/hangout-events/hooks/useHangoutEventQuery";
 import { useUpdateHangoutEventMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventMutation";
@@ -53,15 +45,6 @@ type HangoutParticipantDetail = HangoutParticipantBubble & {
   email: string;
   role: string;
 };
-
-const fallbackGallery = [
-  featureImg1,
-  featureImg2,
-  featureImg3,
-  featureImg4,
-  featureImg5,
-  featureImg6,
-];
 
 const CalendarComponent = Calendar as React.ComponentType<
   Record<string, unknown>
@@ -88,7 +71,9 @@ function ReadOnlyBookingField({
         className="flex h-[44px] w-full cursor-not-allowed items-center justify-between rounded-[14px] border border-[#ECE8F7] bg-[#F8F8FB] px-3 text-left text-[12px] text-[#7D7D7D] opacity-80"
       >
         <span className="flex min-w-0 items-center gap-2">
-          {icon ? <span className="shrink-0 text-[#9A97A5]">{icon}</span> : null}
+          {icon ? (
+            <span className="shrink-0 text-[#9A97A5]">{icon}</span>
+          ) : null}
           <span className="truncate">{value}</span>
         </span>
         {trailingIcon ? (
@@ -205,11 +190,7 @@ function BookingDateField({
             month={calendarMonth}
             onMonthChange={setCalendarMonth}
             onSelect={handleDateSelect}
-            disabled={
-              minDate
-                ? (date: Date) => date < minDate
-                : undefined
-            }
+            disabled={minDate ? (date: Date) => date < minDate : undefined}
             initialFocus
             className="shadow-none"
           />
@@ -295,7 +276,7 @@ function GalleryTile({
   onClick,
   overlayLabel,
 }: {
-  src: StaticImageData | string;
+  src: string;
   alt: string;
   onClick: () => void;
   overlayLabel?: string | null;
@@ -306,12 +287,10 @@ function GalleryTile({
       onClick={onClick}
       className="group relative min-h-[120px] overflow-hidden rounded-[12px] bg-[#F4F1FF] text-left"
     >
-      <Image
+      <img
         src={src}
         alt={alt}
-        fill
-        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-        sizes="(max-width: 1024px) 100vw, 25vw"
+        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
       />
 
       {overlayLabel ? (
@@ -414,11 +393,13 @@ function getContactAvatarStyle(seed: string) {
   return palette[hash % palette.length];
 }
 
-function toDisplayName(person?: {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-} | null) {
+function toDisplayName(
+  person?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  } | null,
+) {
   if (!person) {
     return "";
   }
@@ -433,8 +414,13 @@ export default function HangoutDetailsScreen({
 }: HangoutDetailsScreenProps) {
   const authUser = useAuthStore((state) => state.user);
   const currentContactId = useAuthStore((state) => state.currentContactId);
-  const { data: hangout, isLoading, isFetching, isError, refetch } =
-    useHangoutEventQuery(hangoutId);
+  const {
+    data: hangout,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useHangoutEventQuery(hangoutId);
   const updateHangoutEventMutation = useUpdateHangoutEventMutation();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [editableCheckInDate, setEditableCheckInDate] = useState("");
@@ -530,9 +516,10 @@ export default function HangoutDetailsScreen({
     [hangout?.event.participants],
   );
 
-  const gallery = useMemo<Array<StaticImageData | string>>(() => {
+  const gallery = useMemo<string[]>(() => {
     const marketplaceImages =
-      marketplaceProduct?.images?.filter((image) => Boolean(image?.trim())) ?? [];
+      marketplaceProduct?.images?.filter((image) => Boolean(image?.trim())) ??
+      [];
 
     if (marketplaceImages.length > 0) {
       return marketplaceImages;
@@ -541,13 +528,13 @@ export default function HangoutDetailsScreen({
     const primaryImage = hangout?.imageUrl?.trim();
 
     if (!primaryImage) {
-      return fallbackGallery;
+      return [];
     }
 
     return [primaryImage];
   }, [hangout?.imageUrl, marketplaceProduct?.images]);
 
-  const activeImage = gallery[activeImageIndex] ?? gallery[0] ?? fallbackGallery[0];
+  const activeImage = gallery[activeImageIndex] ?? gallery[0] ?? "";
   const sideGallery = gallery.slice(1, 5);
   const overlayCount = Math.max(gallery.length - 5, 0);
   const locationLabel =
@@ -568,7 +555,7 @@ export default function HangoutDetailsScreen({
       ? `${hangout.numberOfGuests} guest${hangout.numberOfGuests > 1 ? "s" : ""}`
       : participants.length > 0
         ? `${participants.length} guest${participants.length > 1 ? "s" : ""}`
-      : "Not specified";
+        : "Not specified";
   const originalCheckInDate = useMemo(
     () => toDateInputValue(hangout?.checkInDate || hangout?.event.eventDate),
     [hangout?.checkInDate, hangout?.event.eventDate],
@@ -691,7 +678,9 @@ export default function HangoutDetailsScreen({
 
           <button
             type="button"
-            onClick={() => toast("Sharing hangout details will be connected next.")}
+            onClick={() =>
+              toast("Sharing hangout details will be connected next.")
+            }
             className="inline-flex items-center gap-2 self-start rounded-full border border-[#ECE8F7] px-3 py-2 text-sm text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
           >
             <span>Share</span>
@@ -699,23 +688,33 @@ export default function HangoutDetailsScreen({
           </button>
         </div>
 
-        <div>
-          <div className="space-y-5">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
-              <button
-                type="button"
-                onClick={() => setActiveImageIndex(0)}
-                className="group relative min-h-[240px] overflow-hidden rounded-[18px] bg-[#F4F1FF] text-left sm:min-h-[320px]"
-              >
-                <Image
+        <div className="mt-5 space-y-5">
+          <div
+            className={
+              sideGallery.length > 0
+                ? "grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]"
+                : "grid gap-3"
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setActiveImageIndex(0)}
+              className="group relative min-h-[240px] overflow-hidden rounded-[18px] bg-[#F4F1FF] text-left sm:min-h-[320px]"
+            >
+              {activeImage ? (
+                <img
                   src={activeImage}
                   alt={pageTitle}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  sizes="(max-width: 1024px) 100vw, 40vw"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
-              </button>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[#EFE6FD] text-[44px] font-semibold text-[#3300C9]">
+                  {pageTitle.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+            </button>
 
+            {sideGallery.length > 0 ? (
               <div className="grid grid-cols-2 gap-3">
                 {sideGallery.map((image, index) => {
                   const computedIndex = index + 1;
@@ -733,117 +732,134 @@ export default function HangoutDetailsScreen({
                   );
                 })}
               </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_520px]">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-[#7D7D7D]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#E04F4F]" />
+                  <span>{locationLabel}</span>
+                </span>
+              </div>
+
+              <p className="mt-2 text-[36px] font-semibold leading-none tracking-[-0.04em] text-[#1E1E1E]">
+                {amountLabel}
+              </p>
+
+              <div className="mt-3 flex items-center gap-2 text-sm text-[#7D7D7D]">
+                <MapPinIcon
+                  className="size-4 text-[#9A97A5]"
+                  strokeWidth={1.8}
+                />
+                <span>{locationLabel}</span>
+              </div>
+
+              <p className="mt-4 max-w-[820px] text-[13px] leading-7 text-[#5F5B66]">
+                {description}
+              </p>
+
+              {participants.length > 0 ? (
+                <div className="mt-5 flex items-center gap-3">
+                  <UsersIcon
+                    className="size-4 text-[#9A97A5]"
+                    strokeWidth={1.8}
+                  />
+                  <ParticipantStack participants={participants} />
+                </div>
+              ) : null}
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_520px]">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-[#7D7D7D]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-[#E04F4F]" />
-                    <span>{locationLabel}</span>
-                  </span>
-                </div>
+            <div className="space-y-4 rounded-[20px] border border-[#EEEAF7] bg-[#FCFBFF] p-4">
+              <p className="text-[28px] font-semibold leading-none tracking-[-0.04em] text-[#1E1E1E]">
+                {amountLabel}
+              </p>
 
-                <p className="mt-2 text-[36px] font-semibold leading-none tracking-[-0.04em] text-[#1E1E1E]">
-                  {amountLabel}
-                </p>
-
-                <div className="mt-3 flex items-center gap-2 text-sm text-[#7D7D7D]">
-                  <MapPinIcon className="size-4 text-[#9A97A5]" strokeWidth={1.8} />
-                  <span>{locationLabel}</span>
-                </div>
-
-                <p className="mt-4 max-w-[820px] text-[13px] leading-7 text-[#5F5B66]">
-                  {description}
-                </p>
-
-                {participants.length > 0 ? (
-                  <div className="mt-5 flex items-center gap-3">
-                    <UsersIcon className="size-4 text-[#9A97A5]" strokeWidth={1.8} />
-                    <ParticipantStack participants={participants} />
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-4 rounded-[20px] border border-[#EEEAF7] bg-[#FCFBFF] p-4">
-                <p className="text-[28px] font-semibold leading-none tracking-[-0.04em] text-[#1E1E1E]">
-                  {amountLabel}
-                </p>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {canManage ? (
-                    <BookingDateField
-                      label="Check-in"
-                      value={editableCheckInDate}
-                      onChange={setEditableCheckInDate}
-                      open={isCheckInCalendarOpen}
-                      onOpenChange={setIsCheckInCalendarOpen}
-                    />
-                  ) : (
-                    <ReadOnlyBookingField
-                      label="Check-in"
-                      value={formatDate(hangout.checkInDate || hangout.event.eventDate)}
-                      icon={<CalendarDaysIcon className="size-3.5" strokeWidth={1.8} />}
-                    />
-                  )}
-                  {canManage ? (
-                    <BookingDateField
-                      label="Checkout"
-                      value={editableCheckOutDate}
-                      onChange={setEditableCheckOutDate}
-                      open={isCheckOutCalendarOpen}
-                      onOpenChange={setIsCheckOutCalendarOpen}
-                      minDate={checkoutMinDate}
-                    />
-                  ) : (
-                    <ReadOnlyBookingField
-                      label="Checkout"
-                      value={formatDate(hangout.checkOutDate)}
-                      icon={<CalendarDaysIcon className="size-3.5" strokeWidth={1.8} />}
-                    />
-                  )}
-                  <ReadOnlyBookingField
-                    label="Guests"
-                    value={guestsLabel}
-                    icon={<UsersIcon className="size-3.5" strokeWidth={1.8} />}
-                    trailingIcon={<ChevronDownIcon className="size-3.5" strokeWidth={1.8} />}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                {canManage ? (
+                  <BookingDateField
+                    label="Check-in"
+                    value={editableCheckInDate}
+                    onChange={setEditableCheckInDate}
+                    open={isCheckInCalendarOpen}
+                    onOpenChange={setIsCheckInCalendarOpen}
                   />
-                </div>
-
-                <Button
-                  type="button"
-                  onClick={
-                    canManage
-                      ? () => void handleSaveBookingDetails()
-                      : () =>
-                          toast("Reservation flow will be connected next.")
+                ) : (
+                  <ReadOnlyBookingField
+                    label="Check-in"
+                    value={formatDate(
+                      hangout.checkInDate || hangout.event.eventDate,
+                    )}
+                    icon={
+                      <CalendarDaysIcon
+                        className="size-3.5"
+                        strokeWidth={1.8}
+                      />
+                    }
+                  />
+                )}
+                {canManage ? (
+                  <BookingDateField
+                    label="Checkout"
+                    value={editableCheckOutDate}
+                    onChange={setEditableCheckOutDate}
+                    open={isCheckOutCalendarOpen}
+                    onOpenChange={setIsCheckOutCalendarOpen}
+                    minDate={checkoutMinDate}
+                  />
+                ) : (
+                  <ReadOnlyBookingField
+                    label="Checkout"
+                    value={formatDate(hangout.checkOutDate)}
+                    icon={
+                      <CalendarDaysIcon
+                        className="size-3.5"
+                        strokeWidth={1.8}
+                      />
+                    }
+                  />
+                )}
+                <ReadOnlyBookingField
+                  label="Guests"
+                  value={guestsLabel}
+                  icon={<UsersIcon className="size-3.5" strokeWidth={1.8} />}
+                  trailingIcon={
+                    <ChevronDownIcon className="size-3.5" strokeWidth={1.8} />
                   }
-                  disabled={
-                    canManage
-                      ? updateHangoutEventMutation.isPending || !hasBookingChanges
-                      : false
-                  }
-                  className="h-[44px] w-full rounded-full text-sm font-medium"
-                >
-                  {canManage
-                    ? updateHangoutEventMutation.isPending
-                      ? "Saving..."
-                      : "Save Details"
-                    : "Reserve"}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={() =>
-                    toast("Vendor messaging will be connected next.")
-                  }
-                  className="h-[44px] w-full rounded-full border-[#D8CEF7] bg-white text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]"
-                >
-                  <MessageCircleIcon className="size-4" />
-                  Message Vendor
-                </Button>
+                />
               </div>
+
+              <Button
+                type="button"
+                onClick={
+                  canManage
+                    ? () => void handleSaveBookingDetails()
+                    : () => toast("Reservation flow will be connected next.")
+                }
+                disabled={
+                  canManage
+                    ? updateHangoutEventMutation.isPending || !hasBookingChanges
+                    : false
+                }
+                className="h-[44px] w-full rounded-full text-sm font-medium"
+              >
+                {canManage
+                  ? updateHangoutEventMutation.isPending
+                    ? "Saving..."
+                    : "Save Details"
+                  : "Reserve"}
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() =>
+                  toast("Vendor messaging will be connected next.")
+                }
+                className="h-[44px] w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:h-auto"
+              >
+                Message Vendor
+              </Button>
             </div>
           </div>
         </div>
@@ -859,7 +875,6 @@ export default function HangoutDetailsScreen({
               Everyone attached to this hangout.
             </p>
           </div>
-
         </div>
 
         <div className="mt-5 rounded-[20px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-1 sm:px-5">

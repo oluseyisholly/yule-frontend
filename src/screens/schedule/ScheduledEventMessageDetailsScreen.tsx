@@ -19,6 +19,7 @@ import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { EventDetailScreenSkeleton } from "@/components/ui/context-skeletons";
 import { Button } from "@/components/ui/button";
+import StatusPill from "@/components/ui/status-pill";
 import {
   Dialog,
   DialogContent,
@@ -34,16 +35,6 @@ import { cn } from "@/lib/utils";
 
 type ScheduledEventMessageDetailsScreenProps = {
   scheduledEventMessageId: string;
-};
-
-const statusClassNames: Record<string, string> = {
-  completed: "bg-[#E6F7EC] text-[#1FAB54]",
-  sent: "bg-[#E6F7EC] text-[#1FAB54]",
-  draft: "bg-[#FFF1DD] text-[#C28A00]",
-  pending: "bg-[#FFF1DD] text-[#C28A00]",
-  ongoing: "bg-[#EFE6FD] text-[#3300C9]",
-  failed: "bg-[#FDE0DE] text-[#E04F4F]",
-  cancelled: "bg-[#F4F4F6] text-[#7D7D7D]",
 };
 
 function formatDate(value?: string | null) {
@@ -185,21 +176,6 @@ function SummaryStat({
         {value}
       </p>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status?: string | null }) {
-  const normalizedStatus = normalizeStatus(status);
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium",
-        statusClassNames[normalizedStatus] ?? "bg-[#EFE6FD] text-[#3300C9]",
-      )}
-    >
-      {formatStatus(status)}
-    </span>
   );
 }
 

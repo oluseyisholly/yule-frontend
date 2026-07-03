@@ -13,6 +13,7 @@ import UserAvatar from "@/components/UserAvatar";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import { TableLoadingState } from "@/components/ui/context-skeletons";
 import { Input } from "@/components/ui/input";
+import StatusPill from "@/components/ui/status-pill";
 import Checkbox from "@/components/Checkbox";
 import Table, { type TableData } from "@/components/ui/Table";
 import Pagination from "@/components/Pagination";
@@ -49,13 +50,6 @@ import {
   buildDrawNameFlowSelectionKey,
   useDrawNameFlowStore,
 } from "@/stores/draw-name-flow-store";
-
-const statusStyles: Record<DrawStatus, string> = {
-  Completed: "bg-[#E6F7EC] text-[#1FAB54]",
-  Draft: "bg-[#FFF1DD] text-[#C28A00]",
-  Ongoing: "bg-[#EFE6FD] text-[#3300C9]",
-  "In Progress": "bg-[#EFE6FD] text-[#3300C9]",
-};
 
 const participantPalette = [
   { color: "#3300C9", bg: "#EFE6FD" },
@@ -243,19 +237,6 @@ function ParticipantStack({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: DrawStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium",
-        statusStyles[status],
-      )}
-    >
-      {status}
-    </span>
   );
 }
 

@@ -41,6 +41,7 @@ import {
   TableLoadingState,
 } from "@/components/ui/context-skeletons";
 import ContentModal from "@/components/ui/modal";
+import StatusPill from "@/components/ui/status-pill";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
 import {
   DropdownMenu,
@@ -225,20 +226,6 @@ function createParticipants(
       color: palette.color,
     };
   });
-}
-
-function getWishListStatusStyles(status: string) {
-  const normalizedStatus = status.trim().toLowerCase();
-
-  if (normalizedStatus === "completed") {
-    return "bg-[#E6F7EC] text-[#1FAB54]";
-  }
-
-  if (normalizedStatus === "ongoing") {
-    return "bg-[#E8F0FF] text-[#2F6BFF]";
-  }
-
-  return "bg-[#FFF1DD] text-[#FF9D1C]";
 }
 
 function formatWishListStatus(status?: string | null): WishListStatus {
@@ -639,19 +626,6 @@ function ParticipantStack({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: WishListStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium",
-        getWishListStatusStyles(status),
-      )}
-    >
-      {status}
-    </span>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import Image, { type StaticImageData } from "next/image";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import useEmblaCarousel from "embla-carousel-react";
@@ -49,6 +49,7 @@ import {
   ModalPanelSkeleton,
   TableLoadingState,
 } from "@/components/ui/context-skeletons";
+import StatusPill from "@/components/ui/status-pill";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,12 +59,6 @@ import {
 import { Input } from "@/components/ui/input";
 import ContentModal from "@/components/ui/modal";
 import Table, { type TableData } from "@/components/ui/Table";
-import featureImg1 from "@/assets/icons/featureImg1.svg";
-import featureImg2 from "@/assets/icons/featureImg2.svg";
-import featureImg3 from "@/assets/icons/featureImg3.svg";
-import featureImg4 from "@/assets/icons/featureImg4.svg";
-import featureImg5 from "@/assets/icons/featureImg5.svg";
-import featureImg6 from "@/assets/icons/featureImg6.svg";
 import { useContactsQuery } from "@/features/contacts/hooks/useContactsQuery";
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
@@ -151,8 +146,8 @@ type HangoutRow = {
   amount: string;
   dateCreated: string;
   status: HangoutStatusLabel;
-  image: StaticImageData | string;
-  gallery: Array<StaticImageData | string>;
+  image: string | null;
+  gallery: string[];
   participants: HangoutParticipantBubble[];
   participantContactIds: string[];
   createdBy: string;
@@ -164,14 +159,6 @@ type HangoutRow = {
 };
 
 const PAGE_SIZE = 5;
-const fallbackHangoutImages = [
-  featureImg1,
-  featureImg2,
-  featureImg3,
-  featureImg4,
-  featureImg5,
-  featureImg6,
-];
 const RECORD_AVATAR_STYLES = [
   { avatarBg: "#FCEEC8", avatarColor: "#8A5B00" },
   { avatarBg: "#D9F4E2", avatarColor: "#1C8C4B" },
@@ -295,29 +282,32 @@ function ParticipantStack({
   );
 }
 
-function StatusPill({
-  status,
-  compact = false,
-}: {
-  status: HangoutStatusLabel;
-  compact?: boolean;
-}) {
-  const className =
-    status === "Past"
-      ? "bg-[#E6F7EC] text-[#24A959]"
-      : "bg-[#FFF1DD] text-[#FF9D1C]";
+function getHangoutInitials(value: string) {
+  const chunks = value.trim().split(/\s+/).filter(Boolean);
+  const first = chunks[0]?.charAt(0) ?? "";
+  const second = chunks.length > 1 ? (chunks[1]?.charAt(0) ?? "") : "";
 
+  return `${first}${second}`.toUpperCase() || "HG";
+}
+
+function HangoutImagePlaceholder({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
   return (
-    <span
+    <div
       className={cn(
-        compact
-          ? "inline-flex min-w-[58px] items-center justify-center rounded-full px-2 py-0.5 text-[9px] font-medium"
-          : "inline-flex min-w-[74px] items-center justify-center rounded-full px-3 py-1 text-xs font-medium",
+        "flex size-full items-center justify-center bg-[#EFE6FD] text-[#3300C9]",
         className,
       )}
     >
-      {status}
-    </span>
+      <span className="font-semibold tracking-wide">
+        {getHangoutInitials(label)}
+      </span>
+    </div>
   );
 }
 
@@ -340,13 +330,20 @@ function HangoutVenueCell({ row }: { row: HangoutRow }) {
   return (
     <div className="flex items-center gap-3">
       <div className="relative size-10 overflow-hidden rounded-[10px] border border-[#F0ECFA] bg-[#F7F5FF]">
-        <Image
-          src={row.image}
-          alt={row.venueName}
-          fill
-          className="object-cover"
-          sizes="40px"
-        />
+        {row.image ? (
+          <Image
+            src={row.image}
+            alt={row.venueName}
+            fill
+            className="object-cover"
+            sizes="40px"
+          />
+        ) : (
+          <HangoutImagePlaceholder
+            label={row.venueName}
+            className="text-[12px]"
+          />
+        )}
       </div>
 
       <span className="font-medium text-[#434343]">{row.venueName}</span>
@@ -457,13 +454,20 @@ function HangoutGridCard({
   return (
     <article className="rounded-[18px] border border-[#EEEAF7] bg-white p-3 shadow-[0_2px_6px_rgba(33,16,93,0.04)]">
       <div className="relative aspect-[1.58] overflow-hidden rounded-[14px] bg-[#F7F5FF]">
-        <Image
-          src={row.image}
-          alt={row.venueName}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-        />
+        {row.image ? (
+          <Image
+            src={row.image}
+            alt={row.venueName}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          />
+        ) : (
+          <HangoutImagePlaceholder
+            label={row.venueName}
+            className="text-[34px]"
+          />
+        )}
 
         <div className="absolute right-2 top-2">
           <StatusPill status={row.status} compact />
@@ -858,7 +862,6 @@ function hasHangoutFlowDraft(selection: HangoutFlowSelectionState) {
 function toHangoutEventRow(
   record: HangoutEventRecord,
   canManage: boolean,
-  index: number,
 ): HangoutRow {
   const allParticipants = record.event.participants ?? [];
   const participants = allParticipants
@@ -877,9 +880,7 @@ function toHangoutEventRow(
         .map((participant) => participant.eventContactId!.trim()),
     ),
   );
-  const fallbackImage =
-    fallbackHangoutImages[index % fallbackHangoutImages.length];
-  const resolvedImage = record.imageUrl?.trim() || fallbackImage;
+  const resolvedImage = record.imageUrl?.trim() || null;
 
   return {
     id: record.eventId,
@@ -902,7 +903,7 @@ function toHangoutEventRow(
     dateCreated: formatDate(record.checkInDate || record.event.eventDate),
     status: toHangoutStatus(record),
     image: resolvedImage,
-    gallery: Array.from({ length: 5 }, () => resolvedImage),
+    gallery: resolvedImage ? Array.from({ length: 5 }, () => resolvedImage) : [],
     participants,
     participantContactIds,
     createdBy: toDisplayName(record.event.createdBy) || "-",
@@ -1193,14 +1194,13 @@ export default function DashboardHangoutsScreen() {
   );
   const eventRows = useMemo<HangoutRow[]>(
     () =>
-      (hangoutEventsResponse?.data.data ?? []).map((record, index) =>
+      (hangoutEventsResponse?.data.data ?? []).map((record) =>
         toHangoutEventRow(
           record,
           canManageHangoutEvent(record, {
             currentUserId: authUser?.id ?? null,
             currentContactId,
           }),
-          index,
         ),
       ),
     [authUser?.id, currentContactId, hangoutEventsResponse?.data.data],
@@ -1222,7 +1222,6 @@ export default function DashboardHangoutsScreen() {
         currentUserId: authUser?.id ?? null,
         currentContactId,
       }),
-      0,
     );
   }, [
     authUser?.id,

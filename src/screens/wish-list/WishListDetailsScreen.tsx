@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/context-skeletons";
 import Table, { type TableData } from "@/components/ui/Table";
 import { Button } from "@/components/ui/button";
+import StatusPill from "@/components/ui/status-pill";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -371,21 +372,6 @@ function AssignedParticipantCell({
   );
 }
 
-function GiftStatusPill({ status }: { status: GiftRow["status"] }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium",
-        status === "Claimed"
-          ? "bg-[#E6F7EC] text-[#1FAB54]"
-          : "bg-[#FFF1DD] text-[#C28A00]",
-      )}
-    >
-      {status}
-    </span>
-  );
-}
-
 export default function WishListDetailsScreen({
   wishlistEventId,
 }: WishListDetailsScreenProps) {
@@ -657,7 +643,7 @@ export default function WishListDetailsScreen({
         header: "Status",
         headerClassName: "min-w-[110px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
-        render: (row) => <GiftStatusPill status={row.status} />,
+        render: (row) => <StatusPill status={row.status} />,
       },
       {
         id: "actions",

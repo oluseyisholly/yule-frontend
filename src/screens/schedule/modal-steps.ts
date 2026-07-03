@@ -6,10 +6,8 @@ export const scheduleMessageFlowSteps = [
   "oneda-contact",
   "record",
   "review-records",
-  "recipients",
   "compose",
   "gift-selection",
-  "schedule",
   "success",
 ] as const;
 

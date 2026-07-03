@@ -44,6 +44,7 @@ import {
   ModalPanelSkeleton,
   TableLoadingState,
 } from "@/components/ui/context-skeletons";
+import StatusPill from "@/components/ui/status-pill";
 import DeleteIcon from "@/components/icons/DeleteIcon";
 import EditPencilIcon from "@/components/icons/EditPencilIcon";
 import InviteEmailIcon from "@/components/icons/InviteEmailIcon";
@@ -182,17 +183,6 @@ const recipientPalette = [
   { color: "#0067C9", bg: "#DDF0FF" },
 ] as const;
 
-const statusStyles: Record<GiftStatus, string> = {
-  Delivered: "bg-[#E6F7EC] text-[#1FAB54]",
-  Pending: "bg-[#FFF1DD] text-[#FF9D1C]",
-  Completed: "bg-[#E6F7EC] text-[#24A959]",
-};
-
-const giftingEventStatusStyles: Record<GiftingEventStatusLabel, string> = {
-  Draft: "bg-[#FFF1DD] text-[#FF9D1C]",
-  Ongoing: "bg-[#EFE6FD] text-[#3300C9]",
-  Completed: "bg-[#E6F7EC] text-[#24A959]",
-};
 const VALID_GIFTS_TABS: GiftsTab[] = ["events", "sent", "received"];
 
 const PAGE_SIZE = 5;
@@ -994,36 +984,6 @@ function ParticipantStack({ people }: { people: GiftRowPerson[] }) {
         </span>
       ) : null}
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: GiftStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex min-w-[84px] items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium",
-        statusStyles[status],
-      )}
-    >
-      {status}
-    </span>
-  );
-}
-
-function GiftingEventStatusPill({
-  status,
-}: {
-  status: GiftingEventStatusLabel;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex min-w-[84px] items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium",
-        giftingEventStatusStyles[status],
-      )}
-    >
-      {status}
-    </span>
   );
 }
 
@@ -2964,7 +2924,7 @@ export default function DashboardGiftsScreen() {
                             <ParticipantStack people={row.participants} />
                           </td>
                           <td className="px-3">
-                            <GiftingEventStatusPill status={row.status} />
+                            <StatusPill status={row.status} />
                           </td>
                           <td className="rounded-r-[16px] border-r border-[#F1EDF8] px-3">
                             <GiftingEventRowActions
