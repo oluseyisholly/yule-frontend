@@ -5,6 +5,7 @@ import {
   GiftsIcon,
   HangoutsIcon,
   HistoryIcon,
+  MessagesIcon,
   ProfileIcon,
   ScheduleIcon,
   WishListIcon,
@@ -17,6 +18,7 @@ export type DashboardTab =
   | "gifts"
   | "hangouts"
   | "schedule"
+  | "messages"
   | "history"
   | "profile";
 
@@ -67,6 +69,12 @@ export const dashboardNavItems: DashboardNavItem[] = [
     tab: "schedule",
     href: "/dashboard/schedule",
     Icon: ScheduleIcon,
+  },
+  {
+    label: "Messages",
+    tab: "messages",
+    href: "/dashboard/messages",
+    Icon: MessagesIcon,
   },
   {
     label: "My History",

@@ -15,6 +15,8 @@ type HangoutFlowDraftFields = {
   checkInDate: string;
   checkOutDate: string;
   guestCount: string;
+  selectedOnedaBusinessIds: string[];
+  selectedOnedaContactIds: string[];
 };
 
 export type HangoutFlowSelectionState = HangoutFlowDraftFields & {
@@ -46,6 +48,8 @@ export const EMPTY_HANGOUT_FLOW_SELECTION: HangoutFlowSelectionState = {
   checkInDate: "",
   checkOutDate: "",
   guestCount: "",
+  selectedOnedaBusinessIds: [],
+  selectedOnedaContactIds: [],
   selectedParticipantContactIds: [],
   selectedListingIds: [],
   selectedListingsById: {},
@@ -68,6 +72,12 @@ function normalizeHangoutFlowSelection(
     )
       ? selection.selectedParticipantContactIds
       : EMPTY_HANGOUT_FLOW_SELECTION.selectedParticipantContactIds,
+    selectedOnedaBusinessIds: Array.isArray(selection?.selectedOnedaBusinessIds)
+      ? selection.selectedOnedaBusinessIds
+      : EMPTY_HANGOUT_FLOW_SELECTION.selectedOnedaBusinessIds,
+    selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
+      ? selection.selectedOnedaContactIds
+      : EMPTY_HANGOUT_FLOW_SELECTION.selectedOnedaContactIds,
     selectedListingIds: Array.isArray(selection?.selectedListingIds)
       ? selection.selectedListingIds
       : EMPTY_HANGOUT_FLOW_SELECTION.selectedListingIds,
@@ -107,7 +117,15 @@ function hasFlowSelectionChanged(
     currentSelection.eventName !== nextSelection.eventName ||
     currentSelection.checkInDate !== nextSelection.checkInDate ||
     currentSelection.checkOutDate !== nextSelection.checkOutDate ||
-    currentSelection.guestCount !== nextSelection.guestCount
+    currentSelection.guestCount !== nextSelection.guestCount ||
+    !haveSameStringArrayValues(
+      currentSelection.selectedOnedaBusinessIds,
+      nextSelection.selectedOnedaBusinessIds,
+    ) ||
+    !haveSameStringArrayValues(
+      currentSelection.selectedOnedaContactIds,
+      nextSelection.selectedOnedaContactIds,
+    )
   );
 }
 

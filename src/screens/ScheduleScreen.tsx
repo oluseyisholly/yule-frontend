@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
@@ -14,40 +21,76 @@ import {
   TrendingUpIcon,
   UsersIcon,
 } from "lucide-react";
+import BackButton from "@/components/BackButton";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
+import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import CustomColleagueReview from "@/components/CustomColleagueReview";
 import PageHeader from "@/components/dashboard/PageHeader";
+import EventDateStep from "@/components/EventDateStep";
 import FilterIcon from "@/components/icons/FilterIcon";
 import ViewIcon from "@/components/icons/ViewIcon";
+import ModalButton from "@/components/ModalButtons";
+import OverlayRecordPicker from "@/components/OverlayRecordPicker";
+import OverlaySelect, {
+  type OverlaySelectOption,
+} from "@/components/OverlaySelect";
 import Pagination from "@/components/Pagination";
+import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
+import ContentModal from "@/components/ui/modal";
 import Table, { type TableData } from "@/components/ui/Table";
 import { SearchInput } from "@/components/ui/search-input";
+import { Calendar } from "@/components/ui/calender";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/drop-down";
+import type { SearchableRecordItem } from "@/components/SearchableRecordPicker";
+import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
+import {
+  useOnedaProfilesQuery,
+  type OnedaProfile,
+} from "@/features/auth/hooks/useOnedaProfilesQuery";
+import type { ExternalBusinessRecord } from "@/features/auth/types";
+import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCreateBulkContactsMutation";
+import { useContactsQuery } from "@/features/contacts/hooks/useContactsQuery";
+import type { Contact } from "@/features/contacts/types";
+import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
+import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
+import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
+import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
+import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
+import type { ParticipatedEventParticipant } from "@/features/events/types";
+import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
+import type { CreateBulkGiftItemPayload } from "@/features/gifts/types";
+import type { MarketplaceProduct } from "@/features/marketplace/types";
+import { useCompleteScheduledEventMessageSetupMutation } from "@/features/scheduled-event-messages/hooks/useCompleteScheduledEventMessageSetupMutation";
+import { useCreateScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useCreateScheduledEventMessageMutation";
+import { useDeleteScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useDeleteScheduledEventMessageMutation";
+import { useScheduledEventMessageQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageQuery";
+import { useScheduledEventMessagesQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessagesQuery";
+import { useUpdateScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useUpdateScheduledEventMessageMutation";
+import type {
+  ScheduledEventMessagePayload,
+  ScheduledEventMessageRecord,
+} from "@/features/scheduled-event-messages/types";
+import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
+import type { EventParticipant } from "@/features/participants/types";
 import { cn } from "@/lib/utils";
+import {
+  isScheduleMessageFlowStep,
+  type ScheduleMessageFlowStep,
+} from "@/screens/schedule/modal-steps";
+import { useAuthStore } from "@/stores/auth-store";
 
 type ScheduleStatus = "Upcoming" | "Past";
-
-type ScheduleRecipient = {
-  id: string;
-  name: string;
-  email: string;
-  phoneNumber: string;
-  initials: string;
-  avatarBg: string;
-  avatarColor: string;
-};
-
-type ScheduleRow = {
-  id: string;
-  recipient: ScheduleRecipient;
-  scheduledDate: string;
-  status: ScheduleStatus;
-};
 
 type ScheduleMetric = {
   value: string;
@@ -58,7 +101,10 @@ type ScheduleMetric = {
   iconBg: string;
 };
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
+const DEFAULT_SCHEDULE_TIME = "09:00";
+
+const CalendarComponent = Calendar as ComponentType<Record<string, unknown>>;
 
 const scheduleMetrics: ScheduleMetric[] = [
   {
@@ -66,7 +112,9 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events",
     hint: "+12% this month",
     hintColor: "#3300C9",
-    icon: <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />,
+    icon: (
+      <CalendarDaysIcon className="size-5 text-[#3300C9]" strokeWidth={1.8} />
+    ),
     iconBg: "#EFE6FD",
   },
   {
@@ -80,159 +128,286 @@ const scheduleMetrics: ScheduleMetric[] = [
     label: "Total Events this month",
     hint: "+2 new this week",
     hintColor: "#24A959",
-    icon: <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />,
+    icon: (
+      <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
+    ),
     iconBg: "#D9F4E2",
   },
   {
     value: "$264",
     label: "Amount Spent",
-    icon: <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />,
+    icon: (
+      <TrendingUpIcon className="size-5 text-[#FF6E6E]" strokeWidth={1.8} />
+    ),
     iconBg: "#FDE0DE",
   },
 ];
 
-const scheduleRows: ScheduleRow[] = [
-  {
-    id: "schedule-1",
-    recipient: {
-      id: "recipient-1",
-      name: "Taiwo Adeniyi",
-      email: "oluwatosin13@gmail.com",
-      phoneNumber: "+23470-6572-4230",
-      initials: "TA",
-      avatarBg: "#FDE0DE",
-      avatarColor: "#C34040",
-    },
-    scheduledDate: "22/03/2025",
-    status: "Upcoming",
-  },
-  {
-    id: "schedule-2",
-    recipient: {
-      id: "recipient-2",
-      name: "Brooklyn Simmons",
-      email: "jessica.hanson@gmail.com",
-      phoneNumber: "+23470-6572-4230",
-      initials: "BS",
-      avatarBg: "#DDF0FF",
-      avatarColor: "#0067C9",
-    },
-    scheduledDate: "22/03/2025",
-    status: "Upcoming",
-  },
-  {
-    id: "schedule-3",
-    recipient: {
-      id: "recipient-3",
-      name: "Eleanor Pena",
-      email: "deanna.curtis@gmail.com",
-      phoneNumber: "+23470-6572-4230",
-      initials: "EP",
-      avatarBg: "#FCEEC8",
-      avatarColor: "#8A5B00",
-    },
-    scheduledDate: "22/03/2025",
-    status: "Upcoming",
-  },
-  {
-    id: "schedule-4",
-    recipient: {
-      id: "recipient-4",
-      name: "Esther Howard",
-      email: "nathan.roberts@gmail.com",
-      phoneNumber: "+23470-6572-4230",
-      initials: "EH",
-      avatarBg: "#D9F4E2",
-      avatarColor: "#1C8C4B",
-    },
-    scheduledDate: "22/03/2025",
-    status: "Upcoming",
-  },
-  {
-    id: "schedule-5",
-    recipient: {
-      id: "recipient-5",
-      name: "Jenny Wilson",
-      email: "jessica.hanson@gmail.com",
-      phoneNumber: "+23470-6572-4230",
-      initials: "JW",
-      avatarBg: "#EFE6FD",
-      avatarColor: "#3300C9",
-    },
-    scheduledDate: "22/03/2025",
-    status: "Upcoming",
-  },
-  {
-    id: "schedule-6",
-    recipient: {
-      id: "recipient-6",
-      name: "Courtney Henry",
-      email: "courtney.henry@gmail.com",
-      phoneNumber: "+23481-2244-9012",
-      initials: "CH",
-      avatarBg: "#FDE0DE",
-      avatarColor: "#C34040",
-    },
-    scheduledDate: "17/01/2025",
-    status: "Past",
-  },
-  {
-    id: "schedule-7",
-    recipient: {
-      id: "recipient-7",
-      name: "Cody Fisher",
-      email: "cody.fisher@gmail.com",
-      phoneNumber: "+23481-6677-9030",
-      initials: "CF",
-      avatarBg: "#DDF0FF",
-      avatarColor: "#0067C9",
-    },
-    scheduledDate: "14/01/2025",
-    status: "Past",
-  },
-  {
-    id: "schedule-8",
-    recipient: {
-      id: "recipient-8",
-      name: "Kristin Watson",
-      email: "kristin.watson@gmail.com",
-      phoneNumber: "+23480-9012-3301",
-      initials: "KW",
-      avatarBg: "#FCEEC8",
-      avatarColor: "#8A5B00",
-    },
-    scheduledDate: "08/01/2025",
-    status: "Past",
-  },
-  {
-    id: "schedule-9",
-    recipient: {
-      id: "recipient-9",
-      name: "Savannah Nguyen",
-      email: "savannah.nguyen@gmail.com",
-      phoneNumber: "+23470-2401-9930",
-      initials: "SN",
-      avatarBg: "#D9F4E2",
-      avatarColor: "#1C8C4B",
-    },
-    scheduledDate: "04/01/2025",
-    status: "Past",
-  },
-  {
-    id: "schedule-10",
-    recipient: {
-      id: "recipient-10",
-      name: "Ronald Richards",
-      email: "ronald.richards@gmail.com",
-      phoneNumber: "+23481-0011-7250",
-      initials: "RR",
-      avatarBg: "#EFE6FD",
-      avatarColor: "#3300C9",
-    },
-    scheduledDate: "29/12/2024",
-    status: "Past",
-  },
-];
+const EMPTY_FORM = {
+  subject: "",
+  message: "",
+  giftUrl: "",
+  giftUrlExpiresAt: "",
+  scheduledAt: "",
+  eventName: "",
+  eventDate: "",
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function toDateTimeLocalValue(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offsetDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60000,
+  );
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function toDateOnlyValue(value?: string | null) {
+  return toDateTimeLocalValue(value).slice(0, 10);
+}
+
+function toIsoDateTime(value: string) {
+  return new Date(value).toISOString();
+}
+
+function getStartOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getDateFromDateTimeLocalValue(value?: string | null) {
+  if (!value) return undefined;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function getTimeFromDateTimeLocalValue(value?: string | null) {
+  if (!value) return "";
+
+  return value.split("T")[1]?.slice(0, 5) ?? "";
+}
+
+function formatScheduledDatePickerValue(value?: string | null) {
+  const date = getDateFromDateTimeLocalValue(value);
+
+  if (!date) return "Choose date";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function mergeDateAndTimeToDateTimeLocalValue(date: Date, timeValue?: string) {
+  const [rawHours = "09", rawMinutes = "00"] = (
+    timeValue || DEFAULT_SCHEDULE_TIME
+  ).split(":");
+  const nextDate = new Date(date);
+  const hours = Number(rawHours);
+  const minutes = Number(rawMinutes);
+
+  nextDate.setHours(
+    Number.isNaN(hours) ? 9 : hours,
+    Number.isNaN(minutes) ? 0 : minutes,
+    0,
+    0,
+  );
+
+  const year = nextDate.getFullYear();
+  const month = `${nextDate.getMonth() + 1}`.padStart(2, "0");
+  const day = `${nextDate.getDate()}`.padStart(2, "0");
+  const resolvedHours = `${nextDate.getHours()}`.padStart(2, "0");
+  const resolvedMinutes = `${nextDate.getMinutes()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}T${resolvedHours}:${resolvedMinutes}`;
+}
+
+function getInitials(firstName?: string | null, lastName?: string | null) {
+  const initials = `${firstName?.charAt(0) ?? ""}${lastName?.charAt(0) ?? ""}`
+    .trim()
+    .toUpperCase();
+
+  return initials || "YU";
+}
+
+function getParticipantName(participant?: ParticipatedEventParticipant | null) {
+  const contact = participant?.eventContact;
+  const fullName =
+    `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
+
+  return fullName || contact?.email || "Unnamed participant";
+}
+
+function getRecordStatus(row: ScheduledEventMessageRecord): ScheduleStatus {
+  if (row.status === "sent" || row.sentAt) {
+    return "Past";
+  }
+
+  if (row.scheduledAt && new Date(row.scheduledAt).getTime() < Date.now()) {
+    return "Past";
+  }
+
+  return "Upcoming";
+}
+
+function mapContactToRecordItem(contact: Contact): SearchableRecordItem {
+  const firstName = contact.firstName?.trim() || "";
+  const lastName = contact.lastName?.trim() || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  const email = contact.email?.trim() || "";
+  const phoneNumber =
+    contact.phoneNumber?.trim() || contact.phone?.trim() || "";
+
+  return {
+    id: contact.id,
+    name: fullName || email || "Unnamed contact",
+    subtitle: email || phoneNumber || "Contact",
+    email,
+    firstName,
+    lastName,
+    phoneNumber,
+    gender:
+      contact.gender === "male" || contact.gender === "female"
+        ? contact.gender
+        : "",
+    profileUrl: contact.profileUrl ?? null,
+    initials: getInitials(firstName, lastName),
+    createdById: contact.createdById ?? null,
+    isManageable: Boolean(contact.createdById),
+  };
+}
+
+function getExternalBusinessRootId(business: ExternalBusinessRecord) {
+  return business.id?.trim() || business._id?.trim() || "";
+}
+
+function mapExternalBusinessToRecordItem(
+  business: ExternalBusinessRecord,
+): SearchableRecordItem | null {
+  const businessId = getExternalBusinessRootId(business);
+  const businessName = business.businessName?.trim() || "";
+
+  if (!businessId || !businessName) {
+    return null;
+  }
+
+  const subtitleParts = [
+    business.businessLocation?.trim(),
+    business.state?.trim(),
+    business.country?.trim(),
+    business.industry?.trim(),
+  ].filter(Boolean);
+  const initials = businessName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+
+  return {
+    id: businessId,
+    name: businessName,
+    subtitle: subtitleParts.join(" • ") || "Business",
+    createdById: null,
+    isManageable: false,
+    firstName: businessName,
+    lastName: "",
+    phoneNumber: "",
+    gender: "",
+    initials: initials || "ON",
+  };
+}
+
+function mapOnedaProfileToRecordItem(
+  profile: OnedaProfile,
+): SearchableRecordItem {
+  const firstName = profile.accountId.firstName?.trim() || "";
+  const lastName = profile.accountId.lastName?.trim() || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return {
+    id: profile._id,
+    name: fullName || profile.accountId.email || "Unnamed colleague",
+    email: profile.accountId.email,
+    subtitle: profile.accountId.email,
+    firstName,
+    lastName,
+    phoneNumber: profile.accountId.phoneNumber ?? "",
+    profileUrl: profile.profilePhotoUrl?.trim() || null,
+    initials: getInitials(firstName, lastName),
+  };
+}
+
+function mergeRecordItems(
+  currentItems: SearchableRecordItem[],
+  nextItems: SearchableRecordItem[],
+) {
+  const merged = new Map<string, SearchableRecordItem>();
+
+  currentItems.forEach((item) => merged.set(item.id, item));
+  nextItems.forEach((item) => merged.set(item.id, item));
+
+  return Array.from(merged.values());
+}
+
+function getFirstParticipantFromBulkResponse(
+  data: EventParticipant[] | EventParticipant | null | undefined,
+  selectedContactIds: string[],
+) {
+  const participants = Array.isArray(data) ? data : data ? [data] : [];
+
+  return (
+    participants.find(
+      (participant) =>
+        participant.eventContactId &&
+        selectedContactIds.includes(participant.eventContactId),
+    ) ??
+    participants[0] ??
+    null
+  );
+}
+
+function mapMarketplaceProductToGiftPayload(
+  product: MarketplaceProduct,
+): CreateBulkGiftItemPayload {
+  return {
+    participantGiftId: product._id,
+    title: product.title,
+    description: product.description ?? "",
+    amount: product.amount,
+    currency: "NGN",
+    imageUrl: product.images[0] || undefined,
+    categorySlug: product.categorySlug || undefined,
+    subCategorySlug: product.subCategorySlug || undefined,
+    condition: product.condition || undefined,
+    locationState: product.location?.state || undefined,
+    locationCity: product.location?.city || undefined,
+    sellerId: product.sellerId || undefined,
+    productSlug: product.slug || undefined,
+  };
+}
 
 function HeaderActionIconButton({
   label,
@@ -267,7 +442,9 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
         <button
           type="button"
           aria-label={`${metric.label} options`}
-          onClick={() => toast(`${metric.label} options will be connected next.`)}
+          onClick={() =>
+            toast(`${metric.label} options will be connected next.`)
+          }
           className="rounded-full p-1 text-[#B0ACBC] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
         >
           <MoreHorizontal className="size-4" />
@@ -292,48 +469,71 @@ function ScheduleMetricCard({ metric }: { metric: ScheduleMetric }) {
   );
 }
 
-function RecipientCell({ recipient }: { recipient: ScheduleRecipient }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
-        style={{
-          backgroundColor: recipient.avatarBg,
-          color: recipient.avatarColor,
-        }}
-        title={recipient.name}
-      >
-        {recipient.initials}
-      </span>
-
-      <span className="font-medium text-[#434343]">{recipient.name}</span>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: ScheduleStatus }) {
+function AvatarBubble({ name, initials }: { name: string; initials: string }) {
   return (
     <span
-      className={cn(
-        "inline-flex min-w-[78px] items-center justify-center rounded-full px-3 py-1 text-xs font-medium",
-        status === "Upcoming"
-          ? "bg-[#FFF1DD] text-[#FF9D1C]"
-          : "bg-[#E6F7EC] text-[#24A959]",
-      )}
+      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EFE6FD] text-[10px] font-semibold text-[#3300C9]"
+      title={name}
     >
-      {status}
+      {initials}
     </span>
   );
 }
 
-function ScheduleRowActions({ row }: { row: ScheduleRow }) {
+function RecipientCell({ row }: { row: ScheduledEventMessageRecord }) {
+  const participantContact = row.participant?.eventContact;
+  const name = row.recipientName || getParticipantName(row.participant);
+  const initials = getInitials(
+    participantContact?.firstName ?? name,
+    participantContact?.lastName ?? "",
+  );
+
+  return (
+    <div className="flex items-center gap-3">
+      <AvatarBubble name={name} initials={initials} />
+      <span className="font-medium text-[#434343]">{name}</span>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const normalizedStatus = status.trim().toLowerCase();
+  const isSent =
+    normalizedStatus === "sent" || normalizedStatus === "completed";
+  const isFailed = normalizedStatus === "failed";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-[78px] items-center justify-center rounded-full px-3 py-1 text-xs font-medium capitalize",
+        isFailed
+          ? "bg-[#FDE0DE] text-[#D14B4B]"
+          : isSent
+            ? "bg-[#E6F7EC] text-[#24A959]"
+            : "bg-[#FFF1DD] text-[#FF9D1C]",
+      )}
+    >
+      {status || "pending"}
+    </span>
+  );
+}
+
+function ScheduleRowActions({
+  row,
+  onEdit,
+  onDelete,
+}: {
+  row: ScheduledEventMessageRecord;
+  onEdit: (row: ScheduledEventMessageRecord) => void;
+  onDelete: (row: ScheduledEventMessageRecord) => void;
+}) {
   return (
     <div className="flex justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`More options for ${row.recipient.name}`}
+            aria-label={`More options for ${row.recipientName}`}
             className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-white hover:text-[#434343]"
           >
             <MoreHorizontal className="size-4" />
@@ -344,11 +544,17 @@ function ScheduleRowActions({ row }: { row: ScheduleRow }) {
           className="w-44 rounded-xl border-[#ECE8F7] bg-white p-1.5 shadow-[0_16px_40px_rgba(51,0,201,0.08)]"
         >
           <DropdownMenuItem
-            onSelect={() => toast(`Viewing ${row.recipient.name} will be connected next.`)}
+            onSelect={() => onEdit(row)}
             className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"
           >
             <ViewIcon className="size-4 text-[#292D32]" />
-            View Details
+            Edit Message
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => onDelete(row)}
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#D14B4B] focus:bg-[#FFF1F1] focus:text-[#D14B4B]"
+          >
+            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -357,72 +563,622 @@ function ScheduleRowActions({ row }: { row: ScheduleRow }) {
 }
 
 export default function ScheduleScreen() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const authUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
+  const routeStep =
+    pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
+  const currentStep =
+    routeStep && isScheduleMessageFlowStep(routeStep) ? routeStep : null;
+  const mode = searchParams.get("mode") === "message" ? "message" : "schedule";
+  const editingMessageId =
+    searchParams.get("scheduleEventMessageId") ??
+    searchParams.get("eventMessagingEventId") ??
+    searchParams.get("messageId");
+  const routeEventId = searchParams.get("eventId") ?? "";
   const [activeTab, setActiveTab] = useState<ScheduleStatus>("Upcoming");
   const [query, setQuery] = useState("");
+  const [recordSearchValue, setRecordSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedEventTypeId, setSelectedEventTypeId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedRecipientParticipantId, setSelectedRecipientParticipantId] =
+    useState("");
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<
+    string[]
+  >([]);
+  const [selectedParticipantRecords, setSelectedParticipantRecords] = useState<
+    SearchableRecordItem[]
+  >([]);
+  const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
+    string[]
+  >([]);
+  const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<
+    string[]
+  >([]);
+  const [selectedGiftIds, setSelectedGiftIds] = useState<string[]>([]);
+  const [selectedGiftProductsById, setSelectedGiftProductsById] = useState<
+    Record<string, MarketplaceProduct>
+  >({});
+  const [customContactRecordItems, setCustomContactRecordItems] = useState<
+    SearchableRecordItem[]
+  >([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [pendingDeleteRow, setPendingDeleteRow] =
+    useState<ScheduledEventMessageRecord | null>(null);
+  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
+    useState(false);
+  const [isScheduledCalendarOpen, setIsScheduledCalendarOpen] = useState(false);
   const [scheduleMetricsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
   ]);
 
-  const filteredRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  const isFlowOpen = Boolean(currentStep);
+  const isEditing = Boolean(editingMessageId);
+  const greetingName = authUser?.firstName?.trim() || "there";
+  const onedaAccountId =
+    authUser?.profile?.accountId?._id?.trim() ||
+    authUser?.hostAccountId?.trim() ||
+    null;
 
-    return scheduleRows.filter((row) => {
-      const matchesTab = row.status === activeTab;
+  const {
+    data: messagesResponse,
+    isLoading: isMessagesLoading,
+    isFetching: isMessagesFetching,
+    isError: isMessagesError,
+    refetch: refetchMessages,
+  } = useScheduledEventMessagesQuery({
+    page: currentPage,
+    per_page: PAGE_SIZE,
+    searchQuery: query,
+  });
+  const { data: editingMessageResponse } = useScheduledEventMessageQuery(
+    editingMessageId,
+    {
+      enabled: isFlowOpen && Boolean(editingMessageId),
+    },
+  );
+  const {
+    data: availableEventTypesResponse,
+    isLoading: isAvailableEventTypesLoading,
+    isError: isAvailableEventTypesError,
+    refetch: refetchAvailableEventTypes,
+  } = useAvailableEventTypesQuery(
+    {
+      page: 1,
+      per_page: 100,
+    },
+    {
+      enabled: isFlowOpen && currentStep === "event",
+    },
+  );
+  const {
+    data: contactsResponse,
+    isLoading: isContactsLoading,
+    isFetching: isContactsFetching,
+    isError: isContactsError,
+    refetch: refetchContacts,
+  } = useContactsQuery(
+    {
+      page: 1,
+      per_page: 25,
+      searchQuery: recordSearchValue,
+    },
+    {
+      enabled:
+        isFlowOpen &&
+        (currentStep === "record" || currentStep === "review-records"),
+    },
+  );
+  const {
+    data: onedaBusinesses = [],
+    isLoading: isOnedaBusinessesLoading,
+    isFetching: isOnedaBusinessesFetching,
+    isError: isOnedaBusinessesError,
+    refetch: refetchOnedaBusinesses,
+  } = useExternalBusinessesQuery(onedaAccountId, authToken, {
+    enabled:
+      isFlowOpen &&
+      currentStep === "oneda-business" &&
+      Boolean(onedaAccountId) &&
+      Boolean(authToken),
+  });
+  const selectedOnedaBusinessId = useMemo(() => {
+    const candidateId = selectedOnedaBusinessIds.at(-1)?.trim() ?? "";
 
-      if (!matchesTab) {
-        return false;
-      }
+    if (!candidateId) {
+      return null;
+    }
 
-      if (!normalizedQuery) {
-        return true;
-      }
+    if (!onedaBusinesses.length) {
+      return candidateId;
+    }
 
-      return [
-        row.recipient.name,
-        row.recipient.email,
-        row.recipient.phoneNumber,
-        row.scheduledDate,
-        row.status,
-      ].some((value) => value.toLowerCase().includes(normalizedQuery));
-    });
-  }, [activeTab, query]);
+    const selectedBusiness = onedaBusinesses.find(
+      (business) => getExternalBusinessRootId(business) === candidateId,
+    );
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+    return selectedBusiness
+      ? getExternalBusinessRootId(selectedBusiness)
+      : null;
+  }, [onedaBusinesses, selectedOnedaBusinessIds]);
+  const {
+    data: onedaProfiles = [],
+    isLoading: isOnedaProfilesLoading,
+    isFetching: isOnedaProfilesFetching,
+    isError: isOnedaProfilesError,
+    refetch: refetchOnedaProfiles,
+  } = useOnedaProfilesQuery(
+    selectedOnedaBusinessId,
+    authToken,
+    recordSearchValue,
+    {
+      enabled:
+        isFlowOpen &&
+        currentStep === "oneda-contact" &&
+        Boolean(selectedOnedaBusinessId),
+    },
+  );
+  const createEventTypeMutation = useCreateEventTypeMutation();
+  const updateEventTypeMutation = useUpdateEventTypeMutation();
+  const deleteEventTypeMutation = useDeleteEventTypeMutation();
+  const createBulkContactsMutation = useCreateBulkContactsMutation();
+  const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
+  const createMessageMutation = useCreateScheduledEventMessageMutation();
+  const updateMessageMutation = useUpdateScheduledEventMessageMutation();
+  const deleteMessageMutation = useDeleteScheduledEventMessageMutation();
+  const completeSetupMutation = useCompleteScheduledEventMessageSetupMutation();
+  const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
 
+  const messageRows = messagesResponse?.data.data ?? [];
+  const totalPages = Math.max(1, messagesResponse?.data.totalPages ?? 1);
+  const today = useMemo(() => getStartOfToday(), []);
+  const scheduledDate = useMemo(
+    () => getDateFromDateTimeLocalValue(form.scheduledAt),
+    [form.scheduledAt],
+  );
+  const scheduledTime = useMemo(
+    () => getTimeFromDateTimeLocalValue(form.scheduledAt),
+    [form.scheduledAt],
+  );
+  const [scheduledCalendarMonth, setScheduledCalendarMonth] = useState<Date>(
+    scheduledDate ?? today,
+  );
+  const eventTypeOptions = useMemo<OverlaySelectOption[]>(
+    () =>
+      (availableEventTypesResponse?.data.data ?? []).map((eventType) => ({
+        value: eventType.id,
+        label: eventType.name,
+        icon: getEventTypeIcon(eventType.key ?? null),
+        isManageable: Boolean(eventType.user_id ?? eventType.createdById),
+      })),
+    [availableEventTypesResponse?.data.data],
+  );
+  const selectedEventTypeOption = useMemo(
+    () =>
+      eventTypeOptions.find((option) => option.value === selectedEventTypeId) ??
+      null,
+    [eventTypeOptions, selectedEventTypeId],
+  );
+  const contactRecordOptions = useMemo<SearchableRecordItem[]>(
+    () => (contactsResponse?.data.data ?? []).map(mapContactToRecordItem),
+    [contactsResponse?.data.data],
+  );
+  const allContactRecordOptions = useMemo(
+    () => mergeRecordItems(contactRecordOptions, customContactRecordItems),
+    [contactRecordOptions, customContactRecordItems],
+  );
+  const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
+    () =>
+      onedaBusinesses
+        .map((business) => mapExternalBusinessToRecordItem(business))
+        .filter((business): business is SearchableRecordItem =>
+          Boolean(business),
+        ),
+    [onedaBusinesses],
+  );
+  const onedaProfileOptions = useMemo<SearchableRecordItem[]>(
+    () => onedaProfiles.map((profile) => mapOnedaProfileToRecordItem(profile)),
+    [onedaProfiles],
+  );
+  const selectedParticipantReviewItems = useMemo(
+    () =>
+      selectedParticipantRecords.map((item) => ({
+        id: item.id,
+        name: item.name,
+        email: item.email || item.subtitle || "",
+      })),
+    [selectedParticipantRecords],
+  );
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, query]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredRows.slice(start, start + PAGE_SIZE);
-  }, [currentPage, filteredRows]);
+  }, [query]);
 
   useEffect(() => {
     setSelectedIds((current) =>
-      current.filter((id) => paginatedRows.some((row) => row.id === id)),
+      current.filter((id) => messageRows.some((row) => row.id === id)),
     );
-  }, [paginatedRows]);
+  }, [messageRows]);
 
-  const allChecked =
-    paginatedRows.length > 0 &&
-    paginatedRows.every((row) => selectedIds.includes(row.id));
+  useEffect(() => {
+    setScheduledCalendarMonth(scheduledDate ?? today);
+  }, [scheduledDate, today]);
 
-  const toggleAll = () => {
-    if (allChecked) {
-      setSelectedIds([]);
+  useEffect(() => {
+    const record = editingMessageResponse?.data;
+
+    if (!record || !isEditing) return;
+
+    const participantContact = record.participant?.eventContact;
+    const participantContactId =
+      participantContact?.id ?? record.participant?.eventContactId ?? "";
+
+    setSelectedEventId(record.eventId);
+    setSelectedEventTypeId(record.event.eventTypeId);
+    setSelectedRecipientParticipantId(record.participantId);
+
+    if (participantContactId) {
+      const selectedRecord: SearchableRecordItem = {
+        id: participantContactId,
+        name:
+          `${participantContact?.firstName ?? ""} ${participantContact?.lastName ?? ""}`.trim() ||
+          participantContact?.email ||
+          record.recipientName ||
+          "Selected contact",
+        email: participantContact?.email ?? record.recipientEmail ?? "",
+        subtitle: participantContact?.email ?? record.recipientEmail ?? "",
+        initials: getInitials(
+          participantContact?.firstName ?? record.recipientName,
+          participantContact?.lastName ?? "",
+        ),
+        profileUrl: participantContact?.profileUrl ?? null,
+      };
+
+      setSelectedParticipantIds([participantContactId]);
+      setSelectedParticipantRecords([selectedRecord]);
+      setCustomContactRecordItems((current) =>
+        mergeRecordItems(current, [selectedRecord]),
+      );
+    } else {
+      setSelectedParticipantIds([]);
+      setSelectedParticipantRecords([]);
+    }
+    setForm({
+      subject: record.subject ?? "",
+      message: record.message ?? "",
+      giftUrl: record.giftUrl ?? "",
+      giftUrlExpiresAt: toDateTimeLocalValue(record.giftUrlExpiresAt),
+      scheduledAt: toDateTimeLocalValue(record.scheduledAt),
+      eventName: record.event.title ?? "",
+      eventDate: toDateOnlyValue(record.event.eventDate),
+    });
+  }, [editingMessageResponse?.data, isEditing]);
+
+  useEffect(() => {
+    if (routeEventId && routeEventId !== selectedEventId) {
+      setSelectedEventId(routeEventId);
+    }
+  }, [routeEventId, selectedEventId]);
+
+  const updateRoute = (
+    step: ScheduleMessageFlowStep,
+    nextParams?: Record<string, string | null | undefined>,
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("mode", mode);
+    params.delete("eventMessagingEventId");
+    params.delete("messageId");
+    params.delete("selectedContactId");
+    params.delete("selectedContactName");
+    params.delete("selectedContactEmail");
+
+    const defaultParams: Record<string, string | undefined> = {
+      eventId: selectedEventId || routeEventId || undefined,
+      scheduleEventMessageId: editingMessageId ?? undefined,
+    };
+
+    Object.entries(defaultParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    Object.entries(nextParams ?? {}).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    router.push(`/dashboard/schedule/flow/${step}?${params.toString()}`);
+  };
+
+  const closeFlow = () => {
+    router.push("/dashboard/schedule");
+  };
+
+  const startFlow = (nextMode: "message" | "schedule") => {
+    setSelectedEventTypeId("");
+    setSelectedEventId("");
+    setSelectedRecipientParticipantId("");
+    setSelectedParticipantIds([]);
+    setSelectedParticipantRecords([]);
+    setSelectedOnedaBusinessIds([]);
+    setSelectedOnedaContactIds([]);
+    setSelectedGiftIds([]);
+    setSelectedGiftProductsById({});
+    setCustomContactRecordItems([]);
+    setForm(EMPTY_FORM);
+    router.push(`/dashboard/schedule/flow/event?mode=${nextMode}`);
+  };
+
+  const handleCreateEventOption = async (name: string) => {
+    const response = await createEventTypeMutation.mutateAsync({ name });
+    toast.success(response.message);
+
+    return {
+      value: response.data?.id ?? "",
+      label: response.data?.name ?? name,
+      icon: getEventTypeIcon(response.data?.key ?? null),
+      isManageable: Boolean(
+        response.data?.user_id ?? response.data?.createdById,
+      ),
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleUpdateEventOption = async (
+    option: OverlaySelectOption,
+    name: string,
+  ) => {
+    const response = await updateEventTypeMutation.mutateAsync({
+      id: option.value,
+      payload: { name },
+    });
+    toast.success(response.message);
+
+    return {
+      ...option,
+      label: response.data?.name ?? name,
+      icon: getEventTypeIcon(response.data?.key ?? null),
+      isManageable: option.isManageable,
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleDeleteEventOption = async (option: OverlaySelectOption) => {
+    const response = await deleteEventTypeMutation.mutateAsync(option.value);
+    toast.success(response.message);
+  };
+
+  const handleOpenOnedaBusinessStep = () => {
+    if (!authToken || !onedaAccountId) {
+      toast.error("Your Oneda business details are not available right now.");
       return;
     }
 
-    setSelectedIds(paginatedRows.map((row) => row.id));
+    updateRoute("oneda-business");
+  };
+
+  const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
+    const selectedId = ids.at(-1)?.trim() ?? "";
+    const selectedBusiness = onedaBusinessOptions.find(
+      (business) => business.id === selectedId,
+    );
+
+    setSelectedOnedaBusinessIds(selectedBusiness ? [selectedBusiness.id] : []);
+    setSelectedOnedaContactIds([]);
+    setSelectedParticipantIds([]);
+    setSelectedParticipantRecords([]);
+  };
+
+  const handleOnedaBusinessNext = () => {
+    if (!selectedOnedaBusinessId) {
+      toast.error("Please select a business.");
+      return;
+    }
+
+    updateRoute("oneda-contact");
+  };
+
+  const handleOnedaContactNext = async () => {
+    if (!selectedOnedaContactIds.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    const selectedProfiles = onedaProfiles.filter((profile) =>
+      selectedOnedaContactIds.includes(profile._id),
+    );
+
+    if (!selectedProfiles.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    try {
+      const response = await createBulkContactsMutation.mutateAsync({
+        contacts: selectedProfiles.map((profile) => ({
+          gender: "male",
+          firstName: profile.accountId.firstName?.trim() || "Unknown",
+          lastName: profile.accountId.lastName?.trim() || "Contact",
+          phoneNumber: profile.accountId.phoneNumber?.trim() || "",
+          email: profile.accountId.email?.trim() || "",
+        })),
+      });
+      const importedRecords = response.data.map(mapContactToRecordItem);
+      const importedRecord = importedRecords.at(0);
+
+      if (!importedRecord) {
+        toast.error("The selected contact could not be imported.");
+        return;
+      }
+
+      setCustomContactRecordItems((current) =>
+        mergeRecordItems(current, importedRecords),
+      );
+      setSelectedParticipantIds([importedRecord.id]);
+      setSelectedParticipantRecords([importedRecord]);
+      setRecordSearchValue("");
+      toast.success(response.message);
+      void refetchContacts();
+      updateRoute("review-records");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to import business contacts right now.",
+      );
+    }
+  };
+
+  const handleReviewRecordsNext = async () => {
+    const eventMessagingEventId = requireEventMessagingEventId();
+    if (!eventMessagingEventId) return;
+
+    if (!selectedEventId) {
+      toast.error("Unable to resolve this event right now.");
+      return;
+    }
+
+    if (!selectedParticipantIds.length) {
+      toast.error("Please select at least one recipient.");
+      return;
+    }
+
+    try {
+      const participantsResponse =
+        await createParticipantsBulkMutation.mutateAsync({
+          eventId: selectedEventId,
+          role: "participant",
+          contactIds: selectedParticipantIds,
+        });
+      const recipientParticipant = getFirstParticipantFromBulkResponse(
+        participantsResponse.data,
+        selectedParticipantIds,
+      );
+
+      if (!recipientParticipant) {
+        toast.error("Unable to resolve the selected recipient right now.");
+        return;
+      }
+
+      setSelectedRecipientParticipantId(recipientParticipant.id);
+
+      await updateMessageMutation.mutateAsync({
+        id: eventMessagingEventId,
+        payload: {
+          eventId: selectedEventId,
+          participantId: recipientParticipant.id,
+        },
+      });
+
+      toast.success("Recipients saved successfully.");
+      updateRoute("compose");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save selected recipients right now.",
+      );
+    }
+  };
+
+  const requireEventMessagingEventId = () => {
+    if (!editingMessageId) {
+      toast.error("Please start this message event first.");
+      return null;
+    }
+
+    return editingMessageId;
+  };
+
+  const handleEventTypeNext = async () => {
+    if (!selectedEventTypeOption) {
+      toast.error("Please select an event type.");
+      return;
+    }
+
+    const eventTitle = form.eventName || selectedEventTypeOption.label;
+
+    setForm((current) => ({
+      ...current,
+      eventName: current.eventName || eventTitle,
+    }));
+
+    const draftEventDate = form.eventDate
+      ? toIsoDateTime(form.eventDate)
+      : new Date().toISOString();
+
+    try {
+      if (editingMessageId) {
+        const response = await updateMessageMutation.mutateAsync({
+          id: editingMessageId,
+          payload: {
+            ...(selectedEventId ? { eventId: selectedEventId } : {}),
+            event: {
+              title: eventTitle,
+              eventTypeId: selectedEventTypeOption.value,
+              eventDate: draftEventDate,
+            },
+          },
+        });
+
+        setSelectedEventId(response.data.eventId);
+        updateRoute("event-date", {
+          eventId: response.data.eventId,
+          scheduleEventMessageId: response.data.id,
+        });
+        return;
+      }
+
+      const response = await createMessageMutation.mutateAsync({
+        event: {
+          title: eventTitle,
+          eventTypeId: selectedEventTypeOption.value,
+          eventDate: draftEventDate,
+        },
+        sendNow: mode === "message",
+        metadata: {
+          source: "dashboard",
+        },
+      });
+
+      setSelectedEventId(response.data.eventId);
+      updateRoute("event-date", {
+        eventId: response.data.eventId,
+        scheduleEventMessageId: response.data.id,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to start this message event right now.",
+      );
+    }
+  };
+
+  const handleEditRow = (row: ScheduledEventMessageRecord) => {
+    const nextMode = row.scheduledAt ? "schedule" : "message";
+    const params = new URLSearchParams({
+      mode: nextMode,
+      scheduleEventMessageId: row.id,
+      eventId: row.eventId,
+    });
+
+    router.push(`/dashboard/schedule/flow/event?${params.toString()}`);
+  };
+
+  const allChecked =
+    messageRows.length > 0 &&
+    messageRows.every((row) => selectedIds.includes(row.id));
+
+  const toggleAll = () => {
+    setSelectedIds(allChecked ? [] : messageRows.map((row) => row.id));
   };
 
   const toggleRow = (id: string) => {
@@ -433,7 +1189,53 @@ export default function ScheduleScreen() {
     );
   };
 
-  const tableData: TableData<ScheduleRow> = {
+  const handleSubmit = async () => {
+    const eventMessagingEventId = requireEventMessagingEventId();
+    if (!eventMessagingEventId) return;
+
+    try {
+      if (selectedEventId) {
+        await completeSetupMutation.mutateAsync(selectedEventId);
+      }
+
+      toast.success(
+        mode === "message"
+          ? "Message sent successfully."
+          : "Message scheduled successfully.",
+      );
+      setIsSubmitConfirmationOpen(false);
+      updateRoute("success", {
+        eventId: selectedEventId,
+        scheduleEventMessageId: eventMessagingEventId,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to complete this message event right now.",
+      );
+    }
+  };
+
+  const handleDeleteRow = async () => {
+    if (!pendingDeleteRow) return;
+
+    try {
+      const response = await deleteMessageMutation.mutateAsync(
+        pendingDeleteRow.id,
+      );
+      toast.success(response.message || "Message deleted successfully.");
+      setPendingDeleteRow(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this message right now.",
+      );
+    }
+  };
+
+  const tableData: TableData<ScheduledEventMessageRecord> = {
     columns: [
       {
         id: "select",
@@ -450,36 +1252,37 @@ export default function ScheduleScreen() {
           <Checkbox
             checked={selectedIds.includes(row.id)}
             onChange={() => toggleRow(row.id)}
-            aria-label={`Select ${row.recipient.name}`}
+            aria-label={`Select ${row.recipientName}`}
           />
         ),
       },
       {
         id: "recipient",
         header: "Recipients",
-        headerClassName: "min-w-[160px] px-3 py-2 text-left",
+        headerClassName: "min-w-[170px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
-        render: (row) => <RecipientCell recipient={row.recipient} />,
+        render: (row) => <RecipientCell row={row} />,
       },
       {
         id: "email",
         header: "Email Address",
-        accessor: (row) => row.recipient.email,
+        accessor: "recipientEmail",
         headerClassName: "min-w-[190px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
       {
         id: "scheduledDate",
         header: "Scheduled Date",
-        accessor: "scheduledDate",
+        accessor: (row) =>
+          formatDate(row.scheduledAt ?? row.sentAt ?? row.createdAt),
         headerClassName: "min-w-[120px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
       {
-        id: "phoneNumber",
-        header: "Phone Number",
-        accessor: (row) => row.recipient.phoneNumber,
-        headerClassName: "min-w-[150px] px-3 py-2 text-left",
+        id: "subject",
+        header: "Subject",
+        accessor: "subject",
+        headerClassName: "min-w-[170px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
       {
@@ -494,10 +1297,16 @@ export default function ScheduleScreen() {
         header: null,
         headerClassName: "w-[36px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
-        render: (row) => <ScheduleRowActions row={row} />,
+        render: (row) => (
+          <ScheduleRowActions
+            row={row}
+            onEdit={handleEditRow}
+            onDelete={setPendingDeleteRow}
+          />
+        ),
       },
     ],
-    rows: paginatedRows,
+    rows: messageRows.filter((row) => getRecordStatus(row) === activeTab),
     getRowKey: (row) => row.id,
     headerRowClassName: "text-[12px] font-medium text-[#7D7D7D]",
     headerCellClassName: "bg-transparent",
@@ -515,6 +1324,779 @@ export default function ScheduleScreen() {
     emptyRowClassName: "bg-white",
   };
 
+  const eventStep = (
+    <div className="space-y-7">
+      <div>
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Ok... Let&apos;s get started!
+        </p>
+        <p className="mt-2 text-[20px] font-normal text-[#434343]">
+          What&apos;s the name of your event?
+        </p>
+      </div>
+
+      {isAvailableEventTypesLoading ? (
+        <p className="py-8 text-center text-sm text-[#7D7D7D]">
+          Loading events...
+        </p>
+      ) : (
+        <OverlaySelect
+          value={selectedEventTypeId}
+          onValueChange={setSelectedEventTypeId}
+          options={eventTypeOptions}
+          placeholder="Select Event"
+          panelTitle="Select an Event"
+          searchPlaceholder=""
+          addActionLabel="Add New"
+          onCreateOption={handleCreateEventOption}
+          onUpdateOption={handleUpdateEventOption}
+          onDeleteOption={handleDeleteEventOption}
+          triggerClassName="text-[10px]"
+        />
+      )}
+
+      {isAvailableEventTypesError ? (
+        <button
+          type="button"
+          onClick={() => void refetchAvailableEventTypes()}
+          className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+        >
+          Retry loading events
+        </button>
+      ) : null}
+
+      <div className="flex items-center justify-center gap-3 pt-2">
+        <BackButton
+          onClick={closeFlow}
+          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        />
+        <ModalButton
+          onClick={handleEventTypeNext}
+          disabled={!selectedEventTypeId}
+        >
+          Next
+        </ModalButton>
+      </div>
+    </div>
+  );
+
+  const eventDateStep = (
+    <EventDateStep
+      eventName={form.eventName || selectedEventTypeOption?.label || "Event"}
+      value={form.eventDate}
+      onChange={(value) =>
+        setForm((current) => ({
+          ...current,
+          eventDate: value,
+        }))
+      }
+      onBack={() => updateRoute("event")}
+      onNext={async () => {
+        if (!form.eventDate) {
+          toast.error("Please choose the event date.");
+          return;
+        }
+
+        const eventMessagingEventId = requireEventMessagingEventId();
+        if (!eventMessagingEventId) return;
+
+        try {
+          const response = await updateMessageMutation.mutateAsync({
+            id: eventMessagingEventId,
+            payload: {
+              ...(selectedEventId ? { eventId: selectedEventId } : {}),
+              event: {
+                eventDate: toIsoDateTime(form.eventDate),
+              },
+            },
+          });
+
+          setSelectedEventId(response.data.eventId);
+          updateRoute("source", {
+            eventId: response.data.eventId,
+            scheduleEventMessageId: response.data.id,
+          });
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Unable to save this event date right now.",
+          );
+        }
+      }}
+      heading="What's the date?"
+      headingAlign="left"
+      showGoToEventNameLink={false}
+    />
+  );
+
+  const sourceStep = (
+    <div className="space-y-12 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Who would you like to message?
+        </p>
+        <p className="mt-2 text-[20px] font-normal text-[#434343]">
+          Choose where your recipients should come from.
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px] space-y-4">
+        <ModalButton
+          variant="secondary"
+          onClick={() => updateRoute("record")}
+          className="w-full"
+        >
+          From Record
+        </ModalButton>
+        <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+          From Oneda
+        </ModalButton>
+      </div>
+
+      <div className="flex justify-center">
+        <BackButton
+          onClick={() => updateRoute("event-date")}
+          className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        />
+      </div>
+    </div>
+  );
+
+  const recordStep = (
+    <div className="space-y-8 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Who would you like to message?
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px]">
+        <OverlayRecordPicker
+          items={allContactRecordOptions}
+          selectedIds={selectedParticipantIds}
+          onSelectedIdsChange={(ids) => {
+            const selectedId = ids.at(-1);
+
+            if (!selectedId) {
+              setSelectedParticipantIds([]);
+              setSelectedParticipantRecords([]);
+              return;
+            }
+
+            const selectedRecord = allContactRecordOptions.find(
+              (item) => item.id === selectedId,
+            );
+
+            if (!selectedRecord) {
+              setSelectedParticipantIds([]);
+              setSelectedParticipantRecords([]);
+              toast.error("Unable to resolve the selected contact.");
+              return;
+            }
+
+            setSelectedParticipantIds([selectedId]);
+            setSelectedParticipantRecords([selectedRecord]);
+          }}
+          placeholder="Search for colleague"
+          panelTitle="Search for colleague"
+          searchPlaceholder=""
+          searchValue={recordSearchValue}
+          onSearchValueChange={setRecordSearchValue}
+          disableLocalFiltering
+          isLoading={isContactsLoading || isContactsFetching}
+          emptyStateText={
+            isContactsError ? "Unable to load contacts." : "No colleague found."
+          }
+          triggerBottomAction={
+            <BackButton
+              onClick={() => updateRoute("source")}
+              className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              iconClassName="size-[24px]"
+            />
+          }
+          footer={
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={() => updateRoute("source")}
+                className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                onClick={() => {
+                  updateRoute("review-records");
+                }}
+                disabled={!selectedParticipantIds.length}
+              >
+                Next
+              </ModalButton>
+            </div>
+          }
+          triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+        />
+      </div>
+
+      {isContactsError ? (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => void refetchContacts()}
+            className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+          >
+            Retry loading contacts
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const reviewRecordsStep = (
+    <CustomColleagueReview
+      greetingName="there"
+      prompt="Review the person you want to message."
+      items={selectedParticipantReviewItems}
+      onAddNew={() => updateRoute("record")}
+      onBack={() => updateRoute("source")}
+      onNext={handleReviewRecordsNext}
+      onDelete={(id) => {
+        setSelectedParticipantIds((current) =>
+          current.filter((participantId) => participantId !== id),
+        );
+        setSelectedParticipantRecords((current) =>
+          current.filter((participant) => participant.id !== id),
+        );
+      }}
+      nextDisabled={
+        !selectedParticipantReviewItems.length ||
+        createParticipantsBulkMutation.isPending
+      }
+    />
+  );
+
+  const onedaBusinessStep = (
+    <div className="space-y-8 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Hey {greetingName},
+        </p>
+        <p className="mt-2 text-[20px] font-normal text-[#434343]">
+          Which business are you selecting from?
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px]">
+        <OverlayRecordPicker
+          items={onedaBusinessOptions}
+          selectedIds={selectedOnedaBusinessIds}
+          onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
+          placeholder="Search for business"
+          panelTitle="Search for business"
+          searchPlaceholder=""
+          isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+          emptyStateText={
+            isOnedaBusinessesError
+              ? "Unable to load businesses."
+              : "No business found."
+          }
+          triggerBottomAction={
+            <BackButton
+              onClick={() => updateRoute("source")}
+              className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              iconClassName="size-[24px]"
+            />
+          }
+          footer={
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={() => updateRoute("source")}
+                className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                onClick={handleOnedaBusinessNext}
+                disabled={!selectedOnedaBusinessId}
+              >
+                Next
+              </ModalButton>
+            </div>
+          }
+          triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+        />
+      </div>
+
+      {isOnedaBusinessesError ? (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => void refetchOnedaBusinesses()}
+            className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+          >
+            Retry loading businesses
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const onedaContactStep = (
+    <div className="space-y-8 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Hey {greetingName},
+        </p>
+        <p className="mt-2 text-[20px] font-normal text-[#434343]">
+          Who would you like to message?
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px]">
+        <OverlayRecordPicker
+          items={onedaProfileOptions}
+          selectedIds={selectedOnedaContactIds}
+          onSelectedIdsChange={(ids) => {
+            const selectedId = ids.at(-1);
+            setSelectedOnedaContactIds(selectedId ? [selectedId] : []);
+            setSelectedParticipantIds([]);
+            setSelectedParticipantRecords([]);
+          }}
+          placeholder="Search for colleague"
+          panelTitle="Search for colleague"
+          searchPlaceholder=""
+          searchValue={recordSearchValue}
+          onSearchValueChange={setRecordSearchValue}
+          disableLocalFiltering
+          isLoading={isOnedaProfilesLoading || isOnedaProfilesFetching}
+          emptyStateText={
+            isOnedaProfilesError
+              ? "Unable to load contacts."
+              : "No colleague found."
+          }
+          triggerBottomAction={
+            <BackButton
+              onClick={() => updateRoute("oneda-business")}
+              className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              iconClassName="size-[24px]"
+            />
+          }
+          footer={
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={() => updateRoute("oneda-business")}
+                className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                onClick={handleOnedaContactNext}
+                disabled={
+                  !selectedOnedaContactIds.length ||
+                  createBulkContactsMutation.isPending
+                }
+              >
+                {createBulkContactsMutation.isPending ? "Importing..." : "Next"}
+              </ModalButton>
+            </div>
+          }
+          triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+        />
+      </div>
+
+      {isOnedaProfilesError ? (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => void refetchOnedaProfiles()}
+            className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+          >
+            Retry loading contacts
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const recipientsStep = (
+    <div className="space-y-12 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Who would you like to message?
+        </p>
+        <p className="mt-2 text-[20px] font-normal text-[#434343]">
+          Choose where your recipients should come from.
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px] space-y-4">
+        <ModalButton
+          variant="secondary"
+          onClick={() => updateRoute("record")}
+          className="w-full"
+        >
+          From Record
+        </ModalButton>
+        <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+          From Oneda
+        </ModalButton>
+      </div>
+
+      <div className="flex justify-center">
+        <BackButton
+          onClick={() => updateRoute("event-date")}
+          className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        />
+      </div>
+    </div>
+  );
+
+  const handleScheduledDateSelect = (date?: Date) => {
+    if (!date) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      scheduledAt: mergeDateAndTimeToDateTimeLocalValue(
+        date,
+        getTimeFromDateTimeLocalValue(current.scheduledAt) ||
+          DEFAULT_SCHEDULE_TIME,
+      ),
+    }));
+    setIsScheduledCalendarOpen(false);
+  };
+
+  const handleScheduledTimeChange = (timeValue: string) => {
+    const baseDate = scheduledDate ?? today;
+
+    setForm((current) => ({
+      ...current,
+      scheduledAt: mergeDateAndTimeToDateTimeLocalValue(baseDate, timeValue),
+    }));
+  };
+
+  const handleGiftProductToggle = (
+    product: MarketplaceProduct,
+    checked: boolean,
+  ) => {
+    setSelectedGiftProductsById((current) => {
+      const next = { ...current };
+
+      if (checked) {
+        next[product._id] = product;
+      } else {
+        delete next[product._id];
+      }
+
+      return next;
+    });
+  };
+
+  const handleGiftSelectionNext = async () => {
+    if (!selectedGiftIds.length) {
+      setIsSubmitConfirmationOpen(true);
+      return;
+    }
+
+    const recipientParticipantId =
+      selectedRecipientParticipantId ||
+      editingMessageResponse?.data?.participantId;
+    const resolvedEventId = selectedEventId || routeEventId;
+
+    if (!resolvedEventId) {
+      toast.error("Unable to resolve this event right now.");
+      return;
+    }
+
+    if (!recipientParticipantId) {
+      toast.error("Unable to resolve the selected recipient right now.");
+      return;
+    }
+
+    const selectedProducts = selectedGiftIds
+      .map((giftId) => selectedGiftProductsById[giftId])
+      .filter((product): product is MarketplaceProduct => Boolean(product));
+
+    if (selectedProducts.length !== selectedGiftIds.length) {
+      toast.error(
+        "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
+      );
+      return;
+    }
+
+    const hasIncompleteGiftDetails = selectedProducts.some(
+      (product) =>
+        !product.title?.trim() ||
+        !Number.isFinite(product.amount) ||
+        product.amount <= 0,
+    );
+
+    if (hasIncompleteGiftDetails) {
+      toast.error(
+        "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
+      );
+      return;
+    }
+
+    try {
+      await assignBulkGiftsMutation.mutateAsync({
+        eventId: resolvedEventId,
+        recipientParticipantIds: [recipientParticipantId],
+        gifts: selectedProducts.map(mapMarketplaceProductToGiftPayload),
+      });
+
+      toast.success("Gift selection saved successfully.");
+      setIsSubmitConfirmationOpen(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to assign selected gifts right now.",
+      );
+    }
+  };
+
+  const scheduledDateTimeField = (
+    <div className="space-y-2">
+      <span className="block text-sm font-medium text-[#434343]">
+        Scheduled date
+      </span>
+      <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+        <Popover
+          open={isScheduledCalendarOpen}
+          onOpenChange={setIsScheduledCalendarOpen}
+        >
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex h-[54px] w-full items-center justify-between rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-left text-[15px] font-normal text-[#434343] outline-none transition-colors hover:border-[#3300C9] focus:border-[#3300C9]"
+              aria-expanded={isScheduledCalendarOpen}
+              aria-haspopup="dialog"
+            >
+              <span
+                className={
+                  form.scheduledAt ? "text-[#434343]" : "text-[#666666]"
+                }
+              >
+                {formatScheduledDatePickerValue(form.scheduledAt)}
+              </span>
+              <CalendarDaysIcon className="size-5 text-[#54545C]" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="start"
+            sideOffset={8}
+            collisionPadding={16}
+            className="z-[150] w-auto overflow-visible rounded-[20px] border-none bg-white p-0 shadow-[0_20px_48px_rgba(26,19,61,0.12)]"
+          >
+            <CalendarComponent
+              mode="single"
+              selected={scheduledDate}
+              month={scheduledCalendarMonth}
+              onMonthChange={setScheduledCalendarMonth}
+              onSelect={handleScheduledDateSelect}
+              disabled={(date: Date) => date < today}
+              initialFocus
+              className="shadow-none"
+            />
+          </PopoverContent>
+        </Popover>
+
+        <label className="block">
+          <span className="sr-only">Scheduled time</span>
+          <input
+            type="time"
+            value={scheduledTime || DEFAULT_SCHEDULE_TIME}
+            onChange={(event) => handleScheduledTimeChange(event.target.value)}
+            className="h-[54px] w-full rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] outline-none transition-colors focus:border-[#3300C9]"
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  const composeStep = (
+    <div className="mx-auto max-w-[620px] space-y-5 pt-3">
+      <div className="text-center">
+        <h2 className="text-[24px] font-semibold text-[#2F2F35]">
+          Write your message
+        </h2>
+        <p className="mt-2 text-sm text-[#7D7D7D]">
+          Add the message your recipient will receive.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <input
+          value={form.subject}
+          onChange={(event) =>
+            setForm((current) => ({ ...current, subject: event.target.value }))
+          }
+          placeholder="Message title"
+          className="h-[54px] w-full rounded-[18px] border border-[#ECE8F7] px-4 text-[15px] outline-none transition-colors focus:border-[#3300C9]"
+        />
+        <textarea
+          value={form.message}
+          onChange={(event) =>
+            setForm((current) => ({ ...current, message: event.target.value }))
+          }
+          placeholder="Message body"
+          rows={5}
+          className="w-full resize-none rounded-[18px] border border-[#ECE8F7] px-4 py-3 text-[15px] outline-none transition-colors focus:border-[#3300C9]"
+        />
+        {mode === "schedule" ? scheduledDateTimeField : null}
+      </div>
+
+      <div className="flex items-center justify-center gap-3 pt-2">
+        <BackButton
+          onClick={() => updateRoute("review-records")}
+          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        />
+        <ModalButton
+          onClick={async () => {
+            const eventMessagingEventId = requireEventMessagingEventId();
+            if (!eventMessagingEventId) return;
+
+            if (!form.subject.trim() || !form.message.trim()) {
+              toast.error("Please add a subject and message.");
+              return;
+            }
+
+            if (mode === "schedule" && !form.scheduledAt) {
+              toast.error("Please choose when this message should be sent.");
+              return;
+            }
+
+            try {
+              await updateMessageMutation.mutateAsync({
+                id: eventMessagingEventId,
+                payload: {
+                  ...(selectedEventId ? { eventId: selectedEventId } : {}),
+                  subject: form.subject.trim(),
+                  message: form.message.trim(),
+                  sendNow: mode === "message",
+                  ...(mode === "schedule"
+                    ? { scheduledAt: toIsoDateTime(form.scheduledAt) }
+                    : {}),
+                  ...(form.giftUrl.trim()
+                    ? { giftUrl: form.giftUrl.trim() }
+                    : {}),
+                  ...(form.giftUrlExpiresAt
+                    ? { giftUrlExpiresAt: toIsoDateTime(form.giftUrlExpiresAt) }
+                    : {}),
+                  metadata: {
+                    source: "dashboard",
+                  },
+                },
+              });
+
+              updateRoute("gift-selection");
+            } catch (error) {
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Unable to save this message right now.",
+              );
+            }
+          }}
+          disabled={
+            !form.subject.trim() ||
+            !form.message.trim() ||
+            (mode === "schedule" && !form.scheduledAt)
+          }
+        >
+          Next
+        </ModalButton>
+      </div>
+    </div>
+  );
+
+  const scheduleStep = (
+    <div className="mx-auto max-w-[520px] space-y-8 pt-3">
+      <div className="text-center">
+        <h2 className="text-[24px] font-semibold text-[#2F2F35]">
+          When should it send?
+        </h2>
+        <p className="mt-2 text-sm text-[#7D7D7D]">
+          Choose the date and time for this scheduled message.
+        </p>
+      </div>
+
+      {scheduledDateTimeField}
+
+      <div className="flex items-center justify-center gap-3 pt-2">
+        <BackButton
+          onClick={() => updateRoute("compose")}
+          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        />
+        <ModalButton
+          onClick={async () => {
+            const eventMessagingEventId = requireEventMessagingEventId();
+            if (!eventMessagingEventId) return;
+
+            if (!form.scheduledAt) {
+              toast.error("Please choose when this message should be sent.");
+              return;
+            }
+
+            try {
+              await updateMessageMutation.mutateAsync({
+                id: eventMessagingEventId,
+                payload: {
+                  ...(selectedEventId ? { eventId: selectedEventId } : {}),
+                  sendNow: false,
+                  scheduledAt: toIsoDateTime(form.scheduledAt),
+                },
+              });
+              setIsSubmitConfirmationOpen(true);
+            } catch (error) {
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Unable to save the scheduled time right now.",
+              );
+            }
+          }}
+          disabled={!form.scheduledAt}
+        >
+          Next
+        </ModalButton>
+      </div>
+    </div>
+  );
+
+  const giftSelectionStep = (
+    <WishlistGiftSelectionStep
+      selectedIds={selectedGiftIds}
+      onSelectedIdsChange={setSelectedGiftIds}
+      onSelectedProductToggle={handleGiftProductToggle}
+      onBack={() => updateRoute("compose")}
+      onNext={handleGiftSelectionNext}
+      nextDisabled={assignBulkGiftsMutation.isPending}
+      nextLabel={
+        assignBulkGiftsMutation.isPending
+          ? "Saving..."
+          : selectedGiftIds.length
+            ? "Next"
+            : "Skip"
+      }
+    />
+  );
+
+  const successStep = (
+    <div className="mx-auto max-w-[520px] space-y-8 py-8 text-center">
+      <div>
+        <h2 className="text-[26px] font-semibold text-[#2F2F35]">
+          {mode === "message" ? "Message sent!" : "Message scheduled!"}
+        </h2>
+        <p className="mt-3 text-sm text-[#7D7D7D]">
+          Your message setup has been completed successfully.
+        </p>
+      </div>
+      <ModalButton onClick={closeFlow} className="mx-auto max-w-[220px]">
+        Back to Schedule
+      </ModalButton>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -524,26 +2106,26 @@ export default function ScheduleScreen() {
           <>
             <Button
               type="button"
-              onClick={() => toast("Schedule event flow will be connected next.")}
+              onClick={() => startFlow("schedule")}
               className="h-[44px] rounded-full px-4 text-sm font-medium"
             >
               <span className="inline-flex items-center gap-2.5">
                 <span className="flex size-6 items-center justify-center rounded-full border border-white/35 bg-white/10">
                   <CalendarDaysIcon className="size-4" />
                 </span>
-                <span>Schedule Event</span>
+                <span>Schedule Message Event</span>
               </span>
             </Button>
 
             <Button
               type="button"
               variant="outlined"
-              onClick={() => toast("Schedule message flow will be connected next.")}
+              onClick={() => startFlow("message")}
               className="h-[44px] rounded-full border-[#3300C9] px-4 text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF]"
             >
               <span className="inline-flex items-center gap-2.5">
                 <SendIcon className="size-4" />
-                <span>Schedule Message</span>
+                <span>Message</span>
               </span>
             </Button>
 
@@ -558,25 +2140,23 @@ export default function ScheduleScreen() {
         }
       />
 
-      <>
-        <section className="sm:hidden">
-          <div className="overflow-hidden" ref={scheduleMetricsEmblaRef}>
-            <div className="flex gap-3">
-              {scheduleMetrics.map((metric) => (
-                <div key={metric.label} className="min-w-0 flex-[0_0_100%]">
-                  <ScheduleMetricCard metric={metric} />
-                </div>
-              ))}
-            </div>
+      <section className="sm:hidden">
+        <div className="overflow-hidden" ref={scheduleMetricsEmblaRef}>
+          <div className="flex gap-3">
+            {scheduleMetrics.map((metric) => (
+              <div key={metric.label} className="min-w-0 flex-[0_0_100%]">
+                <ScheduleMetricCard metric={metric} />
+              </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
-          {scheduleMetrics.map((metric) => (
-            <ScheduleMetricCard key={metric.label} metric={metric} />
-          ))}
-        </section>
-      </>
+      <section className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
+        {scheduleMetrics.map((metric) => (
+          <ScheduleMetricCard key={metric.label} metric={metric} />
+        ))}
+      </section>
 
       <section className="rounded-[24px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5">
         <div className="flex flex-col gap-4 border-b border-[#F1EDF8] pb-4 xl:flex-row xl:items-end xl:justify-between">
@@ -617,7 +2197,9 @@ export default function ScheduleScreen() {
               <button
                 type="button"
                 aria-label="Filter schedule"
-                onClick={() => toast("Schedule filters will be connected next.")}
+                onClick={() =>
+                  toast("Schedule filters will be connected next.")
+                }
                 className="flex size-10 items-center justify-center rounded-[12px] border border-[#ECE8F7] bg-white text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
               >
                 <FilterIcon className="size-4 text-[#434343]" aria-hidden />
@@ -626,12 +2208,31 @@ export default function ScheduleScreen() {
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <Table
-            data={tableData}
-            tableClassName="w-full min-w-[920px] border-separate border-spacing-y-3"
-          />
-        </div>
+        {isMessagesLoading || isMessagesFetching ? (
+          <p className="py-10 text-center text-sm text-[#7D7D7D]">
+            Loading scheduled messages...
+          </p>
+        ) : isMessagesError ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="text-sm text-[#7D7D7D]">
+              Unable to load scheduled messages.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refetchMessages()}
+              className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <Table
+              data={tableData}
+              tableClassName="w-full min-w-[980px] border-separate border-spacing-y-3"
+            />
+          </div>
+        )}
 
         <div className="mt-5">
           <Pagination
@@ -643,6 +2244,86 @@ export default function ScheduleScreen() {
           />
         </div>
       </section>
+
+      <ContentModal
+        open={isFlowOpen}
+        onClose={closeFlow}
+        title={mode === "message" ? "Message" : "Schedule Message Event"}
+        showHeader={false}
+        closeOnOverlayClick={false}
+        dialogClassName={cn(
+          "rounded-[18px] bg-white sm:rounded-[20px]",
+          currentStep === "gift-selection"
+            ? "max-h-[92dvh] max-w-[1120px]"
+            : "max-w-[536px]",
+        )}
+        bodyClassName={cn(
+          currentStep === "gift-selection"
+            ? "max-h-[92dvh] overflow-y-auto px-3 py-4 sm:px-5 sm:py-5"
+            : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10",
+        )}
+      >
+        {currentStep === "event"
+          ? eventStep
+          : currentStep === "event-date"
+            ? eventDateStep
+            : currentStep === "source"
+              ? sourceStep
+              : currentStep === "oneda-business"
+                ? onedaBusinessStep
+                : currentStep === "oneda-contact"
+                  ? onedaContactStep
+                  : currentStep === "record"
+                    ? recordStep
+                    : currentStep === "review-records"
+                      ? reviewRecordsStep
+                      : currentStep === "recipients"
+                        ? recipientsStep
+                        : currentStep === "compose"
+                          ? composeStep
+                          : currentStep === "gift-selection"
+                            ? giftSelectionStep
+                            : currentStep === "schedule"
+                              ? scheduleStep
+                              : currentStep === "success"
+                                ? successStep
+                                : null}
+      </ContentModal>
+
+      <ConfirmationModal
+        open={isSubmitConfirmationOpen}
+        onClose={() => setIsSubmitConfirmationOpen(false)}
+        onConfirm={handleSubmit}
+        action="save"
+        title={mode === "message" ? "Send Message" : "Schedule Message"}
+        description={
+          mode === "message"
+            ? "Are you sure you want to send this message now?"
+            : "Are you sure you want to schedule this message?"
+        }
+        confirmText={mode === "message" ? "Send" : "Schedule"}
+        isLoading={
+          createMessageMutation.isPending ||
+          updateMessageMutation.isPending ||
+          completeSetupMutation.isPending ||
+          assignBulkGiftsMutation.isPending
+        }
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={Boolean(pendingDeleteRow)}
+        onClose={() => setPendingDeleteRow(null)}
+        onConfirm={handleDeleteRow}
+        action="delete"
+        title="Delete Message"
+        description="Are you sure you want to delete this scheduled message?"
+        confirmText="Delete"
+        isLoading={deleteMessageMutation.isPending}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
     </div>
   );
 }

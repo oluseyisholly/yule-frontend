@@ -181,28 +181,30 @@ export default function DrawNamesScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Draw Names"
-        description="Organize secret gift exchanges"
-        actionLabel="Draw Name"
-        onAction={handleStartDrawName}
-        actions={
-          <Button
-            onClick={handleStartDrawName}
-            className="h-[44px] pl-2 pr-5 text-sm font-medium   "
-          >
-            <span className="inline-flex items-center gap-2.5">
-              <Image
-                src={AddBtn}
-                alt=""
-                aria-hidden
-                className="w-6 h-6 brightness-0 invert"
-              />
-              <span>Draw Name</span>
-            </span>
-          </Button>
-        }
-      />
+      {!isInlineWishlistGiftsStep ? (
+        <PageHeader
+          title="Draw Names"
+          description="Organize secret gift exchanges"
+          actionLabel="Draw Name"
+          onAction={handleStartDrawName}
+          actions={
+            <Button
+              onClick={handleStartDrawName}
+              className="h-[44px] pl-2 pr-5 text-sm font-medium   "
+            >
+              <span className="inline-flex items-center gap-2.5">
+                <Image
+                  src={AddBtn}
+                  alt=""
+                  aria-hidden
+                  className="w-6 h-6 brightness-0 invert"
+                />
+                <span>Draw Name</span>
+              </span>
+            </Button>
+          }
+        />
+      ) : null}
 
       {isInlineWishlistGiftsStep ? (
         <DrawNameStartModal

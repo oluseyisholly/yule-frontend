@@ -24,6 +24,7 @@ import BackButton from "@/components/BackButton";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import CustomColleagueReview from "@/components/CustomColleagueReview";
 import DrawNameInviteStep, {
   type DrawNameInviteParticipant,
 } from "@/components/DrawNameInviteStep";
@@ -61,11 +62,18 @@ import featureImg2 from "@/assets/icons/featureImg2.svg";
 import featureImg3 from "@/assets/icons/featureImg3.svg";
 import featureImg4 from "@/assets/icons/featureImg4.svg";
 import { useContactsQuery } from "@/features/contacts/hooks/useContactsQuery";
+import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCreateBulkContactsMutation";
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useEnsureMyContactMutation } from "@/features/contacts/hooks/useEnsureMyContactMutation";
 import { useUpdateContactMutation } from "@/features/contacts/hooks/useUpdateContactMutation";
 import type { Contact } from "@/features/contacts/types";
+import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
+import {
+  useOnedaProfilesQuery,
+  type OnedaProfile,
+} from "@/features/auth/hooks/useOnedaProfilesQuery";
+import type { ExternalBusinessRecord } from "@/features/auth/types";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
 import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
@@ -390,6 +398,61 @@ function mapContactToRecordItem(
   };
 }
 
+function getExternalBusinessRootId(business: ExternalBusinessRecord) {
+  return business.id?.trim() || business._id?.trim() || "";
+}
+
+function mapExternalBusinessToRecordItem(
+  business: ExternalBusinessRecord,
+): SearchableRecordItem | null {
+  const businessId = getExternalBusinessRootId(business);
+  const businessName = business.businessName?.trim() || "";
+
+  if (!businessId || !businessName) {
+    return null;
+  }
+
+  const subtitleParts = [
+    business.businessLocation?.trim(),
+    business.state?.trim(),
+    business.country?.trim(),
+    business.industry?.trim(),
+  ].filter(Boolean);
+  const subtitle = subtitleParts.join(" • ") || "Business";
+  const initials = businessName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+  const { avatarBg, avatarColor } = getContactAvatarStyle(businessId);
+
+  return {
+    id: businessId,
+    name: businessName,
+    subtitle,
+    createdById: null,
+    isManageable: false,
+    firstName: businessName,
+    lastName: "",
+    phoneNumber: "",
+    gender: "",
+    initials: initials || "ON",
+    avatarBg,
+    avatarColor,
+  };
+}
+
+function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
+  return {
+    id: profile._id,
+    name: `${profile.accountId.firstName} ${profile.accountId.lastName}`.trim(),
+    email: profile.accountId.email,
+    subtitle: profile.accountId.email,
+    profileUrl: profile.profilePhotoUrl?.trim() || null,
+  };
+}
+
 function mapGiftingEventParticipantToRecordItem(
   participant: GiftingEventParticipant,
 ): SearchableRecordItem | null {
@@ -605,6 +668,8 @@ function hasGiftFlowDraft(selection: GiftFlowSelectionState) {
     selection.eventDate !== EMPTY_GIFT_FLOW_SELECTION.eventDate ||
     selection.giftDeadline !== EMPTY_GIFT_FLOW_SELECTION.giftDeadline ||
     selection.eventName !== EMPTY_GIFT_FLOW_SELECTION.eventName ||
+    selection.selectedOnedaBusinessIds.length > 0 ||
+    selection.selectedOnedaContactIds.length > 0 ||
     selection.selectedParticipantContactIds.length > 0 ||
     selection.selectedGiftIds.length > 0 ||
     Object.keys(selection.selectedGiftProductsById).length > 0
@@ -626,6 +691,12 @@ function normalizeGiftFlowSelection(
     )
       ? selection.selectedParticipantContactIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedParticipantContactIds,
+    selectedOnedaBusinessIds: Array.isArray(selection?.selectedOnedaBusinessIds)
+      ? selection.selectedOnedaBusinessIds
+      : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaBusinessIds,
+    selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
+      ? selection.selectedOnedaContactIds
+      : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaContactIds,
     selectedGiftIds: Array.isArray(selection?.selectedGiftIds)
       ? selection.selectedGiftIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedGiftIds,
@@ -1094,6 +1165,7 @@ export default function DashboardGiftsScreen() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const authUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
   const currentContactId = useAuthStore((state) => state.currentContactId);
   const setCurrentContactId = useAuthStore(
     (state) => state.setCurrentContactId,
@@ -1149,6 +1221,8 @@ export default function DashboardGiftsScreen() {
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
     useState("");
+  const [addRecordReturnStep, setAddRecordReturnStep] =
+    useState<"record" | "review-records">("record");
   const [giftInviteSearchValue, setGiftInviteSearchValue] = useState("");
   const [isGiftInviteCopyListOpen, setIsGiftInviteCopyListOpen] =
     useState(false);
@@ -1176,8 +1250,14 @@ export default function DashboardGiftsScreen() {
   const [ensureCurrentContactRequested, setEnsureCurrentContactRequested] =
     useState(Boolean(currentContactId));
   const greetingName = authUser?.firstName?.trim() || "Susan";
+  const onedaAccountId =
+    authUser?.profile?.accountId?._id?.trim() ||
+    authUser?.hostAccountId?.trim() ||
+    null;
   const selectedParticipantContactIds =
     flowSelection.selectedParticipantContactIds;
+  const selectedOnedaBusinessIds = flowSelection.selectedOnedaBusinessIds;
+  const selectedOnedaContactIds = flowSelection.selectedOnedaContactIds;
   const selectedGiftIds = flowSelection.selectedGiftIds;
   const selectedGiftProductsById = flowSelection.selectedGiftProductsById;
   const selectedGiftEventTypeId = flowSelection.selectedEventTypeId;
@@ -1203,6 +1283,53 @@ export default function DashboardGiftsScreen() {
     },
     {
       enabled: isGiftFlowOpen && currentGiftFlowStep === "event",
+    },
+  );
+  const {
+    data: onedaBusinesses = [],
+    isLoading: isOnedaBusinessesLoading,
+    isFetching: isOnedaBusinessesFetching,
+    isError: isOnedaBusinessesError,
+    refetch: refetchOnedaBusinesses,
+  } = useExternalBusinessesQuery(onedaAccountId, authToken, {
+    enabled:
+      isGiftFlowOpen &&
+      currentGiftFlowStep === "oneda-business" &&
+      Boolean(onedaAccountId) &&
+      Boolean(authToken),
+  });
+  const selectedOnedaBusinessId = useMemo(() => {
+    const candidateId = selectedOnedaBusinessIds.at(-1)?.trim() ?? "";
+
+    if (!candidateId) {
+      return null;
+    }
+
+    if (!onedaBusinesses.length) {
+      return candidateId;
+    }
+
+    const selectedBusiness = onedaBusinesses.find(
+      (business) => getExternalBusinessRootId(business) === candidateId,
+    );
+
+    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+  }, [onedaBusinesses, selectedOnedaBusinessIds]);
+  const {
+    data: onedaProfiles = [],
+    isLoading: isOnedaProfilesLoading,
+    isFetching: isOnedaProfilesFetching,
+    isError: isOnedaProfilesError,
+    refetch: refetchOnedaProfiles,
+  } = useOnedaProfilesQuery(
+    selectedOnedaBusinessId,
+    authToken,
+    debouncedRecordSearchValue,
+    {
+      enabled:
+        isGiftFlowOpen &&
+        currentGiftFlowStep === "oneda-contact" &&
+        Boolean(selectedOnedaBusinessId),
     },
   );
   const isSentTab = activeTab === "sent";
@@ -1266,6 +1393,7 @@ export default function DashboardGiftsScreen() {
   const sendGiftingEventInvitationsMutation =
     useSendGiftingEventInvitationsMutation();
   const ensureMyContactMutation = useEnsureMyContactMutation();
+  const createBulkContactsMutation = useCreateBulkContactsMutation();
   const createContactMutation = useCreateContactMutation();
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
@@ -1273,7 +1401,9 @@ export default function DashboardGiftsScreen() {
   const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
   const shouldEnableContactsQuery =
     isGiftFlowOpen &&
-    (currentGiftFlowStep === "record" || currentGiftFlowStep === "add-record");
+    (currentGiftFlowStep === "record" ||
+      currentGiftFlowStep === "review-records" ||
+      currentGiftFlowStep === "add-record");
   const {
     data: contactsResponse,
     isLoading: isContactsLoading,
@@ -1353,6 +1483,19 @@ export default function DashboardGiftsScreen() {
         (eventType) => eventType.value === selectedGiftEventTypeId,
       ) ?? null,
     [eventTypeOptions, selectedGiftEventTypeId],
+  );
+  const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
+    () =>
+      onedaBusinesses
+        .map((business) => mapExternalBusinessToRecordItem(business))
+        .filter((business): business is SearchableRecordItem =>
+          Boolean(business),
+        ),
+    [onedaBusinesses],
+  );
+  const onedaProfileOptions = useMemo<SearchableRecordItem[]>(
+    () => onedaProfiles.map((profile) => mapOnedaProfileToRecordItem(profile)),
+    [onedaProfiles],
   );
   const eventTypeKeyById = useMemo(
     () =>
@@ -1467,6 +1610,21 @@ export default function DashboardGiftsScreen() {
       customContactRecordItems,
       resolvedCurrentContactId,
     ],
+  );
+  const selectedParticipantReviewItems = useMemo(
+    () =>
+      selectedParticipantContactIds
+        .map((selectedId) =>
+          contactRecordOptions.find((record) => record.id === selectedId),
+        )
+        .filter((item): item is SearchableRecordItem => Boolean(item))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          email: item.email || item.subtitle || "",
+          isAdmin: false,
+        })),
+    [contactRecordOptions, selectedParticipantContactIds],
   );
   const counterpartLabel = isSentTab ? "Sent to" : "Received from";
   const giftRows = isSentTab ? sentRows : receivedRows;
@@ -1855,7 +2013,7 @@ export default function DashboardGiftsScreen() {
       setGiftFlowDraftFields(flowSelectionKey, {
         eventName: resolvedTitle,
       });
-      setGiftFlowStep("record", mode, eventId, giftingEventId);
+      setGiftFlowStep("source", mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1872,14 +2030,21 @@ export default function DashboardGiftsScreen() {
     !newColleagueForm.firstName.trim() ||
     !newColleagueForm.lastName.trim();
 
-  const handleOpenAddNewColleague = () => {
+  const handleOpenAddNewColleague = (
+    returnStep: "record" | "review-records" = "record",
+  ) => {
     setEditingRecordId(null);
+    setAddRecordReturnStep(returnStep);
     setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
     setGiftFlowStep("add-record", mode, eventId, giftingEventId);
   };
 
-  const handleOpenEditColleague = (item: SearchableRecordItem) => {
+  const handleOpenEditColleague = (
+    item: SearchableRecordItem,
+    returnStep: "record" | "review-records" = "record",
+  ) => {
     setEditingRecordId(item.id);
+    setAddRecordReturnStep(returnStep);
     setNewColleagueForm({
       gender: item.gender || "",
       firstName: item.firstName || item.name.split(" ")[0] || "",
@@ -1947,7 +2112,7 @@ export default function DashboardGiftsScreen() {
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
       await refetchContacts();
-      setGiftFlowStep("record", mode, eventId, giftingEventId);
+      setGiftFlowStep(addRecordReturnStep, mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1990,6 +2155,92 @@ export default function DashboardGiftsScreen() {
           : "Unable to delete contact right now.",
       );
     }
+  };
+
+  const handleOpenOnedaBusinessStep = () => {
+    if (!authToken || !onedaAccountId) {
+      toast.error("Your Oneda business details are not available right now.");
+      return;
+    }
+
+    setGiftFlowStep("oneda-business", mode, eventId, giftingEventId);
+  };
+
+  const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
+    const selectedId = ids.at(-1)?.trim() ?? "";
+    const selectedBusiness = onedaBusinessOptions.find(
+      (business) => business.id === selectedId,
+    );
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      selectedOnedaBusinessIds: selectedBusiness ? [selectedBusiness.id] : [],
+      selectedOnedaContactIds: [],
+    });
+  };
+
+  const handleOnedaBusinessNext = () => {
+    if (!selectedOnedaBusinessId) {
+      return;
+    }
+
+    setGiftFlowStep("oneda-contact", mode, eventId, giftingEventId);
+  };
+
+  const handleOnedaContactNext = async () => {
+    if (!selectedOnedaContactIds.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    const selectedProfiles = onedaProfiles.filter((profile) =>
+      selectedOnedaContactIds.includes(profile._id),
+    );
+
+    if (!selectedProfiles.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    try {
+      const response = await createBulkContactsMutation.mutateAsync({
+        contacts: selectedProfiles.map((profile) => ({
+          gender: "male",
+          firstName: profile.accountId.firstName?.trim() || "Unknown",
+          lastName: profile.accountId.lastName?.trim() || "Contact",
+          phoneNumber: profile.accountId.phoneNumber?.trim() || "",
+          email: profile.accountId.email?.trim() || "",
+        })),
+      });
+      const importedRecords = response.data.map((contact) =>
+        mapContactToRecordItem(contact, resolvedCurrentContactId),
+      );
+      const importedRecordIds = importedRecords.map((record) => record.id);
+
+      setCustomContactRecordItems((current) =>
+        mergeRecordItems(current, importedRecords),
+      );
+      setSelectedParticipantContactIds(flowSelectionKey, importedRecordIds);
+      setRecordSearchValue("");
+      setDebouncedRecordSearchValue("");
+      toast.success(response.message);
+      await refetchContacts();
+      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to import business contacts right now.",
+      );
+    }
+  };
+
+  const handleRecordNext = () => {
+    if (!selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant.");
+      return;
+    }
+
+    setGiftFlowStep("review-records", mode, eventId, giftingEventId);
   };
 
   const handleGiftParticipantsNext = async () => {
@@ -2417,6 +2668,53 @@ export default function DashboardGiftsScreen() {
     }
   }, [closeGiftFlowModal, isGiftFlowOpen, currentGiftFlowStep, giftingEventId]);
 
+  const giftSelectionStep = (
+    <WishlistGiftSelectionStep
+      selectedIds={selectedGiftIds}
+      onSelectedIdsChange={(ids) =>
+        setStoredSelectedGiftIds(flowSelectionKey, ids)
+      }
+      onSelectedProductToggle={handleGiftFlowProductToggle}
+      onBack={() =>
+        setGiftFlowStep("review-records", mode, eventId, giftingEventId)
+      }
+      onNext={handleGiftFlowSelectionNext}
+      nextDisabled={
+        !selectedGiftIds.length ||
+        assignBulkGiftsMutation.isPending ||
+        isMyParticipantLoading ||
+        isMyParticipantFetching
+      }
+      nextLabel={assignBulkGiftsMutation.isPending ? "Saving..." : "Next"}
+    />
+  );
+
+  if (isGiftFlowOpen && currentGiftFlowStep === "gift-selection") {
+    return (
+      <div className="space-y-6">
+        <div className="mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
+          <div className="h-full min-h-0">{giftSelectionStep}</div>
+        </div>
+
+        <ConfirmationModal
+          open={isCompleteGiftingEventConfirmationOpen}
+          onClose={() => setIsCompleteGiftingEventConfirmationOpen(false)}
+          onConfirm={handleConfirmCompleteGiftingEvent}
+          action="save"
+          title="Complete Gifting Event"
+          description="Are you sure you are ready to complete this gifting event and continue to the invite step?"
+          confirmText="Yes, Continue"
+          isLoading={
+            assignBulkGiftsMutation.isPending ||
+            completeGiftingEventMutation.isPending
+          }
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -2829,7 +3127,7 @@ export default function DashboardGiftsScreen() {
       />
 
       <ContentModal
-        open={isGiftFlowOpen}
+        open={isGiftFlowOpen && currentGiftFlowStep !== "gift-selection"}
         onClose={closeGiftFlowModal}
         title="Get a Gift"
         showHeader={false}
@@ -2857,7 +3155,7 @@ export default function DashboardGiftsScreen() {
             }
             onSelectedProductToggle={handleGiftFlowProductToggle}
             onBack={() =>
-              setGiftFlowStep("record", mode, eventId, giftingEventId)
+              setGiftFlowStep("review-records", mode, eventId, giftingEventId)
             }
             onNext={handleGiftFlowSelectionNext}
             nextDisabled={
@@ -2939,13 +3237,251 @@ export default function DashboardGiftsScreen() {
             onBack={() => {
               setEditingRecordId(null);
               setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
-              setGiftFlowStep("record", mode, eventId, giftingEventId);
+              setGiftFlowStep(
+                addRecordReturnStep,
+                mode,
+                eventId,
+                giftingEventId,
+              );
             }}
             onSave={handleSaveNewColleague}
             saveDisabled={isSaveNewColleagueDisabled}
             isSaving={activeContactMutationPending}
             saveLabel={editingRecordId ? "Edit" : "Save"}
             savingLabel={editingRecordId ? "Editing" : "Saving"}
+          />
+        ) : currentGiftFlowStep === "source" ? (
+          <div className="space-y-12 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Who&apos;d you like to gift?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px] space-y-4">
+              <ModalButton
+                variant="secondary"
+                onClick={() =>
+                  setGiftFlowStep("record", mode, eventId, giftingEventId)
+                }
+                className="w-full"
+              >
+                From Record
+              </ModalButton>
+              <ModalButton
+                onClick={handleOpenOnedaBusinessStep}
+                className="w-full"
+              >
+                From Oneda
+              </ModalButton>
+            </div>
+
+            <div className="flex justify-center">
+              <BackButton
+                onClick={() =>
+                  setGiftFlowStep(
+                    "event-name",
+                    mode,
+                    eventId,
+                    giftingEventId,
+                  )
+                }
+                className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              />
+            </div>
+          </div>
+        ) : currentGiftFlowStep === "oneda-business" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Which business are you selecting from?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlayRecordPicker
+                items={onedaBusinessOptions}
+                selectedIds={selectedOnedaBusinessIds}
+                onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
+                placeholder="Search for business"
+                panelTitle="Search for business"
+                searchPlaceholder=""
+                isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+                emptyStateText={
+                  isOnedaBusinessesError
+                    ? "Unable to load businesses."
+                    : "No business found."
+                }
+                triggerBottomAction={
+                  <BackButton
+                    onClick={() =>
+                      setGiftFlowStep("source", mode, eventId, giftingEventId)
+                    }
+                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    iconClassName="size-[24px]"
+                  />
+                }
+                footer={
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <BackButton
+                      onClick={() =>
+                        setGiftFlowStep("source", mode, eventId, giftingEventId)
+                      }
+                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      iconClassName="size-[24px]"
+                    />
+
+                    <ModalButton
+                      onClick={handleOnedaBusinessNext}
+                      disabled={!selectedOnedaBusinessId}
+                    >
+                      Next
+                    </ModalButton>
+                  </div>
+                }
+                triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+              />
+            </div>
+
+            {isOnedaBusinessesError ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchOnedaBusinesses()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading businesses
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : currentGiftFlowStep === "oneda-contact" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Who&apos;d you like to gift?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlayRecordPicker
+                items={onedaProfileOptions}
+                selectedIds={selectedOnedaContactIds}
+                onSelectedIdsChange={(ids) =>
+                  setGiftFlowDraftFields(flowSelectionKey, {
+                    selectedOnedaContactIds: ids,
+                  })
+                }
+                placeholder="Search for colleague"
+                panelTitle="Search for colleague"
+                searchPlaceholder=""
+                searchValue={recordSearchValue}
+                onSearchValueChange={setRecordSearchValue}
+                disableLocalFiltering
+                isLoading={isOnedaProfilesLoading || isOnedaProfilesFetching}
+                emptyStateText={
+                  isOnedaProfilesError
+                    ? "Unable to load contacts."
+                    : "No colleague found."
+                }
+                triggerBottomAction={
+                  <BackButton
+                    onClick={() =>
+                      setGiftFlowStep(
+                        "oneda-business",
+                        mode,
+                        eventId,
+                        giftingEventId,
+                      )
+                    }
+                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    iconClassName="size-[24px]"
+                  />
+                }
+                footer={
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <BackButton
+                      onClick={() =>
+                        setGiftFlowStep(
+                          "oneda-business",
+                          mode,
+                          eventId,
+                          giftingEventId,
+                        )
+                      }
+                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      iconClassName="size-[24px]"
+                    />
+
+                    <ModalButton
+                      onClick={handleOnedaContactNext}
+                      disabled={
+                        !selectedOnedaContactIds.length ||
+                        createBulkContactsMutation.isPending
+                      }
+                    >
+                      {createBulkContactsMutation.isPending
+                        ? "Importing..."
+                        : "Next"}
+                    </ModalButton>
+                  </div>
+                }
+                triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+              />
+            </div>
+
+            {isOnedaProfilesError ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchOnedaProfiles()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading contacts
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : currentGiftFlowStep === "review-records" ? (
+          <CustomColleagueReview
+            greetingName={greetingName}
+            items={selectedParticipantReviewItems}
+            prompt="Who would you like to gift?"
+            onAddNew={() => handleOpenAddNewColleague("review-records")}
+            onBack={() =>
+              setGiftFlowStep("source", mode, eventId, giftingEventId)
+            }
+            onNext={handleGiftParticipantsNext}
+            onEdit={(id) => {
+              const item = contactRecordOptions.find(
+                (record) => record.id === id,
+              );
+
+              if (item) {
+                handleOpenEditColleague(item, "review-records");
+              }
+            }}
+            onDelete={(id) =>
+              setSelectedParticipantContactIds(
+                flowSelectionKey,
+                selectedParticipantContactIds.filter(
+                  (selectedId) => selectedId !== id,
+                ),
+              )
+            }
+            nextDisabled={
+              !selectedParticipantReviewItems.length ||
+              createParticipantsBulkMutation.isPending
+            }
           />
         ) : currentGiftFlowStep === "record" ? (
           <div className="space-y-8 pt-2">
@@ -2985,7 +3521,7 @@ export default function DashboardGiftsScreen() {
                   <BackButton
                     onClick={() =>
                       setGiftFlowStep(
-                        "event-name",
+                        "source",
                         mode,
                         eventId,
                         giftingEventId,
@@ -2996,22 +3532,17 @@ export default function DashboardGiftsScreen() {
                   />
                 }
                 addActionLabel="Add New"
-                onAddAction={handleOpenAddNewColleague}
-                onEditItem={handleOpenEditColleague}
+                onAddAction={() => handleOpenAddNewColleague("record")}
+                onEditItem={(item) => handleOpenEditColleague(item, "record")}
                 onDeleteItem={setRecordPendingDelete}
                 suspendDismiss={Boolean(recordPendingDelete)}
                 footer={
                   <ModalButton
                     type="button"
-                    onClick={handleGiftParticipantsNext}
-                    disabled={
-                      !selectedParticipantContactIds.length ||
-                      createParticipantsBulkMutation.isPending
-                    }
+                    onClick={handleRecordNext}
+                    disabled={!selectedParticipantContactIds.length}
                   >
-                    {createParticipantsBulkMutation.isPending
-                      ? "Saving..."
-                      : "Next"}
+                    Next
                   </ModalButton>
                 }
                 triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"

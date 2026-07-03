@@ -9,7 +9,7 @@ export type BulkCreateParticipantsPayload = {
 export type BulkCreateParticipantsResponse = {
   code: number;
   message: string;
-  data?: unknown;
+  data?: EventParticipant[] | EventParticipant | null;
 };
 
 export type UpdateMyParticipantNotificationPayload = {

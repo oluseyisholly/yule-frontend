@@ -220,7 +220,7 @@ function mapEventParticipantToRecordItem(
 function mapExternalBusinessToRecordItem(
   business: ExternalBusinessRecord,
 ): SearchableRecordItem | null {
-  const businessId = business.id?.trim() || business._id?.trim() || "";
+  const businessId = getExternalBusinessRootId(business);
   const businessName = business.businessName?.trim() || "";
 
   if (!businessId || !businessName) {
@@ -256,6 +256,10 @@ function mapExternalBusinessToRecordItem(
     avatarBg,
     avatarColor,
   };
+}
+
+function getExternalBusinessRootId(business: ExternalBusinessRecord) {
+  return business.id?.trim() || business._id?.trim() || "";
 }
 
 function mergeRecordItems(...groups: SearchableRecordItem[][]) {
@@ -744,23 +748,40 @@ export default function DrawNameStartModal({
       Boolean(onedaAccountId) &&
       Boolean(authToken),
   });
-  const selectedOnedaBusinessId =
-    Array.isArray(selectedOnedaBusinessIds) &&
-    selectedOnedaBusinessIds.length > 0
-      ? (selectedOnedaBusinessIds[0] ?? null)
-      : null;
+  const selectedOnedaBusinessId = useMemo(() => {
+    const candidateId = selectedOnedaBusinessIds.at(-1)?.trim() ?? "";
+
+    if (!candidateId) {
+      return null;
+    }
+
+    if (!onedaBusinesses.length) {
+      return candidateId;
+    }
+
+    const selectedBusiness = onedaBusinesses.find(
+      (business) => getExternalBusinessRootId(business) === candidateId,
+    );
+
+    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+  }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
     isLoading: isOnedaProfilesLoading,
     isFetching: isOnedaProfilesFetching,
     isError: isOnedaProfilesError,
     refetch: refetchOnedaProfiles,
-  } = useOnedaProfilesQuery(selectedOnedaBusinessId, authToken, {
-    enabled:
-      open &&
-      currentStep === "oneda-contact" &&
-      Boolean(selectedOnedaBusinessId),
-  });
+  } = useOnedaProfilesQuery(
+    selectedOnedaBusinessId,
+    authToken,
+    debouncedRecordSearchValue,
+    {
+      enabled:
+        open &&
+        currentStep === "oneda-contact" &&
+        Boolean(selectedOnedaBusinessId),
+    },
+  );
   const {
     data: contactsResponse,
     isLoading: isContactsLoading,
@@ -881,6 +902,10 @@ export default function DrawNameStartModal({
           Boolean(business),
         ),
     [onedaBusinesses],
+  );
+  const onedaBusinessOptionIds = useMemo(
+    () => new Set(onedaBusinessOptions.map((business) => business.id)),
+    [onedaBusinessOptions],
   );
   const onedaProfileOptions = useMemo<SearchableRecordItem[]>(
     () =>
@@ -1357,6 +1382,27 @@ export default function DrawNameStartModal({
     hydratedFlowSelectionKeyRef.current = flowSelectionKey;
     setIsFlowSelectionHydrated(true);
   }, [flowSelectionKey, storedFlowSelection]);
+
+  useEffect(() => {
+    if (!selectedOnedaBusinessIds.length || !onedaBusinessOptions.length) {
+      return;
+    }
+
+    const hasInvalidBusinessSelection = selectedOnedaBusinessIds.some(
+      (businessId) => !onedaBusinessOptionIds.has(businessId),
+    );
+
+    if (!hasInvalidBusinessSelection) {
+      return;
+    }
+
+    setSelectedOnedaBusinessIds([]);
+    setSelectedOnedaContactIds([]);
+  }, [
+    onedaBusinessOptionIds,
+    onedaBusinessOptions.length,
+    selectedOnedaBusinessIds,
+  ]);
 
   useEffect(() => {
     if (
@@ -2131,7 +2177,12 @@ export default function DrawNameStartModal({
   };
 
   const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
-    setSelectedOnedaBusinessIds(ids.slice(-1));
+    const selectedId = ids.at(-1)?.trim() ?? "";
+    const selectedBusiness = onedaBusinessOptions.find(
+      (business) => business.id === selectedId,
+    );
+
+    setSelectedOnedaBusinessIds(selectedBusiness ? [selectedBusiness.id] : []);
     setSelectedOnedaContactIds([]);
   };
 
@@ -2140,7 +2191,7 @@ export default function DrawNameStartModal({
   };
 
   const handleOnedaBusinessNext = () => {
-    if (!selectedOnedaBusinessIds.length) return;
+    if (!selectedOnedaBusinessId) return;
     onStepChange("oneda-contact");
   };
 
@@ -3179,7 +3230,7 @@ export default function DrawNameStartModal({
 
                 <ModalButton
                   onClick={handleOnedaBusinessNext}
-                  disabled={!selectedOnedaBusinessIds.length}
+                  disabled={!selectedOnedaBusinessId}
                 >
                   Next
                 </ModalButton>
@@ -3220,6 +3271,9 @@ export default function DrawNameStartModal({
             placeholder="Search for colleague"
             panelTitle="Search for colleague"
             searchPlaceholder=""
+            searchValue={recordSearchValue}
+            onSearchValueChange={setRecordSearchValue}
+            disableLocalFiltering
             isLoading={isOnedaProfilesLoading || isOnedaProfilesFetching}
             emptyStateText={
               isOnedaProfilesError
@@ -3603,7 +3657,7 @@ export default function DrawNameStartModal({
   if (renderInline && currentStep === "wishlist-gifts") {
     return (
       <>
-        <div className="min-h-[560px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
+        <div className="mx-auto min-h-[760px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
           <div className="h-full min-h-0">{modalContent}</div>
         </div>
 
@@ -3631,7 +3685,7 @@ export default function DrawNameStartModal({
           isDrawResultStep
             ? "overflow-hidden p-0"
             : isLargeGiftStep
-              ? "!max-h-[calc(100vh-1.5rem)] h-[calc(100vh-1.5rem)] px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
+              ? "!max-h-[calc(100vh-1rem)] h-[calc(100vh-1rem)] px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
               : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
         }
       >

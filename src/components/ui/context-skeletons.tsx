@@ -283,30 +283,30 @@ export function GiftGridLoadingSkeleton({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4",
+        "grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4",
         className,
       )}
     >
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={`gift-grid-skeleton-${index}`}
-          className="rounded-[18px] border border-[#EEEAF7] bg-white p-3 shadow-[0_2px_6px_rgba(33,16,93,0.04)]"
+          className="min-w-0 rounded-[10px] border border-[#EEEAF7] bg-white p-2 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:rounded-[12px] sm:px-3 sm:py-2"
         >
-          <Skeleton className="h-[170px] w-full rounded-[14px]" />
-          <div className="mt-3 space-y-3">
+          <Skeleton className="h-[96px] w-full rounded-[6px] sm:h-[110px] lg:h-[120px]" />
+          <div className="mt-2 space-y-2 sm:mt-2.5">
             <div className="flex items-start justify-between gap-3">
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="size-[18px] rounded-full" />
+              <Skeleton className="h-4 w-24 min-w-0" />
+              <Skeleton className="size-[14px] shrink-0 rounded-full sm:size-[16px]" />
             </div>
-            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-4 w-16 rounded-full" />
             <div className="space-y-2">
               <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-[88%]" />
+              <Skeleton className="hidden h-3 w-[88%] sm:block" />
             </div>
-            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-20" />
             <div className="flex items-center justify-between gap-3 pt-1">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="size-5 rounded-[5px]" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="size-4.5 shrink-0 rounded-[4px] sm:size-5 sm:rounded-[5px]" />
             </div>
           </div>
         </div>

@@ -24,13 +24,13 @@ import BackButton from "@/components/BackButton";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import CustomColleagueReview from "@/components/CustomColleagueReview";
 import DrawNameInviteStep, {
   type DrawNameInviteParticipant,
 } from "@/components/DrawNameInviteStep";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EventDateStep from "@/components/EventDateStep";
 import GroupNameStep from "@/components/GroupNameStep";
-import HangoutGuestCountStep from "@/components/HangoutGuestCountStep";
 import ModalButton from "@/components/ModalButtons";
 import OverlayRecordPicker from "@/components/OverlayRecordPicker";
 import OverlaySelect, {
@@ -69,7 +69,14 @@ import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateCon
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useEnsureMyContactMutation } from "@/features/contacts/hooks/useEnsureMyContactMutation";
 import { useUpdateContactMutation } from "@/features/contacts/hooks/useUpdateContactMutation";
+import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCreateBulkContactsMutation";
 import type { Contact } from "@/features/contacts/types";
+import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
+import {
+  type OnedaProfile,
+  useOnedaProfilesQuery,
+} from "@/features/auth/hooks/useOnedaProfilesQuery";
+import type { ExternalBusinessRecord } from "@/features/auth/types";
 import { getEventTypeIcon } from "@/features/event-types/event-type-icons";
 import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAvailableEventTypesQuery";
 import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
@@ -674,6 +681,79 @@ function mapHangoutParticipantToRecordItem(
   };
 }
 
+function getExternalBusinessRootId(business: ExternalBusinessRecord) {
+  return business.id?.trim() || business._id?.trim() || "";
+}
+
+function mapExternalBusinessToRecordItem(
+  business: ExternalBusinessRecord,
+): SearchableRecordItem | null {
+  const businessId = getExternalBusinessRootId(business);
+  const businessName = business.businessName?.trim() || "";
+
+  if (!businessId || !businessName) {
+    return null;
+  }
+
+  const subtitleParts = [
+    business.businessLocation?.trim(),
+    business.state?.trim(),
+    business.country?.trim(),
+    business.industry?.trim(),
+  ].filter(Boolean);
+  const { avatarBg, avatarColor } = getContactAvatarStyle(businessId);
+  const initials = businessName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+
+  return {
+    id: businessId,
+    name: businessName,
+    subtitle: subtitleParts.join(" • ") || "Business",
+    createdById: null,
+    isManageable: false,
+    firstName: businessName,
+    lastName: "",
+    phoneNumber: "",
+    gender: "",
+    initials: initials || "ON",
+    avatarBg,
+    avatarColor,
+  };
+}
+
+function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
+  const firstName = profile.accountId.firstName?.trim() || "";
+  const lastName = profile.accountId.lastName?.trim() || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  const email = profile.accountId.email?.trim() || "";
+  const { avatarBg, avatarColor } = getContactAvatarStyle(
+    profile._id || email || fullName,
+  );
+
+  return {
+    id: profile._id,
+    name: fullName || email || "Unnamed contact",
+    subtitle: email || "Contact",
+    email,
+    createdById: null,
+    isManageable: false,
+    firstName,
+    lastName,
+    phoneNumber: profile.accountId.phoneNumber?.trim() || "",
+    gender: "",
+    profileUrl: profile.profilePhotoUrl?.trim() || null,
+    initials: `${firstName.charAt(0)}${lastName.charAt(0)}`
+      .trim()
+      .toUpperCase() || "CT",
+    avatarBg,
+    avatarColor,
+  };
+}
+
 function mergeRecordItems(...groups: SearchableRecordItem[][]) {
   const nextRecordItemsById = new Map<string, SearchableRecordItem>();
 
@@ -745,6 +825,12 @@ function normalizeHangoutFlowSelection(
     )
       ? selection.selectedParticipantContactIds
       : EMPTY_HANGOUT_FLOW_SELECTION.selectedParticipantContactIds,
+    selectedOnedaBusinessIds: Array.isArray(selection?.selectedOnedaBusinessIds)
+      ? selection.selectedOnedaBusinessIds
+      : EMPTY_HANGOUT_FLOW_SELECTION.selectedOnedaBusinessIds,
+    selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
+      ? selection.selectedOnedaContactIds
+      : EMPTY_HANGOUT_FLOW_SELECTION.selectedOnedaContactIds,
   };
 }
 
@@ -759,6 +845,8 @@ function hasHangoutFlowDraft(selection: HangoutFlowSelectionState) {
     selection.checkInDate !== EMPTY_HANGOUT_FLOW_SELECTION.checkInDate ||
     selection.checkOutDate !== EMPTY_HANGOUT_FLOW_SELECTION.checkOutDate ||
     selection.guestCount !== EMPTY_HANGOUT_FLOW_SELECTION.guestCount ||
+    selection.selectedOnedaBusinessIds.length > 0 ||
+    selection.selectedOnedaContactIds.length > 0 ||
     selection.selectedParticipantContactIds.length > 0 ||
     selection.selectedListingIds.length > 0 ||
     Object.keys(selection.selectedListingsById).length > 0
@@ -869,11 +957,16 @@ export default function DashboardHangoutsScreen() {
   ]);
 
   const authUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
   const currentContactId = useAuthStore((state) => state.currentContactId);
   const setCurrentContactId = useAuthStore(
     (state) => state.setCurrentContactId,
   );
   const greetingName = authUser?.firstName?.trim() || "there";
+  const onedaAccountId =
+    authUser?.profile?.accountId?._id?.trim() ||
+    authUser?.hostAccountId?.trim() ||
+    null;
   const resolvedCurrentContactId =
     currentContactId?.trim() || ensuredCurrentContactId;
 
@@ -888,6 +981,10 @@ export default function DashboardHangoutsScreen() {
     replaceCurrentStep: replaceHangoutFlowStep,
     closeModal: closeHangoutFlowModal,
   } = useHangoutModalRouteState();
+  const effectiveHangoutFlowStep =
+    currentHangoutFlowStep === "event-date"
+      ? "event-name"
+      : currentHangoutFlowStep;
   const flowSelectionKey = buildHangoutFlowSelectionKey(mode, eventId);
   const flowSelectionsByKey = useHangoutFlowStore(
     (state) => state.flowSelectionsByKey,
@@ -912,11 +1009,12 @@ export default function DashboardHangoutsScreen() {
     [flowSelectionKey, flowSelectionsByKey],
   );
   const selectedHangoutEventTypeId = currentFlowSelection.selectedEventTypeId;
-  const selectedHangoutEventDate = currentFlowSelection.eventDate;
   const hangoutEventName = currentFlowSelection.eventName;
   const selectedHangoutCheckInDate = currentFlowSelection.checkInDate;
   const selectedHangoutCheckOutDate = currentFlowSelection.checkOutDate;
   const selectedHangoutGuestCount = currentFlowSelection.guestCount;
+  const selectedOnedaBusinessIds = currentFlowSelection.selectedOnedaBusinessIds;
+  const selectedOnedaContactIds = currentFlowSelection.selectedOnedaContactIds;
   const selectedListingIds = currentFlowSelection.selectedListingIds;
   const selectedListingsById = currentFlowSelection.selectedListingsById;
   const selectedParticipantContactIds =
@@ -971,6 +1069,53 @@ export default function DashboardHangoutsScreen() {
   } = useHangoutEventQuery(isHangoutFlowOpen && eventId ? eventId : null);
   const selectedMarketplaceListingId =
     currentHangoutEventRecord?.hangoutEventId?.trim() || null;
+  const {
+    data: onedaBusinesses = [],
+    isLoading: isOnedaBusinessesLoading,
+    isFetching: isOnedaBusinessesFetching,
+    isError: isOnedaBusinessesError,
+    refetch: refetchOnedaBusinesses,
+  } = useExternalBusinessesQuery(onedaAccountId, authToken, {
+    enabled:
+      isHangoutFlowOpen &&
+      effectiveHangoutFlowStep === "oneda-business" &&
+      Boolean(onedaAccountId) &&
+      Boolean(authToken),
+  });
+  const selectedOnedaBusinessId = useMemo(() => {
+    const candidateId = selectedOnedaBusinessIds.at(-1)?.trim() ?? "";
+
+    if (!candidateId) {
+      return null;
+    }
+
+    if (!onedaBusinesses.length) {
+      return candidateId;
+    }
+
+    const selectedBusiness = onedaBusinesses.find(
+      (business) => getExternalBusinessRootId(business) === candidateId,
+    );
+
+    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+  }, [onedaBusinesses, selectedOnedaBusinessIds]);
+  const {
+    data: onedaProfiles = [],
+    isLoading: isOnedaProfilesLoading,
+    isFetching: isOnedaProfilesFetching,
+    isError: isOnedaProfilesError,
+    refetch: refetchOnedaProfiles,
+  } = useOnedaProfilesQuery(
+    selectedOnedaBusinessId,
+    authToken,
+    debouncedRecordSearchValue,
+    {
+      enabled:
+        isHangoutFlowOpen &&
+        effectiveHangoutFlowStep === "oneda-contact" &&
+        Boolean(selectedOnedaBusinessId),
+    },
+  );
   const { data: selectedMarketplaceListing } = useMarketplaceProductQuery(
     selectedMarketplaceListingId,
     {
@@ -989,6 +1134,7 @@ export default function DashboardHangoutsScreen() {
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const ensureMyContactMutation = useEnsureMyContactMutation();
   const createContactMutation = useCreateContactMutation();
+  const createBulkContactsMutation = useCreateBulkContactsMutation();
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
@@ -1102,6 +1248,23 @@ export default function DashboardHangoutsScreen() {
       ),
     [contactsResponse?.data.data, resolvedCurrentContactId],
   );
+  const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
+    () =>
+      onedaBusinesses
+        .map((business) => mapExternalBusinessToRecordItem(business))
+        .filter((business): business is SearchableRecordItem =>
+          Boolean(business),
+        ),
+    [onedaBusinesses],
+  );
+  const onedaBusinessOptionIds = useMemo(
+    () => new Set(onedaBusinessOptions.map((business) => business.id)),
+    [onedaBusinessOptions],
+  );
+  const onedaProfileOptions = useMemo<SearchableRecordItem[]>(
+    () => onedaProfiles.map(mapOnedaProfileToRecordItem),
+    [onedaProfiles],
+  );
   const contactRecordOptions = useMemo(
     () =>
       mergeRecordItems(
@@ -1114,6 +1277,18 @@ export default function DashboardHangoutsScreen() {
       fetchedContactRecordItems,
       selectedParticipantRecordItems,
     ],
+  );
+  const selectedParticipantReviewItems = useMemo(
+    () =>
+      selectedParticipantContactIds
+        .map((contactId) => contactRecordOptions.find((item) => item.id === contactId))
+        .filter((item): item is SearchableRecordItem => Boolean(item))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          email: item.email || item.subtitle || "",
+        })),
+    [contactRecordOptions, selectedParticipantContactIds],
   );
   const hangoutInviteParticipants = useMemo<DrawNameInviteParticipant[]>(() => {
     const eventParticipants =
@@ -1336,12 +1511,6 @@ export default function DashboardHangoutsScreen() {
         currentHangoutEventRecord.event.eventTypeId;
     }
 
-    if (!selectedHangoutEventDate) {
-      nextFields.eventDate = toDateInputValue(
-        currentHangoutEventRecord.event.eventDate,
-      );
-    }
-
     if (!hangoutEventName.trim()) {
       nextFields.eventName =
         currentHangoutEventRecord.event.title?.trim() || "Untitled hangout";
@@ -1379,9 +1548,33 @@ export default function DashboardHangoutsScreen() {
     mode,
     selectedHangoutCheckInDate,
     selectedHangoutCheckOutDate,
-    selectedHangoutEventDate,
     selectedHangoutGuestCount,
     selectedHangoutEventTypeId,
+    setHangoutFlowDraftFields,
+  ]);
+
+  useEffect(() => {
+    if (!selectedOnedaBusinessIds.length || !onedaBusinessOptions.length) {
+      return;
+    }
+
+    const hasInvalidBusinessSelection = selectedOnedaBusinessIds.some(
+      (businessId) => !onedaBusinessOptionIds.has(businessId),
+    );
+
+    if (!hasInvalidBusinessSelection) {
+      return;
+    }
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      selectedOnedaBusinessIds: [],
+      selectedOnedaContactIds: [],
+    });
+  }, [
+    flowSelectionKey,
+    onedaBusinessOptionIds,
+    onedaBusinessOptions.length,
+    selectedOnedaBusinessIds,
     setHangoutFlowDraftFields,
   ]);
 
@@ -1464,13 +1657,27 @@ export default function DashboardHangoutsScreen() {
     }
 
     setHangoutFlowDraftFields(flowSelectionKey, {
-      lastVisitedStep: currentHangoutFlowStep,
+      lastVisitedStep: effectiveHangoutFlowStep,
     });
   }, [
-    currentHangoutFlowStep,
+    effectiveHangoutFlowStep,
     flowSelectionKey,
     isHangoutFlowOpen,
     setHangoutFlowDraftFields,
+  ]);
+
+  useEffect(() => {
+    if (!isHangoutFlowOpen || currentHangoutFlowStep !== "event-date") {
+      return;
+    }
+
+    replaceHangoutFlowStep("event-name", mode, eventId);
+  }, [
+    currentHangoutFlowStep,
+    eventId,
+    isHangoutFlowOpen,
+    mode,
+    replaceHangoutFlowStep,
   ]);
 
   useEffect(() => {
@@ -1579,6 +1786,8 @@ export default function DashboardHangoutsScreen() {
       checkInDate: sourceSelection.checkInDate || row.checkInDateValue,
       checkOutDate: sourceSelection.checkOutDate || row.checkOutDateValue,
       guestCount: sourceSelection.guestCount || row.numberOfGuestsValue,
+      selectedOnedaBusinessIds: sourceSelection.selectedOnedaBusinessIds,
+      selectedOnedaContactIds: sourceSelection.selectedOnedaContactIds,
     });
     setSelectedParticipantContactIds(
       editFlowKey,
@@ -1716,7 +1925,7 @@ export default function DashboardHangoutsScreen() {
         return;
       }
 
-      setHangoutFlowStep("event-date", mode, eventId);
+      setHangoutFlowStep("event-name", mode, eventId);
       return;
     }
 
@@ -1731,9 +1940,8 @@ export default function DashboardHangoutsScreen() {
       const nextFlowKey = buildHangoutFlowSelectionKey("create", nextEventId);
 
       setHangoutFlowDraftFields(nextFlowKey, {
-        lastVisitedStep: "event-date",
+        lastVisitedStep: "event-name",
         selectedEventTypeId: selectedEventTypeOption.value,
-        eventDate: selectedHangoutEventDate,
         eventName: response.data.event.title || selectedEventTypeOption.label,
       });
 
@@ -1749,7 +1957,7 @@ export default function DashboardHangoutsScreen() {
       }
 
       toast.success(response.message);
-      setHangoutFlowStep("event-date", "create", nextEventId);
+      setHangoutFlowStep("event-name", "create", nextEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1759,44 +1967,13 @@ export default function DashboardHangoutsScreen() {
     }
   };
 
-  const handleHangoutEventDateNext = async () => {
-    if (!selectedHangoutEventDate) {
-      return;
-    }
-
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
-    try {
-      await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          event: {
-            eventDate: toIsoDate(selectedHangoutEventDate),
-          },
-        },
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this hangout right now.",
-      );
-      return;
-    }
-
-    setHangoutFlowStep("event-name", mode, eventId);
-  };
-
   const handleSaveHangoutEventDetails = async () => {
     if (!eventId) {
       toast.error("Unable to resolve this hangout right now.");
       return;
     }
 
-    if (!selectedHangoutEventTypeId || !selectedHangoutEventDate) {
+    if (!selectedHangoutEventTypeId) {
       toast.error("Please complete all hangout details.");
       return;
     }
@@ -1813,7 +1990,6 @@ export default function DashboardHangoutsScreen() {
           event: {
             title: resolvedTitle,
             eventTypeId: selectedHangoutEventTypeId,
-            eventDate: toIsoDate(selectedHangoutEventDate),
           },
         },
       });
@@ -1878,7 +2054,7 @@ export default function DashboardHangoutsScreen() {
           checkOutDate: toIsoDate(selectedHangoutCheckOutDate),
         },
       });
-      setHangoutFlowStep("record", mode, eventId);
+      setHangoutFlowStep("source", mode, eventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1888,34 +2064,30 @@ export default function DashboardHangoutsScreen() {
     }
   };
 
-  const handleHangoutGuestCountNext = async () => {
-    const parsedGuestCount = Number(selectedHangoutGuestCount);
-
-    if (!Number.isFinite(parsedGuestCount) || parsedGuestCount <= 0) {
-      toast.error("Please enter the number of guests.");
+  const handleOpenOnedaBusinessStep = () => {
+    if (!authToken || !onedaAccountId) {
+      toast.error("Your Oneda business details are not available right now.");
       return;
     }
 
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
+    setHangoutFlowStep("oneda-business", mode, eventId);
+  };
 
-    try {
-      await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          numberOfGuests: parsedGuestCount,
-        },
-      });
-      setHangoutFlowStep("record", mode, eventId);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this hangout right now.",
-      );
-    }
+  const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
+    const selectedId = ids.at(-1)?.trim() ?? "";
+    const selectedBusiness = onedaBusinessOptions.find(
+      (business) => business.id === selectedId,
+    );
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      selectedOnedaBusinessIds: selectedBusiness ? [selectedBusiness.id] : [],
+      selectedOnedaContactIds: [],
+    });
+  };
+
+  const handleOnedaBusinessNext = () => {
+    if (!selectedOnedaBusinessId) return;
+    setHangoutFlowStep("oneda-contact", mode, eventId);
   };
 
   const activeContactMutationPending =
@@ -2070,45 +2242,119 @@ export default function DashboardHangoutsScreen() {
     setSelectedListingsById(flowSelectionKey, nextListingsById);
   };
 
-  const handleHangoutParticipantsNext = async () => {
+  const saveHangoutParticipants = async (contactIds: string[]) => {
     if (!eventId) {
       toast.error("Unable to resolve this hangout right now.");
-      return;
+      return false;
     }
 
-    if (!selectedParticipantContactIds.length) {
+    if (!contactIds.length) {
       toast.error("Please select at least one participant.");
-      return;
+      return false;
     }
 
     try {
       const response = await createParticipantsBulkMutation.mutateAsync({
         eventId,
         role: "participant",
-        contactIds: selectedParticipantContactIds,
+        contactIds,
       });
 
       await updateHangoutEventMutation.mutateAsync({
         eventId,
         payload: {
-          numberOfGuests: selectedParticipantContactIds.length,
+          numberOfGuests: contactIds.length,
         },
       });
 
       setHangoutFlowDraftFields(flowSelectionKey, {
-        guestCount: String(selectedParticipantContactIds.length),
+        guestCount: String(contactIds.length),
       });
 
       await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
       toast.success(response.message || "Participants saved successfully.");
       setHangoutFlowStep("hangout-selection", mode, eventId);
+      return true;
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Unable to add participants right now.",
       );
+      return false;
     }
+  };
+
+  const handleHangoutParticipantsNext = async () => {
+    if (!selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant.");
+      return;
+    }
+
+    setHangoutFlowStep("review-records", mode, eventId);
+  };
+
+  const handleOnedaContactNext = async () => {
+    if (!selectedOnedaContactIds.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    const selectedProfiles = onedaProfiles.filter((profile) =>
+      selectedOnedaContactIds.includes(profile._id),
+    );
+
+    if (!selectedProfiles.length) {
+      toast.error("Please select at least one contact to continue.");
+      return;
+    }
+
+    try {
+      const response = await createBulkContactsMutation.mutateAsync({
+        contacts: selectedProfiles.map((profile) => ({
+          gender: "male",
+          firstName: profile.accountId.firstName?.trim() || "Unknown",
+          lastName: profile.accountId.lastName?.trim() || "Contact",
+          phoneNumber: profile.accountId.phoneNumber?.trim() || "",
+          email: profile.accountId.email?.trim() || "",
+        })),
+      });
+      const createdContactIds = response.data
+        .map((contact) => contact.id)
+        .filter(Boolean);
+
+      if (!createdContactIds.length) {
+        toast.error("Unable to resolve the selected contacts right now.");
+        return;
+      }
+
+      const createdRecordItems = response.data.map((contact) =>
+        mapContactToRecordItem(contact, resolvedCurrentContactId),
+      );
+
+      setCustomContactRecordItems((current) =>
+        mergeRecordItems(current, createdRecordItems),
+      );
+      setSelectedParticipantContactIds(flowSelectionKey, createdContactIds);
+      setHangoutFlowStep("review-records", mode, eventId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to import Oneda contacts right now.",
+      );
+    }
+  };
+
+  const handleHangoutReviewNext = async () => {
+    await saveHangoutParticipants(selectedParticipantContactIds);
+  };
+
+  const handleDeleteReviewParticipant = (id: string) => {
+    setSelectedParticipantContactIds(
+      flowSelectionKey,
+      selectedParticipantContactIds.filter((contactId) => contactId !== id),
+    );
   };
 
   const handleHangoutSelectionNext = async () => {
@@ -2316,6 +2562,58 @@ export default function DashboardHangoutsScreen() {
     ),
     emptyRowClassName: "bg-white",
   };
+
+  const hangoutSelectionStep = (
+    <WishlistGiftSelectionStep
+      selectedIds={selectedListingIds}
+      onSelectedIdsChange={handleHangoutListingIdsChange}
+      onSelectedProductToggle={handleHangoutListingToggle}
+      onBack={() => setHangoutFlowStep("review-records", mode, eventId)}
+      onNext={handleHangoutSelectionNext}
+      nextDisabled={
+        !selectedListingIds.length ||
+        updateHangoutEventMutation.isPending ||
+        completeHangoutEventMutation.isPending
+      }
+      nextLabel={
+        updateHangoutEventMutation.isPending ||
+        completeHangoutEventMutation.isPending
+          ? "Saving..."
+          : "Next"
+      }
+      selectionMode="single"
+      title="Pick a place for your hangout."
+      description="Choose one option to represent this hangout. We'll save the selected image and listing reference to your event."
+      searchPlaceholder="Search for hangout"
+      emptyStateText="No hangout options matched your current filters."
+    />
+  );
+
+  const isInlineHangoutSelectionStep =
+    isHangoutFlowOpen && effectiveHangoutFlowStep === "hangout-selection";
+
+  if (isInlineHangoutSelectionStep) {
+    return (
+      <div className="space-y-6">
+        <div className="mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
+          <div className="h-full min-h-0">{hangoutSelectionStep}</div>
+        </div>
+
+        <ConfirmationModal
+          open={isCompleteHangoutEventConfirmationOpen}
+          onClose={() => setIsCompleteHangoutEventConfirmationOpen(false)}
+          onConfirm={handleConfirmCompleteHangoutEvent}
+          action="save"
+          title="Complete Hangout"
+          description="Are you sure you are ready to complete this hangout and continue to the invite step?"
+          confirmText="Yes, Continue"
+          isLoading={completeHangoutEventMutation.isPending}
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -2555,7 +2853,7 @@ export default function DashboardHangoutsScreen() {
       />
 
       <ContentModal
-        open={isHangoutFlowOpen}
+        open={isHangoutFlowOpen && !isInlineHangoutSelectionStep}
         onClose={closeHangoutFlowModal}
         title="Plan Hangout"
         showHeader={false}
@@ -2573,22 +2871,7 @@ export default function DashboardHangoutsScreen() {
             : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10",
         )}
       >
-        {currentHangoutFlowStep === "event-date" ? (
-          <EventDateStep
-            eventName={selectedEventTypeOption?.label ?? "Event"}
-            value={selectedHangoutEventDate}
-            onChange={(value) =>
-              setHangoutFlowDraftFields(flowSelectionKey, {
-                eventDate: value,
-              })
-            }
-            onBack={() => setHangoutFlowStep("event", mode, eventId)}
-            onNext={handleHangoutEventDateNext}
-            heading="What's the date?"
-            headingAlign="left"
-            showGoToEventNameLink={false}
-          />
-        ) : currentHangoutFlowStep === "event-name" ? (
+        {effectiveHangoutFlowStep === "event-name" ? (
           <GroupNameStep
             value={hangoutEventName}
             onChange={(value) =>
@@ -2596,7 +2879,7 @@ export default function DashboardHangoutsScreen() {
                 eventName: value,
               })
             }
-            onBack={() => setHangoutFlowStep("event-date", mode, eventId)}
+            onBack={() => setHangoutFlowStep("event", mode, eventId)}
             onNext={handleSaveHangoutEventDetails}
             title="Below is a suggestion of a name for your event."
             description="Feel free to edit as you see fit."
@@ -2606,7 +2889,7 @@ export default function DashboardHangoutsScreen() {
             }
             nextDisabled={updateHangoutEventMutation.isPending}
           />
-        ) : currentHangoutFlowStep === "check-in-date" ? (
+        ) : effectiveHangoutFlowStep === "check-in-date" ? (
           <EventDateStep
             eventName={selectedEventTypeOption?.label ?? "Hangout"}
             value={selectedHangoutCheckInDate}
@@ -2621,7 +2904,7 @@ export default function DashboardHangoutsScreen() {
             headingAlign="left"
             showGoToEventNameLink={false}
           />
-        ) : currentHangoutFlowStep === "check-out-date" ? (
+        ) : effectiveHangoutFlowStep === "check-out-date" ? (
           <EventDateStep
             eventName={selectedEventTypeOption?.label ?? "Hangout"}
             value={selectedHangoutCheckOutDate}
@@ -2636,31 +2919,207 @@ export default function DashboardHangoutsScreen() {
             headingAlign="left"
             showGoToEventNameLink={false}
           />
-        ) : currentHangoutFlowStep === "hangout-selection" ? (
-          <WishlistGiftSelectionStep
-            selectedIds={selectedListingIds}
-            onSelectedIdsChange={handleHangoutListingIdsChange}
-            onSelectedProductToggle={handleHangoutListingToggle}
-            onBack={() => setHangoutFlowStep("record", mode, eventId)}
-            onNext={handleHangoutSelectionNext}
+        ) : effectiveHangoutFlowStep === "source" ? (
+          <div className="space-y-12 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Who&apos;d you like to hangout with?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px] space-y-4">
+              <ModalButton
+                variant="secondary"
+                onClick={() => setHangoutFlowStep("record", mode, eventId)}
+                className="w-full"
+              >
+                From Record
+              </ModalButton>
+              <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
+                From Oneda
+              </ModalButton>
+            </div>
+
+            <div className="flex justify-center">
+              <BackButton
+                onClick={() => setHangoutFlowStep("check-out-date", mode, eventId)}
+                className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              />
+            </div>
+          </div>
+        ) : effectiveHangoutFlowStep === "oneda-business" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Which business are you selecting from?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlayRecordPicker
+                items={onedaBusinessOptions}
+                selectedIds={selectedOnedaBusinessIds}
+                onSelectedIdsChange={handleSelectedOnedaBusinessIdsChange}
+                placeholder="Search for business"
+                panelTitle="Search for business"
+                searchPlaceholder=""
+                isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+                emptyStateText={
+                  isOnedaBusinessesError
+                    ? "Unable to load businesses."
+                    : "No business found."
+                }
+                triggerBottomAction={
+                  <BackButton
+                    onClick={() => setHangoutFlowStep("source", mode, eventId)}
+                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    iconClassName="size-[24px]"
+                  />
+                }
+                footer={
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <BackButton
+                      onClick={() => setHangoutFlowStep("source", mode, eventId)}
+                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      iconClassName="size-[24px]"
+                    />
+
+                    <ModalButton
+                      onClick={handleOnedaBusinessNext}
+                      disabled={!selectedOnedaBusinessId}
+                    >
+                      Next
+                    </ModalButton>
+                  </div>
+                }
+                triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+              />
+            </div>
+
+            {isOnedaBusinessesError ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchOnedaBusinesses()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading businesses
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : effectiveHangoutFlowStep === "oneda-contact" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+                Hey {greetingName},
+              </p>
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Who&apos;d you like to hangout with?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlayRecordPicker
+                items={onedaProfileOptions}
+                selectedIds={selectedOnedaContactIds}
+                onSelectedIdsChange={(ids) =>
+                  setHangoutFlowDraftFields(flowSelectionKey, {
+                    selectedOnedaContactIds: ids,
+                  })
+                }
+                placeholder="Search for colleague"
+                panelTitle="Search for colleague"
+                searchPlaceholder=""
+                searchValue={recordSearchValue}
+                onSearchValueChange={setRecordSearchValue}
+                disableLocalFiltering
+                isLoading={isOnedaProfilesLoading || isOnedaProfilesFetching}
+                emptyStateText={
+                  isOnedaProfilesError
+                    ? "Unable to load contacts."
+                    : "No colleague found."
+                }
+                triggerBottomAction={
+                  <BackButton
+                    onClick={() =>
+                      setHangoutFlowStep("oneda-business", mode, eventId)
+                    }
+                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    iconClassName="size-[24px]"
+                  />
+                }
+                footer={
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <BackButton
+                      onClick={() =>
+                        setHangoutFlowStep("oneda-business", mode, eventId)
+                      }
+                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      iconClassName="size-[24px]"
+                    />
+
+                    <ModalButton
+                      onClick={handleOnedaContactNext}
+                      disabled={
+                        !selectedOnedaContactIds.length ||
+                        createBulkContactsMutation.isPending ||
+                        createParticipantsBulkMutation.isPending
+                      }
+                    >
+                      {createBulkContactsMutation.isPending ||
+                      createParticipantsBulkMutation.isPending
+                        ? "Saving..."
+                        : "Next"}
+                    </ModalButton>
+                  </div>
+                }
+                triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
+              />
+            </div>
+
+            {isOnedaProfilesError ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchOnedaProfiles()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading contacts
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : effectiveHangoutFlowStep === "review-records" ? (
+          <CustomColleagueReview
+            greetingName={greetingName}
+            prompt="Who'd you like to hangout with?"
+            items={selectedParticipantReviewItems}
+            onAddNew={handleOpenAddNewColleague}
+            onBack={() => setHangoutFlowStep("source", mode, eventId)}
+            onNext={handleHangoutReviewNext}
+            onEdit={(id) => {
+              const item = contactRecordOptions.find((record) => record.id === id);
+              if (item) {
+                handleOpenEditColleague(item);
+              }
+            }}
+            onDelete={handleDeleteReviewParticipant}
             nextDisabled={
-              !selectedListingIds.length ||
-              updateHangoutEventMutation.isPending ||
-              completeHangoutEventMutation.isPending
+              selectedParticipantReviewItems.length === 0 ||
+              createParticipantsBulkMutation.isPending ||
+              updateHangoutEventMutation.isPending
             }
-            nextLabel={
-              updateHangoutEventMutation.isPending ||
-              completeHangoutEventMutation.isPending
-                ? "Saving..."
-                : "Next"
-            }
-            selectionMode="single"
-            title="Pick a place for your hangout."
-            description="Choose one option to represent this hangout. We'll save the selected image and listing reference to your event."
-            searchPlaceholder="Search for hangout"
-            emptyStateText="No hangout options matched your current filters."
           />
-        ) : currentHangoutFlowStep === "invite" ? (
+        ) : effectiveHangoutFlowStep === "hangout-selection" ? (
+          hangoutSelectionStep
+        ) : effectiveHangoutFlowStep === "invite" ? (
           <DrawNameInviteStep
             title={
               <>
@@ -2678,7 +3137,7 @@ export default function DashboardHangoutsScreen() {
             searchValue={hangoutInviteSearchValue}
             onSearchValueChange={setHangoutInviteSearchValue}
           />
-        ) : currentHangoutFlowStep === "add-record" ? (
+        ) : effectiveHangoutFlowStep === "add-record" ? (
           <AddColleagueForm
             values={newColleagueForm}
             onChange={handleNewColleagueChange}
@@ -2693,7 +3152,7 @@ export default function DashboardHangoutsScreen() {
             saveLabel={editingRecordId ? "Edit" : "Save"}
             savingLabel={editingRecordId ? "Editing" : "Saving"}
           />
-        ) : currentHangoutFlowStep === "record" ? (
+        ) : effectiveHangoutFlowStep === "record" ? (
           <div className="space-y-8 pt-2">
             <div className="text-center">
               <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
@@ -2730,7 +3189,7 @@ export default function DashboardHangoutsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() =>
-                      setHangoutFlowStep("check-out-date", mode, eventId)
+                      setHangoutFlowStep("source", mode, eventId)
                     }
                     className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"

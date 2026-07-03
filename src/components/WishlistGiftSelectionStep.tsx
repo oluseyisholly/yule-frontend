@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import Button from "@/components/Button";
+import FilterDrawer from "@/components/FilterDrawer";
 import ModalButton from "@/components/ModalButtons";
 import filterIcon from "@/assets/icons/filter.svg";
 import verifiedIcon from "@/assets/icons/verified.svg";
@@ -225,7 +226,11 @@ function WishlistFilterDropdown({
         )}
       >
         <span>
-          {loading ? <Skeleton className="h-4 w-20 rounded-full" /> : displayLabel}
+          {loading ? (
+            <Skeleton className="h-4 w-20 rounded-full" />
+          ) : (
+            displayLabel
+          )}
         </span>
         <Image
           src={dropdownIcon}
@@ -370,6 +375,12 @@ export default function WishlistGiftSelectionStep({
   const [selectedCondition, setSelectedCondition] = useState("");
   const [minimumPrice, setMinimumPrice] = useState("");
   const [maximumPrice, setMaximumPrice] = useState("");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [draftCategorySlug, setDraftCategorySlug] = useState("");
+  const [draftSubCategorySlug, setDraftSubCategorySlug] = useState("");
+  const [draftCondition, setDraftCondition] = useState("");
+  const [draftMinimumPrice, setDraftMinimumPrice] = useState("");
+  const [draftMaximumPrice, setDraftMaximumPrice] = useState("");
   const onSelectedProductToggleRef = useRef(onSelectedProductToggle);
 
   useEffect(() => {
@@ -390,8 +401,8 @@ export default function WishlistGiftSelectionStep({
     [categories],
   );
   const subCategoryOptions = useMemo(
-    () => getSubCategoryOptions(categories, selectedCategorySlug),
-    [categories, selectedCategorySlug],
+    () => getSubCategoryOptions(categories, draftCategorySlug),
+    [categories, draftCategorySlug],
   );
   const resolvedMinimumPrice = useMemo(
     () => parsePriceFilterValue(minimumPrice),
@@ -445,6 +456,25 @@ export default function WishlistGiftSelectionStep({
     }
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    if (!isFilterDrawerOpen) {
+      return;
+    }
+
+    setDraftCategorySlug(selectedCategorySlug);
+    setDraftSubCategorySlug(selectedSubCategorySlug);
+    setDraftCondition(selectedCondition);
+    setDraftMinimumPrice(minimumPrice);
+    setDraftMaximumPrice(maximumPrice);
+  }, [
+    isFilterDrawerOpen,
+    maximumPrice,
+    minimumPrice,
+    selectedCategorySlug,
+    selectedCondition,
+    selectedSubCategorySlug,
+  ]);
+
   const toggleGiftSelection = (product: MarketplaceProduct) => {
     const giftId = product._id;
     const isCurrentlySelected = selectedIds.includes(giftId);
@@ -474,30 +504,134 @@ export default function WishlistGiftSelectionStep({
   };
 
   const handleCategoryChange = (value: string) => {
-    setSelectedCategorySlug(value);
-    setSelectedSubCategorySlug("");
-    setCurrentPage(1);
+    setDraftCategorySlug(value);
+    setDraftSubCategorySlug("");
   };
 
   const handleSubCategoryChange = (value: string) => {
-    setSelectedSubCategorySlug(value);
-    setCurrentPage(1);
+    setDraftSubCategorySlug(value);
   };
 
   const handleConditionChange = (value: string) => {
-    setSelectedCondition(value);
-    setCurrentPage(1);
+    setDraftCondition(value);
   };
 
   const handleMinimumPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setMinimumPrice(event.target.value.replace(/[^\d.]/g, ""));
-    setCurrentPage(1);
+    setDraftMinimumPrice(event.target.value.replace(/[^\d.]/g, ""));
   };
 
   const handleMaximumPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setMaximumPrice(event.target.value.replace(/[^\d.]/g, ""));
-    setCurrentPage(1);
+    setDraftMaximumPrice(event.target.value.replace(/[^\d.]/g, ""));
   };
+
+  const handleApplyFilters = () => {
+    setSelectedCategorySlug(draftCategorySlug);
+    setSelectedSubCategorySlug(draftSubCategorySlug);
+    setSelectedCondition(draftCondition);
+    setMinimumPrice(draftMinimumPrice);
+    setMaximumPrice(draftMaximumPrice);
+    setCurrentPage(1);
+    setIsFilterDrawerOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    setDraftCategorySlug("");
+    setDraftSubCategorySlug("");
+    setDraftCondition("");
+    setDraftMinimumPrice("");
+    setDraftMaximumPrice("");
+  };
+
+  const activeFilterCount = [
+    selectedCategorySlug,
+    selectedSubCategorySlug,
+    selectedCondition,
+    minimumPrice,
+    maximumPrice,
+  ].filter(Boolean).length;
+
+  const drawerFilterControls = (
+    <>
+      <WishlistFilterDropdown
+        label="Category"
+        value={draftCategorySlug}
+        options={categoryOptions}
+        onChange={handleCategoryChange}
+        loading={isCategoriesLoading}
+        className="w-full"
+      />
+
+      <WishlistFilterDropdown
+        label="Subcategory"
+        value={draftSubCategorySlug}
+        options={subCategoryOptions}
+        onChange={handleSubCategoryChange}
+        disabled={!draftCategorySlug || isCategoriesLoading}
+        className="w-full"
+      />
+
+      <WishlistFilterDropdown
+        label="Condition"
+        value={draftCondition}
+        options={CONDITION_OPTIONS}
+        onChange={handleConditionChange}
+        className="w-full"
+      />
+
+      <div className="rounded-[16px] border border-[#F0ECF7] bg-[#FAF8FF] p-4">
+        <p className="mb-3 text-[13px] font-semibold text-[#434343]">
+          Price range
+        </p>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="relative min-w-0 w-full">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
+              ₦
+            </span>
+            <Input
+              value={draftMinimumPrice}
+              onChange={handleMinimumPriceChange}
+              inputMode="numeric"
+              placeholder="Minimum price"
+              className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
+            />
+          </div>
+
+          <div className="relative min-w-0 w-full">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
+              ₦
+            </span>
+            <Input
+              value={draftMaximumPrice}
+              onChange={handleMaximumPriceChange}
+              inputMode="numeric"
+              placeholder="Maximum price"
+              className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[16px] border border-dashed border-[#E5DFF4] bg-white p-4">
+        <p className="text-[13px] font-semibold text-[#434343]">Coming soon</p>
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          <WishlistFilterDropdown
+            label="Sex"
+            value=""
+            options={[{ label: "Sex", value: "" }]}
+            disabled
+            className="w-full"
+          />
+          <WishlistFilterDropdown
+            label="Gift"
+            value=""
+            options={[{ label: "Gift", value: "" }]}
+            disabled
+            className="w-full"
+          />
+        </div>
+      </div>
+    </>
+  );
 
   const showRetry =
     isCategoriesError || isProductsError || isInitialSelectionError;
@@ -517,91 +651,7 @@ export default function WishlistGiftSelectionStep({
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex flex-wrap gap-2.5">
-              <button
-                type="button"
-                disabled
-                className="inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-gray-200 bg-[#F1F3F5] px-3.5 py-2 text-[12px] font-medium text-[#B0B4BA]"
-              >
-                <Image
-                  src={filterIcon}
-                  alt=""
-                  aria-hidden
-                  className="h-4 w-4 opacity-45"
-                />
-                Filter
-              </button>
-
-              <WishlistFilterDropdown
-                label="Category"
-                value={selectedCategorySlug}
-                options={categoryOptions}
-                onChange={handleCategoryChange}
-                loading={isCategoriesLoading}
-                className="w-full sm:w-auto"
-              />
-
-              <WishlistFilterDropdown
-                label="Subcategory"
-                value={selectedSubCategorySlug}
-                options={subCategoryOptions}
-                onChange={handleSubCategoryChange}
-                disabled={!selectedCategorySlug || isCategoriesLoading}
-                className="w-full sm:w-auto"
-              />
-
-              <WishlistFilterDropdown
-                label="Condition"
-                value={selectedCondition}
-                options={CONDITION_OPTIONS}
-                onChange={handleConditionChange}
-                className="w-full sm:w-auto"
-              />
-
-              <WishlistFilterDropdown
-                label="Sex"
-                value=""
-                options={[{ label: "Sex", value: "" }]}
-                disabled
-                className="w-full sm:w-auto"
-              />
-
-              <WishlistFilterDropdown
-                label="Gift"
-                value=""
-                options={[{ label: "Gift", value: "" }]}
-                disabled
-                className="w-full sm:w-auto"
-              />
-
-              <div className="relative min-w-0 w-full sm:w-[140px]">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
-                  ₦
-                </span>
-                <Input
-                  value={minimumPrice}
-                  onChange={handleMinimumPriceChange}
-                  inputMode="numeric"
-                  placeholder="Min price"
-                  className="h-10 rounded-lg border-gray-200 bg-[#FFFFFF] pl-7 text-[12px] font-medium text-[#434343] placeholder:text-[#716F6F]"
-                />
-              </div>
-
-              <div className="relative min-w-0 w-full sm:w-[140px]">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
-                  ₦
-                </span>
-                <Input
-                  value={maximumPrice}
-                  onChange={handleMaximumPriceChange}
-                  inputMode="numeric"
-                  placeholder="Max price"
-                  className="h-10 rounded-lg border-gray-200 bg-[#FFFFFF] pl-7 text-[12px] font-medium text-[#434343] placeholder:text-[#716F6F]"
-                />
-              </div>
-            </div>
-
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
             <SearchInput
               value={query}
               onChange={(event) => {
@@ -612,6 +662,21 @@ export default function WishlistGiftSelectionStep({
               containerClassName="w-full xl:max-w-[520px]"
               className="h-10 rounded-[5px] border-[#9F9F9F] bg-[#FFFFFF] text-[12px] font-medium placeholder:text-[#716F6F]"
             />
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-[#E4E9ED] px-3.5 py-2 text-[12px] font-medium text-[#716F6F] transition-colors hover:bg-[#DCE2E7]"
+              >
+                <Image
+                  src={filterIcon}
+                  alt=""
+                  aria-hidden
+                  className="h-4 w-4"
+                />
+                {activeFilterCount ? `Filter (${activeFilterCount})` : "Filter"}
+              </button>
+            </div>
           </div>
 
           {showRetry ? (
@@ -636,7 +701,7 @@ export default function WishlistGiftSelectionStep({
       }
       footer={
         <div className="space-y-4 border-t border-[#F1EDF9] pt-5">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-6">
+          <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
             <Button
               type="button"
               variant="outlined"
@@ -705,7 +770,7 @@ export default function WishlistGiftSelectionStep({
               disabled={nextDisabled}
               className={cn(
                 "!h-[38px] rounded-[16px]",
-                onBack ? "max-w-[372px]" : "w-full max-w-[420px]",
+                onBack ? "max-w-[126px]" : "w-full max-w-[420px]",
               )}
             >
               {nextLabel}
@@ -715,6 +780,17 @@ export default function WishlistGiftSelectionStep({
       }
       contentClassName="pr-0 sm:pr-1"
     >
+      <FilterDrawer
+        open={isFilterDrawerOpen}
+        onOpenChange={setIsFilterDrawerOpen}
+        title="Filter gifts"
+        description="Choose the options you want, then apply them to refresh the gift list."
+        onApply={handleApplyFilters}
+        onClear={handleClearFilters}
+      >
+        {drawerFilterControls}
+      </FilterDrawer>
+
       {showLoading ? (
         <div className="rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:p-5">
           <GiftGridLoadingSkeleton count={8} />

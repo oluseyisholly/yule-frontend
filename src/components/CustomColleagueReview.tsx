@@ -13,6 +13,7 @@ export type CustomColleagueReviewItem = {
 type CustomColleagueReviewProps = {
   greetingName: string;
   items: CustomColleagueReviewItem[];
+  prompt?: string;
   onAddNew: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -77,6 +78,7 @@ function ReviewItem({
 export default function CustomColleagueReview({
   greetingName,
   items,
+  prompt = "Who'd you like to draw names with?",
   onAddNew,
   onBack,
   onNext,
@@ -91,7 +93,7 @@ export default function CustomColleagueReview({
           Hey {greetingName},
         </p>
         <p className="mt-1 text-[18px] font-normal text-[#434343]">
-          Who&apos;d you like to draw names with?
+          {prompt}
         </p>
       </div>
 

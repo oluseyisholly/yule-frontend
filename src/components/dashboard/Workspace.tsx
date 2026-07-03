@@ -36,6 +36,10 @@ const pageHeaderDetails: Record<
     title: "Schedule Event & Message",
     description: "Set up reminders, messages, and celebration timelines.",
   },
+  messages: {
+    title: "Messages",
+    description: "Keep conversations with your celebration circle in one place.",
+  },
   history: {
     title: "My History",
     description: "Look back on draws, gifts, and past celebration activity.",
@@ -59,6 +63,8 @@ const tabDescriptions: Record<DashboardTab, string> = {
     "This screen is reserved for group plans, venue ideas, or meetup coordination. When you are ready, we can shape the content around your hangout flow.",
   schedule:
     "This is the slot for event scheduling and message automation. It is a good place for calendar actions, reminders, and message templates.",
+  messages:
+    "Conversation threads, inbox states, and direct celebration follow-ups can live here. The module is ready for real messaging data and interaction states.",
   history:
     "Past events, sent wishes, and previous draws can live here. The structure is ready for filters, logs, and recap cards.",
   profile:

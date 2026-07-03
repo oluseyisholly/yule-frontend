@@ -98,13 +98,20 @@ export async function getExternalBusinesses(
 export async function getExternalBusinessProfiles(
   hostBusinessId: string,
   accessToken: string,
+  search?: string,
 ) {
   if (!NEXT_PUBLIC_ONEDA_API_BASE_URL) {
     throw new ApiRequestError("Oneda profile base URL is not configured.");
   }
 
+  const resolvedSearch = search?.trim() ?? "";
+
   const response = await fetch(
-    `${NEXT_PUBLIC_ONEDA_API_BASE_URL}/profile/fetch`,
+    `${NEXT_PUBLIC_ONEDA_API_BASE_URL}/profile/fetch${
+      resolvedSearch
+        ? `?search=${encodeURIComponent(resolvedSearch)}`
+        : ""
+    }`,
     {
       method: "POST",
       headers: {
@@ -114,6 +121,7 @@ export async function getExternalBusinessProfiles(
       },
       body: JSON.stringify({
         hostBusinessId,
+        excludeAuth: true,
       }),
       cache: "no-store",
     },
@@ -128,22 +136,51 @@ export async function getExternalBusinessProfiles(
 
   return (await response.json()) as {
     success: boolean;
-    data: Array<{
-      _id: string;
-      accountId: {
-        _id: string;
-        firstName: string;
-        lastName: string;
-        email: string;
-        phoneNumber: string;
-      };
-      hostBusinessId?: {
-        _id?: string;
-        businessName?: string;
-      };
-      host?: boolean;
-      type?: string;
-    }>;
+    data:
+      | Array<{
+          _id: string;
+          profilePhotoUrl?: string | null;
+          accountId: {
+            _id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            phoneNumber: string;
+          };
+          hostBusinessId?: {
+            _id?: string;
+            businessName?: string;
+          };
+          host?: boolean;
+          type?: string;
+        }>
+      | {
+          profiles?: Array<{
+            _id: string;
+            profilePhotoUrl?: string | null;
+            accountId: {
+              _id: string;
+              firstName: string;
+              lastName: string;
+              email: string;
+              phoneNumber: string;
+            };
+            hostBusinessId?: {
+              _id?: string;
+              businessName?: string;
+            };
+            host?: boolean;
+            type?: string;
+          }>;
+          totalDocs?: number;
+          limit?: number;
+          page?: number;
+          totalPages?: number;
+          hasPrevPage?: boolean;
+          hasNextPage?: boolean;
+          prevPage?: number | null;
+          nextPage?: number | null;
+        };
   };
 }
 

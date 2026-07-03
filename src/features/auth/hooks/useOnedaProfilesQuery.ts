@@ -22,10 +22,24 @@ export type OnedaProfile = {
 export function useOnedaProfilesQuery(
   hostBusinessId: string | null,
   accessToken: string | null,
+  searchQueryOrOptions?:
+    | string
+    | Omit<UseQueryOptions<OnedaProfile[]>, "queryKey" | "queryFn">,
   options?: Omit<UseQueryOptions<OnedaProfile[]>, "queryKey" | "queryFn">,
 ) {
+  const resolvedSearchQuery =
+    typeof searchQueryOrOptions === "string" ? searchQueryOrOptions : "";
+  const resolvedOptions =
+    typeof searchQueryOrOptions === "string"
+      ? options
+      : searchQueryOrOptions;
+
   return useQuery<OnedaProfile[]>({
-    queryKey: ["onedaProfiles", hostBusinessId],
+    queryKey: [
+      "onedaProfiles",
+      hostBusinessId,
+      resolvedSearchQuery.trim(),
+    ],
     queryFn: async () => {
       if (!hostBusinessId || !accessToken) {
         return [];
@@ -34,10 +48,17 @@ export function useOnedaProfilesQuery(
       const response = await getExternalBusinessProfiles(
         hostBusinessId,
         accessToken,
+        resolvedSearchQuery,
       );
-      return Array.isArray(response.data) ? response.data : [];
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      return Array.isArray(response.data.profiles)
+        ? response.data.profiles
+        : [];
     },
     enabled: Boolean(hostBusinessId) && Boolean(accessToken),
-    ...(options || {}),
+    ...(resolvedOptions || {}),
   });
 }

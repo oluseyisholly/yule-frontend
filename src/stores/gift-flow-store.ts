@@ -13,6 +13,8 @@ type GiftFlowDraftFields = {
   eventDate: string;
   giftDeadline: string;
   eventName: string;
+  selectedOnedaBusinessIds: string[];
+  selectedOnedaContactIds: string[];
 };
 
 export type GiftFlowSelectionState = GiftFlowDraftFields & {
@@ -42,6 +44,8 @@ export const EMPTY_GIFT_FLOW_SELECTION: GiftFlowSelectionState = {
   eventDate: "",
   giftDeadline: "",
   eventName: "",
+  selectedOnedaBusinessIds: [],
+  selectedOnedaContactIds: [],
   selectedParticipantContactIds: [],
   selectedGiftIds: [],
   selectedGiftProductsById: {},
@@ -69,7 +73,15 @@ function hasFlowSelectionChanged(
     currentSelection.selectedEventTypeId !== nextSelection.selectedEventTypeId ||
     currentSelection.eventDate !== nextSelection.eventDate ||
     currentSelection.giftDeadline !== nextSelection.giftDeadline ||
-    currentSelection.eventName !== nextSelection.eventName
+    currentSelection.eventName !== nextSelection.eventName ||
+    !haveSameStringArrayValues(
+      currentSelection.selectedOnedaBusinessIds,
+      nextSelection.selectedOnedaBusinessIds,
+    ) ||
+    !haveSameStringArrayValues(
+      currentSelection.selectedOnedaContactIds,
+      nextSelection.selectedOnedaContactIds,
+    )
   );
 }
 
@@ -84,6 +96,12 @@ function normalizeGiftFlowSelection(
     )
       ? selection.selectedParticipantContactIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedParticipantContactIds,
+    selectedOnedaBusinessIds: Array.isArray(selection?.selectedOnedaBusinessIds)
+      ? selection.selectedOnedaBusinessIds
+      : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaBusinessIds,
+    selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
+      ? selection.selectedOnedaContactIds
+      : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaContactIds,
     selectedGiftIds: Array.isArray(selection?.selectedGiftIds)
       ? selection.selectedGiftIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedGiftIds,
