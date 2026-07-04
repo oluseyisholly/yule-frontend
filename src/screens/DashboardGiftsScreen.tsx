@@ -58,6 +58,7 @@ import {
 import { Input } from "@/components/ui/input";
 import ContentModal from "@/components/ui/modal";
 import ViewIcon from "@/components/icons/ViewIcon";
+import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import featureImg1 from "@/assets/icons/featureImg1.svg";
 import featureImg2 from "@/assets/icons/featureImg2.svg";
 import featureImg3 from "@/assets/icons/featureImg3.svg";
@@ -289,10 +290,7 @@ function useDerivedGiftStats() {
     },
     {
       icon: (
-        <CalendarDaysIcon
-          className="size-5 text-[#1FAB54]"
-          strokeWidth={1.8}
-        />
+        <CalendarDaysIcon className="size-5 text-[#1FAB54]" strokeWidth={1.8} />
       ),
       iconBg: "#D9F4E2",
       value: formatGiftMetricAmount(totalAmountSpentValue),
@@ -433,7 +431,9 @@ function mapExternalBusinessToRecordItem(
   };
 }
 
-function mapOnedaProfileToRecordItem(profile: OnedaProfile): SearchableRecordItem {
+function mapOnedaProfileToRecordItem(
+  profile: OnedaProfile,
+): SearchableRecordItem {
   return {
     id: profile._id,
     name: `${profile.accountId.firstName} ${profile.accountId.lastName}`.trim(),
@@ -625,7 +625,7 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
     status: toReceivedStatus(gift),
     receivedFrom: giverName
-        ? [
+      ? [
           {
             name: giverName,
             email: giverContact?.email?.trim() || undefined,
@@ -936,11 +936,11 @@ function RecipientCell({ people }: { people: GiftRowPerson[] }) {
     <div className="flex items-center">
       <div className="flex items-center -space-x-2">
         {visiblePeople.map((person) => (
-            <RecipientAvatarWithImage
-              key={person.name}
-              name={person.name}
-              profileUrl={person.profileUrl}
-            />
+          <RecipientAvatarWithImage
+            key={person.name}
+            name={person.name}
+            profileUrl={person.profileUrl}
+          />
         ))}
         {overflowCount > 0 ? (
           <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
@@ -1181,8 +1181,9 @@ export default function DashboardGiftsScreen() {
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
     useState("");
-  const [addRecordReturnStep, setAddRecordReturnStep] =
-    useState<"record" | "review-records">("record");
+  const [addRecordReturnStep, setAddRecordReturnStep] = useState<
+    "record" | "review-records"
+  >("record");
   const [giftInviteSearchValue, setGiftInviteSearchValue] = useState("");
   const [isGiftInviteCopyListOpen, setIsGiftInviteCopyListOpen] =
     useState(false);
@@ -1195,6 +1196,8 @@ export default function DashboardGiftsScreen() {
   ] = useState(false);
   const [isSendGiftEmailConfirmationOpen, setIsSendGiftEmailConfirmationOpen] =
     useState(false);
+  const [viewingGiftProduct, setViewingGiftProduct] =
+    useState<MarketplaceProduct | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
@@ -1225,6 +1228,7 @@ export default function DashboardGiftsScreen() {
   const giftEventName = flowSelection.eventName;
   const isGiftInviteStep = currentGiftFlowStep === "invite";
   const activeTabParam = searchParams.get("tab")?.trim().toLowerCase() ?? null;
+  const isBrowseGiftsFlow = searchParams.get("browse") === "true";
   const activeTab: GiftsTab = isValidGiftsTab(activeTabParam)
     ? activeTabParam
     : "events";
@@ -1273,7 +1277,9 @@ export default function DashboardGiftsScreen() {
       (business) => getExternalBusinessRootId(business) === candidateId,
     );
 
-    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+    return selectedBusiness
+      ? getExternalBusinessRootId(selectedBusiness)
+      : null;
   }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
@@ -1644,7 +1650,17 @@ export default function DashboardGiftsScreen() {
 
   const handleOpenGiftFlow = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
+    setViewingGiftProduct(null);
     openGiftFlowModal("event", "create", null, null);
+  };
+
+  const handleBrowseGifts = () => {
+    resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
+    setViewingGiftProduct(null);
+    router.push(
+      "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true",
+      { scroll: false },
+    );
   };
 
   const openGiftingEventFlow = (
@@ -1822,6 +1838,24 @@ export default function DashboardGiftsScreen() {
     }
 
     setSelectedGiftProductsById(flowSelectionKey, nextProductsById);
+  };
+
+  const handleBrowseGiftAddToCart = () => {
+    if (!viewingGiftProduct) {
+      return;
+    }
+
+    if (selectedGiftIds.includes(viewingGiftProduct._id)) {
+      toast.success("This gift is already in your cart.");
+      return;
+    }
+
+    setStoredSelectedGiftIds(flowSelectionKey, [
+      ...selectedGiftIds,
+      viewingGiftProduct._id,
+    ]);
+    handleGiftFlowProductToggle(viewingGiftProduct, true);
+    toast.success("Gift added to cart.");
   };
 
   const handleGiftFlowEventNext = async () => {
@@ -2623,10 +2657,21 @@ export default function DashboardGiftsScreen() {
   ]);
 
   useEffect(() => {
-    if (isGiftFlowOpen && currentGiftFlowStep !== "event" && !giftingEventId) {
+    if (
+      isGiftFlowOpen &&
+      currentGiftFlowStep !== "event" &&
+      !giftingEventId &&
+      !isBrowseGiftsFlow
+    ) {
       closeGiftFlowModal();
     }
-  }, [closeGiftFlowModal, isGiftFlowOpen, currentGiftFlowStep, giftingEventId]);
+  }, [
+    closeGiftFlowModal,
+    currentGiftFlowStep,
+    giftingEventId,
+    isBrowseGiftsFlow,
+    isGiftFlowOpen,
+  ]);
 
   const giftSelectionStep = (
     <WishlistGiftSelectionStep
@@ -2635,25 +2680,98 @@ export default function DashboardGiftsScreen() {
         setStoredSelectedGiftIds(flowSelectionKey, ids)
       }
       onSelectedProductToggle={handleGiftFlowProductToggle}
+      onViewProduct={setViewingGiftProduct}
       onBack={() =>
-        setGiftFlowStep("review-records", mode, eventId, giftingEventId)
+        isBrowseGiftsFlow
+          ? router.push("/dashboard/gifts?tab=events", { scroll: false })
+          : setGiftFlowStep("review-records", mode, eventId, giftingEventId)
       }
-      onNext={handleGiftFlowSelectionNext}
+      onNext={
+        isBrowseGiftsFlow
+          ? () => router.push("/dashboard/gifts?tab=events", { scroll: false })
+          : handleGiftFlowSelectionNext
+      }
       nextDisabled={
-        !selectedGiftIds.length ||
-        assignBulkGiftsMutation.isPending ||
-        isMyParticipantLoading ||
-        isMyParticipantFetching
+        isBrowseGiftsFlow
+          ? false
+          : !selectedGiftIds.length ||
+            assignBulkGiftsMutation.isPending ||
+            isMyParticipantLoading ||
+            isMyParticipantFetching
       }
-      nextLabel={assignBulkGiftsMutation.isPending ? "Saving..." : "Next"}
+      nextLabel={
+        isBrowseGiftsFlow
+          ? "Done"
+          : assignBulkGiftsMutation.isPending
+            ? "Saving..."
+            : "Next"
+      }
+      hideFooterActions={isBrowseGiftsFlow}
+      disableContentScroll={isBrowseGiftsFlow}
+      enableInfiniteScroll={isBrowseGiftsFlow}
     />
   );
 
   if (isGiftFlowOpen && currentGiftFlowStep === "gift-selection") {
+    if (viewingGiftProduct) {
+      return (
+        <div className="space-y-2">
+          <EventGiftDetailView
+            backHref="/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
+            backLabel="Back "
+            onBack={() => setViewingGiftProduct(null)}
+            eventTitle="Browse Gifts"
+            createdBy="Yule marketplace"
+            createdAt="Available gifts"
+            showHeader={false}
+            status="Ongoing"
+            avatarInitials="GF"
+            summaryItems={[]}
+            showSummaryItems={false}
+            product={viewingGiftProduct}
+            hideDeleteAction
+            onDelete={() => undefined}
+            onAddToCart={handleBrowseGiftAddToCart}
+            onMessageVendor={() =>
+              toast("Vendor messaging is not available yet.")
+            }
+            onReportItem={() => toast("Thanks. We will review this item.")}
+            onShareProduct={() => toast.success("Product link copied.")}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
-        <div className="mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
-          <div className="h-full min-h-0">{giftSelectionStep}</div>
+        {isBrowseGiftsFlow ? (
+          <div className="inline-flex items-center gap-3 text-[18px] font-semibold text-[#3300C9]">
+            <span>Gifts</span>
+            <BackButton
+              onClick={() =>
+                router.push("/dashboard/gifts?tab=events", { scroll: false })
+              }
+              ariaLabel="Back to gifts"
+              className="rounded-full bg-[#F4F0F8] px-4 text-[#3300C9] transition-colors hover:bg-[#ECE5F5]"
+              iconClassName="text-[#3300C9]"
+            />
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            "mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8",
+            !isBrowseGiftsFlow && "lg:h-[calc(100dvh-12rem)] lg:min-h-0",
+          )}
+        >
+          <div
+            className={cn(
+              !isBrowseGiftsFlow && "h-full min-h-0",
+              isBrowseGiftsFlow && "min-h-0",
+            )}
+          >
+            {giftSelectionStep}
+          </div>
         </div>
 
         <ConfirmationModal
@@ -2698,6 +2816,7 @@ export default function DashboardGiftsScreen() {
             <Button
               type="button"
               variant="outlined"
+              onClick={handleBrowseGifts}
               className="h-[44px] rounded-full border-[#3300C9] bg-white px-5 text-sm font-medium text-[#3300C9] hover:bg-[#F6F2FF]"
             >
               <span className="inline-flex items-center gap-2.5">
@@ -3242,12 +3361,7 @@ export default function DashboardGiftsScreen() {
             <div className="flex justify-center">
               <BackButton
                 onClick={() =>
-                  setGiftFlowStep(
-                    "event-name",
-                    mode,
-                    eventId,
-                    giftingEventId,
-                  )
+                  setGiftFlowStep("event-name", mode, eventId, giftingEventId)
                 }
                 className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
               />
@@ -3272,7 +3386,9 @@ export default function DashboardGiftsScreen() {
                 placeholder="Search for business"
                 panelTitle="Search for business"
                 searchPlaceholder=""
-                isLoading={isOnedaBusinessesLoading || isOnedaBusinessesFetching}
+                isLoading={
+                  isOnedaBusinessesLoading || isOnedaBusinessesFetching
+                }
                 emptyStateText={
                   isOnedaBusinessesError
                     ? "Unable to load businesses."
@@ -3480,12 +3596,7 @@ export default function DashboardGiftsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() =>
-                      setGiftFlowStep(
-                        "source",
-                        mode,
-                        eventId,
-                        giftingEventId,
-                      )
+                      setGiftFlowStep("source", mode, eventId, giftingEventId)
                     }
                     className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"

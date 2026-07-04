@@ -13,6 +13,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import {
   CalendarDaysIcon,
+  ChevronDownIcon,
   MailIcon,
   MoreHorizontal,
   SendIcon,
@@ -40,6 +41,11 @@ import OverlaySelect, {
 import Pagination from "@/components/Pagination";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
 import ContentModal from "@/components/ui/modal";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import StatusPill from "@/components/ui/status-pill";
 import Table, { type TableData } from "@/components/ui/Table";
 import { SearchInput } from "@/components/ui/search-input";
@@ -108,6 +114,13 @@ type ScheduleMetric = {
 
 const PAGE_SIZE = 20;
 const DEFAULT_SCHEDULE_TIME = "09:00";
+const SCHEDULE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const totalMinutes = index * 30;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${`${hours}`.padStart(2, "0")}:${`${minutes}`.padStart(2, "0")}`;
+});
 
 const scheduleMetrics: ScheduleMetric[] = [
   {
@@ -199,6 +212,20 @@ function getTimeFromDateTimeLocalValue(value?: string | null) {
   if (!value) return "";
 
   return value.split("T")[1]?.slice(0, 5) ?? "";
+}
+
+function formatScheduleTimeLabel(timeValue?: string | null) {
+  const [rawHours = "09", rawMinutes = "00"] = (
+    timeValue || DEFAULT_SCHEDULE_TIME
+  ).split(":");
+  const hours = Number(rawHours);
+  const minutes = Number(rawMinutes);
+  const safeHours = Number.isFinite(hours) ? hours : 9;
+  const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+  const period = safeHours >= 12 ? "PM" : "AM";
+  const twelveHour = safeHours % 12 || 12;
+
+  return `${twelveHour}:${`${safeMinutes}`.padStart(2, "0")} ${period}`;
 }
 
 function formatScheduledDatePickerValue(value?: string | null) {
@@ -699,6 +726,8 @@ export default function ScheduleScreen() {
   const [pendingDeleteRow, setPendingDeleteRow] =
     useState<ScheduledEventMessageRecord | null>(null);
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
+    useState(false);
+  const [isScheduleTimePopoverOpen, setIsScheduleTimePopoverOpen] =
     useState(false);
   const hydratedMessageIdRef = useRef<string | null>(null);
   const [scheduleMetricsEmblaRef] = useEmblaCarousel({ loop: true }, [
@@ -2105,19 +2134,68 @@ export default function ScheduleScreen() {
           <CalendarDaysIcon className="size-5 text-[#8A8794]" />
         </div>
 
-        <label className="block">
-          <span className="sr-only">Scheduled time</span>
-          <input
-            type="time"
-            value={scheduledTime || DEFAULT_SCHEDULE_TIME}
-            disabled={isViewing}
-            onChange={(event) => handleScheduledTimeChange(event.target.value)}
-            className={cn(
-              "h-[54px] w-full rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-[15px] text-[#434343] outline-none transition-colors focus:border-[#3300C9]",
-              isViewing && "cursor-not-allowed bg-[#F8F7FC] text-[#7D7D7D]",
-            )}
-          />
-        </label>
+        <Popover
+          open={isScheduleTimePopoverOpen}
+          onOpenChange={(open) => {
+            if (!isViewing) {
+              setIsScheduleTimePopoverOpen(open);
+            }
+          }}
+        >
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={isViewing}
+              aria-label="Scheduled time"
+              className={cn(
+                "flex h-[54px] w-full items-center justify-between rounded-[18px] border border-[#ECE8F7] bg-white px-4 text-left text-[15px] text-[#434343] outline-none transition-colors hover:border-[#3300C9] focus:border-[#3300C9]",
+                isViewing &&
+                  "cursor-not-allowed bg-[#F8F7FC] text-[#7D7D7D] hover:border-[#ECE8F7] focus:border-[#ECE8F7]",
+              )}
+            >
+              <span>
+                {formatScheduleTimeLabel(scheduledTime || DEFAULT_SCHEDULE_TIME)}
+              </span>
+              <ChevronDownIcon
+                className={cn(
+                  "size-4 text-[#8A8794] transition-transform",
+                  isScheduleTimePopoverOpen && "rotate-180",
+                )}
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            sideOffset={8}
+            className="z-[130] max-h-[280px] w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-[18px] border border-[#ECE8F7] bg-white p-2 shadow-[0_16px_40px_rgba(29,18,68,0.14)]"
+          >
+            <div className="grid grid-cols-2 gap-0.5">
+              {SCHEDULE_TIME_OPTIONS.map((timeValue) => {
+                const isSelected =
+                  (scheduledTime || DEFAULT_SCHEDULE_TIME) === timeValue;
+
+                return (
+                  <button
+                    key={timeValue}
+                    type="button"
+                    onClick={() => {
+                      handleScheduledTimeChange(timeValue);
+                      setIsScheduleTimePopoverOpen(false);
+                    }}
+                    className={cn(
+                      "whitespace-nowrap rounded-[10px] border px-2 py-2 text-center text-[12px] font-medium transition-colors sm:text-[13px]",
+                      isSelected
+                        ? "border-[#3300C9] bg-[#F4F0FF] text-[#3300C9] shadow-[0_4px_12px_rgba(51,0,201,0.08)]"
+                        : "border-transparent text-[#434343] hover:border-[#E4DBFF] hover:bg-[#F8F5FF] hover:text-[#3300C9]",
+                    )}
+                  >
+                    {formatScheduleTimeLabel(timeValue)}
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

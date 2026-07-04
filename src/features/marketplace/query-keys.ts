@@ -5,6 +5,8 @@ export const marketplaceQueryKeys = {
   categories: () => [...marketplaceQueryKeys.all, "categories"] as const,
   products: (params: GetMarketplaceProductsParams) =>
     [...marketplaceQueryKeys.all, "products", params] as const,
+  infiniteProducts: (params: GetMarketplaceProductsParams) =>
+    [...marketplaceQueryKeys.all, "products", "infinite", params] as const,
   product: (productId: string) =>
     [...marketplaceQueryKeys.all, "product", productId] as const,
 };

@@ -22,17 +22,23 @@ type EventGiftDetailSummaryItem = {
 type EventGiftDetailViewProps = {
   backHref: string;
   backLabel: string;
+  onBack?: () => void;
   eventTitle: string;
   createdBy: string;
   createdAt: string;
   status: EventGiftDetailStatus;
   avatarInitials: string;
   summaryItems: EventGiftDetailSummaryItem[];
+  showSummaryItems?: boolean;
   product: MarketplaceProduct;
   onDelete: () => void;
+  hideDeleteAction?: boolean;
+  onAddToCart?: () => void;
+  addToCartLabel?: string;
   onMessageVendor: () => void;
   onReportItem: () => void;
   onShareProduct: () => void;
+  showHeader?: boolean;
 };
 
 function SummaryStat({ label, value }: EventGiftDetailSummaryItem) {
@@ -166,14 +172,20 @@ function SharePinterestIcon() {
 export default function EventGiftDetailView({
   backHref,
   backLabel,
+  onBack,
   eventTitle,
   createdBy,
   createdAt,
   status,
   avatarInitials,
   summaryItems,
+  showHeader = true,
+  showSummaryItems = true,
   product,
   onDelete,
+  hideDeleteAction = false,
+  onAddToCart,
+  addToCartLabel = "Add to cart",
   onMessageVendor,
   onReportItem,
   onShareProduct,
@@ -193,58 +205,80 @@ export default function EventGiftDetailView({
   }, [product._id]);
 
   return (
-    <div className="space-y-5">
-      <BackLink href={backHref} label={backLabel} />
+    <div className="space-y-2">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-[15px] font-medium text-[#3300C9] transition-colors hover:text-[#25009A]"
+        >
+          <span className="inline-flex h-9 w-12 items-center justify-center rounded-full bg-[#F4F0F8] text-[26px] leading-none">
+            ←
+          </span>
+          {backLabel}
+        </button>
+      ) : (
+        <BackLink href={backHref} label={backLabel} />
+      )}
 
       <section className="rounded-[20px] bg-[#F6F7FB] sm:rounded-[24px]">
-        <div className="flex flex-col gap-5">
-          <DetailHeader
-            title={eventTitle}
-            subtitle={`Created by ${createdBy}`}
-            meta={
-              <>
-                <span className="inline-flex items-center gap-2 text-xs text-[#7D7D7D]">
-                  <CustomCalendarIcon className="size-4" />
-                  {createdAt}
-                </span>
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium",
-                    status === "Completed" && "bg-[#E6F7EC] text-[#1FAB54]",
-                    status === "Draft" && "bg-[#FFF1DD] text-[#C28A00]",
-                    status === "Ongoing" && "bg-[#EFE6FD] text-[#3300C9]",
-                    status === "In Progress" && "bg-[#EFE6FD] text-[#3300C9]",
-                  )}
-                >
-                  {status}
-                </span>
-              </>
-            }
-            avatar={{
-              initials: avatarInitials,
-              color: "#3300C9",
-              bg: "#EFE6FD",
-            }}
-            actions={
-              <Button
-                type="button"
-                variant="outlined"
-                className="border-[#F6C8C8] bg-white px-5 text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F]"
-                onClick={onDelete}
-              >
-                <Trash2Icon className="size-4" />
-                Delete
-              </Button>
-            }
-          />
+        <div className="flex flex-col gap-2">
+          {showHeader && (
+            <DetailHeader
+              title={eventTitle}
+              subtitle={`Created by ${createdBy}`}
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-2 text-xs text-[#7D7D7D]">
+                    <CustomCalendarIcon className="size-4" />
+                    {createdAt}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium",
+                      status === "Completed" && "bg-[#E6F7EC] text-[#1FAB54]",
+                      status === "Draft" && "bg-[#FFF1DD] text-[#C28A00]",
+                      status === "Ongoing" && "bg-[#EFE6FD] text-[#3300C9]",
+                      status === "In Progress" && "bg-[#EFE6FD] text-[#3300C9]",
+                    )}
+                  >
+                    {status}
+                  </span>
+                </>
+              }
+              avatar={{
+                initials: avatarInitials,
+                color: "#3300C9",
+                bg: "#EFE6FD",
+              }}
+              actions={
+                hideDeleteAction ? null : (
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    className="border-[#F6C8C8] bg-white px-5 text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F]"
+                    onClick={onDelete}
+                  >
+                    <Trash2Icon className="size-4" />
+                    Delete
+                  </Button>
+                )
+              }
+            />
+          )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {summaryItems.map((item) => (
-              <SummaryStat key={item.label} label={item.label} value={item.value} />
-            ))}
-          </div>
-
-          <div className="p-4 sm:p-5">
+          {showSummaryItems ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {summaryItems.map((item) => (
+                <SummaryStat
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                />
+              ))}
+            </div>
+          ) : null}
+          <div className="p-1 sm:p-2">
             <div className="mt-5 grid gap-6 lg:gap-10 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.95fr)]">
               <div className="rounded-[16px] bg-white p-4 sm:p-6 lg:p-10">
                 <div className="relative flex h-[240px] items-center justify-center overflow-hidden rounded-[16px] bg-[#F6F7FB] sm:h-[320px]">
@@ -330,9 +364,23 @@ export default function EventGiftDetailView({
                 </div>
 
                 <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  {onAddToCart ? (
+                    <Button
+                      type="button"
+                      className="w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:w-auto"
+                      onClick={onAddToCart}
+                    >
+                      {addToCartLabel}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
-                    className="w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:w-auto"
+                    variant={onAddToCart ? "outlined" : "filled"}
+                    className={cn(
+                      "w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:w-auto",
+                      onAddToCart &&
+                        "border-[#3300C9] bg-white text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]",
+                    )}
                     onClick={onMessageVendor}
                   >
                     Message Vendor

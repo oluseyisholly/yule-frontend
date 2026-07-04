@@ -25,7 +25,10 @@ import locationIcon from "@/assets/icons/location.svg";
 import dropdownIcon from "@/assets/icons/dropdowns.svg";
 import { cn } from "@/lib/utils";
 import { useMarketplaceCategoriesQuery } from "@/features/marketplace/hooks/useMarketplaceCategoriesQuery";
-import { useMarketplaceProductsQuery } from "@/features/marketplace/hooks/useMarketplaceProductsQuery";
+import {
+  useMarketplaceProductsInfiniteQuery,
+  useMarketplaceProductsQuery,
+} from "@/features/marketplace/hooks/useMarketplaceProductsQuery";
 import type {
   MarketplaceCategory,
   MarketplaceCondition,
@@ -39,6 +42,7 @@ type WishlistGiftSelectionStepProps = {
     product: MarketplaceProduct,
     checked: boolean,
   ) => void;
+  onViewProduct?: (product: MarketplaceProduct) => void;
   maximumSpend?: number;
   onBack?: () => void;
   onNext: () => void;
@@ -52,6 +56,9 @@ type WishlistGiftSelectionStepProps = {
   description?: string;
   searchPlaceholder?: string;
   emptyStateText?: string;
+  hideFooterActions?: boolean;
+  disableContentScroll?: boolean;
+  enableInfiniteScroll?: boolean;
 };
 
 type FilterOption = {
@@ -281,10 +288,12 @@ function GiftCard({
   product,
   checked,
   onToggle,
+  onView,
 }: {
   product: MarketplaceProduct;
   checked: boolean;
   onToggle: () => void;
+  onView?: () => void;
 }) {
   const primaryImage = product.images[0] || "";
 
@@ -338,12 +347,23 @@ function GiftCard({
           <span className="min-w-0 truncate text-[10px] font-semibold leading-[117%] tracking-[0.03em] text-darker sm:text-[11px] lg:text-[12px]">
             ₦{formatPrice(product.amount)}
           </span>
-          <Checkbox
-            checked={checked}
-            onCheckedChange={onToggle}
-            aria-label={`Select ${product.title}`}
-            className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            {onView ? (
+              <button
+                type="button"
+                onClick={onView}
+                className="inline-flex h-7 items-center justify-center rounded-full border border-[#3300C9] bg-white px-3 text-[10px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F6F2FF]"
+              >
+                View
+              </button>
+            ) : null}
+            <Checkbox
+              checked={checked}
+              onCheckedChange={onToggle}
+              aria-label={`Select ${product.title}`}
+              className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -354,6 +374,7 @@ export default function WishlistGiftSelectionStep({
   selectedIds,
   onSelectedIdsChange,
   onSelectedProductToggle,
+  onViewProduct,
   maximumSpend,
   onBack,
   onNext,
@@ -367,6 +388,9 @@ export default function WishlistGiftSelectionStep({
   description = "While you're typing that heartfelt message, let us help you find the perfect surprise to brighten their day.",
   searchPlaceholder = "Search for Gift",
   emptyStateText = "No gifts matched your current filters.",
+  hideFooterActions = false,
+  disableContentScroll = false,
+  enableInfiniteScroll = false,
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -431,12 +455,45 @@ export default function WishlistGiftSelectionStep({
       | MarketplaceCondition
       | undefined,
     status: "active",
+  }, {
+    enabled: !enableInfiniteScroll,
   });
 
-  const products = productsResponse?.data ?? [];
+  const {
+    data: infiniteProductsResponse,
+    isLoading: isInfiniteProductsLoading,
+    isFetchingNextPage,
+    isError: isInfiniteProductsError,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchInfiniteProducts,
+  } = useMarketplaceProductsInfiniteQuery({
+    limit: PAGE_SIZE,
+    search: deferredQuery.trim() || undefined,
+    categorySlug: selectedCategorySlug || undefined,
+    subCategorySlug: selectedSubCategorySlug || undefined,
+    minPrice: resolvedMinimumPrice,
+    maxPrice: resolvedMaximumPrice,
+    condition: (selectedCondition || undefined) as
+      | MarketplaceCondition
+      | undefined,
+    status: "active",
+  }, {
+    enabled: enableInfiniteScroll,
+  });
+
+  const infiniteProducts = useMemo(
+    () =>
+      infiniteProductsResponse?.pages.flatMap((page) => page.data ?? []) ?? [],
+    [infiniteProductsResponse?.pages],
+  );
+  const products = enableInfiniteScroll
+    ? infiniteProducts
+    : productsResponse?.data ?? [];
   const totalPages = Math.max(productsResponse?.totalPages ?? 1, 1);
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pages = buildPages(safeCurrentPage, totalPages);
+  const infiniteScrollSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!products.length || !selectedIds.length) {
@@ -455,6 +512,42 @@ export default function WishlistGiftSelectionStep({
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (!enableInfiniteScroll) {
+      return;
+    }
+
+    const sentinel = infiniteScrollSentinelRef.current;
+
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+
+        if (
+          firstEntry?.isIntersecting &&
+          hasNextPage &&
+          !isFetchingNextPage
+        ) {
+          void fetchNextPage();
+        }
+      },
+      { rootMargin: "360px 0px" },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    enableInfiniteScroll,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  ]);
 
   useEffect(() => {
     if (!isFilterDrawerOpen) {
@@ -634,9 +727,13 @@ export default function WishlistGiftSelectionStep({
   );
 
   const showRetry =
-    isCategoriesError || isProductsError || isInitialSelectionError;
+    isCategoriesError ||
+    (enableInfiniteScroll ? isInfiniteProductsError : isProductsError) ||
+    isInitialSelectionError;
   const showLoading =
-    isProductsLoading || isProductsFetching || isInitialSelectionLoading;
+    (enableInfiniteScroll
+      ? isInfiniteProductsLoading
+      : isProductsLoading || isProductsFetching) || isInitialSelectionLoading;
 
   return (
     <ModalStepLayout
@@ -688,7 +785,11 @@ export default function WishlistGiftSelectionStep({
                 type="button"
                 onClick={() => {
                   void refetchCategories();
-                  void refetchProducts();
+                  if (enableInfiniteScroll) {
+                    void refetchInfiniteProducts();
+                  } else {
+                    void refetchProducts();
+                  }
                   onRetryInitialSelection?.();
                 }}
                 className="text-[12px] font-semibold text-[#3300C9] transition-colors hover:text-[#2400A1]"
@@ -700,6 +801,7 @@ export default function WishlistGiftSelectionStep({
         </div>
       }
       footer={
+        enableInfiniteScroll ? null :
         <div className="space-y-4 border-t border-[#F1EDF9] pt-5">
           <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
             <Button
@@ -752,33 +854,38 @@ export default function WishlistGiftSelectionStep({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            {onBack ? (
+          {hideFooterActions ? null : (
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {onBack ? (
+                <ModalButton
+                  type="button"
+                  variant="secondary"
+                  onClick={onBack}
+                  className="max-w-[126px] !h-[38px] rounded-[16px]"
+                >
+                  Back
+                </ModalButton>
+              ) : null}
+
               <ModalButton
                 type="button"
-                variant="secondary"
-                onClick={onBack}
-                className="max-w-[126px] !h-[38px] rounded-[16px]"
+                onClick={onNext}
+                disabled={nextDisabled}
+                className={cn(
+                  "!h-[38px] rounded-[16px]",
+                  onBack ? "max-w-[126px]" : "w-full max-w-[420px]",
+                )}
               >
-                Back
+                {nextLabel}
               </ModalButton>
-            ) : null}
-
-            <ModalButton
-              type="button"
-              onClick={onNext}
-              disabled={nextDisabled}
-              className={cn(
-                "!h-[38px] rounded-[16px]",
-                onBack ? "max-w-[126px]" : "w-full max-w-[420px]",
-              )}
-            >
-              {nextLabel}
-            </ModalButton>
-          </div>
+            </div>
+          )}
         </div>
       }
-      contentClassName="pr-0 sm:pr-1"
+      contentClassName={cn(
+        "pr-0 sm:pr-1",
+        disableContentScroll && "overflow-y-visible",
+      )}
     >
       <FilterDrawer
         open={isFilterDrawerOpen}
@@ -800,15 +907,36 @@ export default function WishlistGiftSelectionStep({
           {emptyStateText}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-          {products.map((product) => (
-            <GiftCard
-              key={product._id}
-              product={product}
-              checked={selectedIds.includes(product._id)}
-              onToggle={() => toggleGiftSelection(product)}
-            />
-          ))}
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            {products.map((product) => (
+              <GiftCard
+                key={product._id}
+                product={product}
+                checked={selectedIds.includes(product._id)}
+                onToggle={() => toggleGiftSelection(product)}
+                onView={
+                  onViewProduct ? () => onViewProduct(product) : undefined
+                }
+              />
+            ))}
+          </div>
+
+          {enableInfiniteScroll ? (
+            <div ref={infiniteScrollSentinelRef} className="min-h-8">
+              {isFetchingNextPage ? (
+                <GiftGridLoadingSkeleton count={4} />
+              ) : hasNextPage ? (
+                <div className="py-4 text-center text-[13px] font-medium text-[#7D7D7D]">
+                  Scroll to load more gifts
+                </div>
+              ) : (
+                <div className="py-4 text-center text-[13px] font-medium text-[#7D7D7D]">
+                  You have reached the end of the gift list.
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
     </ModalStepLayout>

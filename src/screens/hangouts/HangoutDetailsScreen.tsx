@@ -14,13 +14,13 @@ import Button from "@/components/Button";
 import { BackIcon } from "@/components/BackLink";
 import UserAvatar from "@/components/UserAvatar";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
-import { EventDetailScreenSkeleton } from "@/components/ui/context-skeletons";
 import { Calendar } from "@/components/ui/calender";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { canManageHangoutEvent } from "@/features/hangout-events/access";
 import { useHangoutEventQuery } from "@/features/hangout-events/hooks/useHangoutEventQuery";
 import { useUpdateHangoutEventMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventMutation";
@@ -270,6 +270,92 @@ function ParticipantDetailRow({
   );
 }
 
+function HangoutDetailsSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="inline-flex items-center gap-2">
+        <Skeleton className="size-9 rounded-full" />
+        <Skeleton className="h-5 w-12" />
+      </div>
+
+      <section className="rounded-[28px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-9 w-24 rounded-full" />
+        </div>
+
+        <div className="mt-5 space-y-5">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.85fr)]">
+            <Skeleton className="h-[220px] rounded-[18px] sm:h-[250px] lg:h-[228px]" />
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton
+                  key={`hangout-gallery-skeleton-${index}`}
+                  className="h-[92px] rounded-[12px] sm:h-[108px]"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_520px]">
+            <div>
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="mt-3 h-10 w-40" />
+              <Skeleton className="mt-4 h-4 w-52" />
+              <div className="mt-5 space-y-3">
+                <Skeleton className="h-4 w-full max-w-[760px]" />
+                <Skeleton className="h-4 w-full max-w-[700px]" />
+                <Skeleton className="h-4 w-full max-w-[620px]" />
+              </div>
+              <div className="mt-5 flex items-center gap-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton
+                    key={`hangout-participant-bubble-${index}`}
+                    className="size-7 rounded-full"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-[20px] border border-[#EEEAF7] bg-[#FCFBFF] p-4">
+              <Skeleton className="h-8 w-36" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <Skeleton className="h-[68px] rounded-[14px]" />
+                <Skeleton className="h-[68px] rounded-[14px]" />
+                <Skeleton className="h-[68px] rounded-[14px]" />
+              </div>
+              <Skeleton className="h-[44px] w-full rounded-full" />
+              <Skeleton className="h-[44px] w-full rounded-[15px]" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5 lg:p-6">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="mt-2 h-4 w-56" />
+        <div className="mt-5 rounded-[20px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-1 sm:px-5">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={`hangout-participant-row-${index}`}
+              className="flex items-center justify-between gap-3 border-b border-[#F1EDF8] py-3 last:border-b-0"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="size-11 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-44" />
+                </div>
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function GalleryTile({
   src,
   alt,
@@ -285,7 +371,7 @@ function GalleryTile({
     <button
       type="button"
       onClick={onClick}
-      className="group relative min-h-[120px] overflow-hidden rounded-[12px] bg-[#F4F1FF] text-left"
+      className="group relative h-[92px] overflow-hidden rounded-[12px] bg-[#F4F1FF] text-left sm:h-[108px]"
     >
       <img
         src={src}
@@ -618,13 +704,7 @@ export default function HangoutDetailsScreen({
   };
 
   if (isLoading || isFetching) {
-    return (
-      <EventDetailScreenSkeleton
-        backHref="/dashboard/hangouts"
-        backLabel="Back"
-        showSidebar={false}
-      />
-    );
+    return <HangoutDetailsSkeleton />;
   }
 
   if (isError || !hangout) {
@@ -692,14 +772,14 @@ export default function HangoutDetailsScreen({
           <div
             className={
               sideGallery.length > 0
-                ? "grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]"
+                ? "grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.85fr)]"
                 : "grid gap-3"
             }
           >
             <button
               type="button"
               onClick={() => setActiveImageIndex(0)}
-              className="group relative min-h-[240px] overflow-hidden rounded-[18px] bg-[#F4F1FF] text-left sm:min-h-[320px]"
+              className="group relative h-[220px] overflow-hidden rounded-[18px] bg-[#F4F1FF] text-left sm:h-[250px] lg:h-[228px]"
             >
               {activeImage ? (
                 <img
