@@ -1334,6 +1334,9 @@ export default function ScheduleScreen() {
           form: {
             eventName: response.data.event.title || eventTitle,
             subject: form.subject || eventTitle,
+            message: form.message,
+            giftUrl: form.giftUrl,
+            giftUrlExpiresAt: form.giftUrlExpiresAt,
             eventDate: toDateOnlyValue(response.data.event.eventDate),
             scheduledAt: form.scheduledAt,
           },
@@ -1371,6 +1374,9 @@ export default function ScheduleScreen() {
         form: {
           eventName: response.data.event.title || eventTitle,
           subject: form.subject || eventTitle,
+          message: form.message,
+          giftUrl: form.giftUrl,
+          giftUrlExpiresAt: form.giftUrlExpiresAt,
           eventDate: toDateOnlyValue(response.data.event.eventDate),
           scheduledAt: form.scheduledAt,
         },

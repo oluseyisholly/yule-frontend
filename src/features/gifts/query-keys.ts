@@ -1,6 +1,10 @@
 export const giftQueryKeys = {
   all: ["gifts"] as const,
   metrics: () => [...giftQueryKeys.all, "metrics"] as const,
+  cart: () => [...giftQueryKeys.all, "cart"] as const,
+  cartItems: (params: { page?: number; per_page?: number }) =>
+    [...giftQueryKeys.cart(), "items", params] as const,
+  cartCount: () => [...giftQueryKeys.cart(), "count"] as const,
   selections: () => [...giftQueryKeys.all, "selections"] as const,
   participantSelections: (participantId: string, eventId: string) =>
     [...giftQueryKeys.selections(), participantId, eventId] as const,

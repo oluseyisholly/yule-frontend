@@ -3,6 +3,7 @@
 import Image from "next/image";
 import {
   type ChangeEvent,
+  type ReactNode,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -59,6 +60,14 @@ type WishlistGiftSelectionStepProps = {
   hideFooterActions?: boolean;
   disableContentScroll?: boolean;
   enableInfiniteScroll?: boolean;
+  externalProducts?: MarketplaceProduct[];
+  externalSourceLabel?: string;
+  externalSourceDescription?: string;
+  externalSourceAction?: ReactNode;
+  externalProductsLoading?: boolean;
+  externalProductsError?: boolean;
+  onRetryExternalProducts?: () => void;
+  hideSelectionControls?: boolean;
 };
 
 type FilterOption = {
@@ -289,11 +298,13 @@ function GiftCard({
   checked,
   onToggle,
   onView,
+  hideSelectionControls = false,
 }: {
   product: MarketplaceProduct;
   checked: boolean;
   onToggle: () => void;
   onView?: () => void;
+  hideSelectionControls?: boolean;
 }) {
   const primaryImage = product.images[0] || "";
 
@@ -357,12 +368,14 @@ function GiftCard({
                 View
               </button>
             ) : null}
-            <Checkbox
-              checked={checked}
-              onCheckedChange={onToggle}
-              aria-label={`Select ${product.title}`}
-              className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
-            />
+            {hideSelectionControls ? null : (
+              <Checkbox
+                checked={checked}
+                onCheckedChange={onToggle}
+                aria-label={`Select ${product.title}`}
+                className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -391,6 +404,14 @@ export default function WishlistGiftSelectionStep({
   hideFooterActions = false,
   disableContentScroll = false,
   enableInfiniteScroll = false,
+  externalProducts,
+  externalSourceLabel,
+  externalSourceDescription,
+  externalSourceAction,
+  externalProductsLoading = false,
+  externalProductsError = false,
+  onRetryExternalProducts,
+  hideSelectionControls = false,
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -406,6 +427,7 @@ export default function WishlistGiftSelectionStep({
   const [draftMinimumPrice, setDraftMinimumPrice] = useState("");
   const [draftMaximumPrice, setDraftMaximumPrice] = useState("");
   const onSelectedProductToggleRef = useRef(onSelectedProductToggle);
+  const isExternalProductSource = Array.isArray(externalProducts);
 
   useEffect(() => {
     onSelectedProductToggleRef.current = onSelectedProductToggle;
@@ -417,7 +439,9 @@ export default function WishlistGiftSelectionStep({
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
     refetch: refetchCategories,
-  } = useMarketplaceCategoriesQuery();
+  } = useMarketplaceCategoriesQuery({
+    enabled: !isExternalProductSource,
+  });
 
   const categories = categoriesResponse?.data ?? [];
   const categoryOptions = useMemo(
@@ -443,21 +467,24 @@ export default function WishlistGiftSelectionStep({
     isFetching: isProductsFetching,
     isError: isProductsError,
     refetch: refetchProducts,
-  } = useMarketplaceProductsQuery({
-    limit: PAGE_SIZE,
-    page: currentPage,
-    search: deferredQuery.trim() || undefined,
-    categorySlug: selectedCategorySlug || undefined,
-    subCategorySlug: selectedSubCategorySlug || undefined,
-    minPrice: resolvedMinimumPrice,
-    maxPrice: resolvedMaximumPrice,
-    condition: (selectedCondition || undefined) as
-      | MarketplaceCondition
-      | undefined,
-    status: "active",
-  }, {
-    enabled: !enableInfiniteScroll,
-  });
+  } = useMarketplaceProductsQuery(
+    {
+      limit: PAGE_SIZE,
+      page: currentPage,
+      search: deferredQuery.trim() || undefined,
+      categorySlug: selectedCategorySlug || undefined,
+      subCategorySlug: selectedSubCategorySlug || undefined,
+      minPrice: resolvedMinimumPrice,
+      maxPrice: resolvedMaximumPrice,
+      condition: (selectedCondition || undefined) as
+        | MarketplaceCondition
+        | undefined,
+      status: "active",
+    },
+    {
+      enabled: !enableInfiniteScroll && !isExternalProductSource,
+    },
+  );
 
   const {
     data: infiniteProductsResponse,
@@ -467,29 +494,62 @@ export default function WishlistGiftSelectionStep({
     hasNextPage,
     fetchNextPage,
     refetch: refetchInfiniteProducts,
-  } = useMarketplaceProductsInfiniteQuery({
-    limit: PAGE_SIZE,
-    search: deferredQuery.trim() || undefined,
-    categorySlug: selectedCategorySlug || undefined,
-    subCategorySlug: selectedSubCategorySlug || undefined,
-    minPrice: resolvedMinimumPrice,
-    maxPrice: resolvedMaximumPrice,
-    condition: (selectedCondition || undefined) as
-      | MarketplaceCondition
-      | undefined,
-    status: "active",
-  }, {
-    enabled: enableInfiniteScroll,
-  });
+  } = useMarketplaceProductsInfiniteQuery(
+    {
+      limit: PAGE_SIZE,
+      search: deferredQuery.trim() || undefined,
+      categorySlug: selectedCategorySlug || undefined,
+      subCategorySlug: selectedSubCategorySlug || undefined,
+      minPrice: resolvedMinimumPrice,
+      maxPrice: resolvedMaximumPrice,
+      condition: (selectedCondition || undefined) as
+        | MarketplaceCondition
+        | undefined,
+      status: "active",
+    },
+    {
+      enabled: enableInfiniteScroll && !isExternalProductSource,
+    },
+  );
 
   const infiniteProducts = useMemo(
     () =>
       infiniteProductsResponse?.pages.flatMap((page) => page.data ?? []) ?? [],
     [infiniteProductsResponse?.pages],
   );
-  const products = enableInfiniteScroll
-    ? infiniteProducts
-    : productsResponse?.data ?? [];
+  const filteredExternalProducts = useMemo(() => {
+    const normalizedQuery = deferredQuery.trim().toLowerCase();
+
+    if (!isExternalProductSource) {
+      return [];
+    }
+
+    if (!normalizedQuery) {
+      return externalProducts ?? [];
+    }
+
+    return (externalProducts ?? []).filter((product) => {
+      const haystack = [
+        product.title,
+        product.description,
+        product.categorySlug,
+        product.subCategorySlug,
+        product.condition,
+        product.location?.city,
+        product.location?.state,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [deferredQuery, externalProducts, isExternalProductSource]);
+  const products = isExternalProductSource
+    ? filteredExternalProducts
+    : enableInfiniteScroll
+      ? infiniteProducts
+      : productsResponse?.data ?? [];
   const totalPages = Math.max(productsResponse?.totalPages ?? 1, 1);
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pages = buildPages(safeCurrentPage, totalPages);
@@ -727,13 +787,16 @@ export default function WishlistGiftSelectionStep({
   );
 
   const showRetry =
-    isCategoriesError ||
+    (!isExternalProductSource && isCategoriesError) ||
     (enableInfiniteScroll ? isInfiniteProductsError : isProductsError) ||
-    isInitialSelectionError;
+    isInitialSelectionError ||
+    externalProductsError;
   const showLoading =
-    (enableInfiniteScroll
-      ? isInfiniteProductsLoading
-      : isProductsLoading || isProductsFetching) || isInitialSelectionLoading;
+    (isExternalProductSource
+      ? externalProductsLoading
+      : enableInfiniteScroll
+        ? isInfiniteProductsLoading
+        : isProductsLoading || isProductsFetching) || isInitialSelectionLoading;
 
   return (
     <ModalStepLayout
@@ -760,26 +823,48 @@ export default function WishlistGiftSelectionStep({
               className="h-10 rounded-[5px] border-[#9F9F9F] bg-[#FFFFFF] text-[12px] font-medium placeholder:text-[#716F6F]"
             />
             <div className="flex flex-wrap gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsFilterDrawerOpen(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-[#E4E9ED] px-3.5 py-2 text-[12px] font-medium text-[#716F6F] transition-colors hover:bg-[#DCE2E7]"
-              >
-                <Image
-                  src={filterIcon}
-                  alt=""
-                  aria-hidden
-                  className="h-4 w-4"
-                />
-                {activeFilterCount ? `Filter (${activeFilterCount})` : "Filter"}
-              </button>
+              {isExternalProductSource ? null : (
+                <button
+                  type="button"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-[#E4E9ED] px-3.5 py-2 text-[12px] font-medium text-[#716F6F] transition-colors hover:bg-[#DCE2E7]"
+                >
+                  <Image
+                    src={filterIcon}
+                    alt=""
+                    aria-hidden
+                    className="h-4 w-4"
+                  />
+                  {activeFilterCount
+                    ? `Filter (${activeFilterCount})`
+                    : "Filter"}
+                </button>
+              )}
+              {externalSourceAction}
             </div>
           </div>
+
+          {isExternalProductSource ? (
+            <div className="flex flex-col gap-1 rounded-[16px] border border-[#E6E0F7] bg-[#FAF8FF] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] font-semibold text-[#3300C9]">
+                  {externalSourceLabel || "From your cart"}
+                </p>
+                <p className="text-[12px] text-[#7D7D7D]">
+                  {externalSourceDescription ||
+                    "These gifts are pulled from your saved cart items."}
+                </p>
+              </div>
+              <span className="text-[12px] font-medium text-[#716F6F]">
+                {products.length} item{products.length === 1 ? "" : "s"}
+              </span>
+            </div>
+          ) : null}
 
           {showRetry ? (
             <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[#F2D8D8] bg-[#FFF8F8] px-4 py-3">
               <p className="text-[12px] text-[#8A5A5A]">
-                Unable to load wishlist items right now.
+                Unable to load gifts right now.
               </p>
               <button
                 type="button"
@@ -791,6 +876,7 @@ export default function WishlistGiftSelectionStep({
                     void refetchProducts();
                   }
                   onRetryInitialSelection?.();
+                  onRetryExternalProducts?.();
                 }}
                 className="text-[12px] font-semibold text-[#3300C9] transition-colors hover:text-[#2400A1]"
               >
@@ -801,58 +887,60 @@ export default function WishlistGiftSelectionStep({
         </div>
       }
       footer={
-        enableInfiniteScroll ? null :
+        enableInfiniteScroll && hideFooterActions ? null : (
         <div className="space-y-4 border-t border-[#F1EDF9] pt-5">
-          <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
-            <Button
-              type="button"
-              variant="outlined"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={safeCurrentPage === 1}
-              className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ← Previous
-            </Button>
+          {enableInfiniteScroll || isExternalProductSource ? null : (
+            <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={safeCurrentPage === 1}
+                className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ← Previous
+              </Button>
 
-            <div className="flex items-center gap-1.5">
-              {pages.map((page, index) =>
-                page === "..." ? (
-                  <span
-                    key={`gap-${index}`}
-                    className="px-2 text-[13px] text-muted"
-                  >
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition-colors",
-                      safeCurrentPage === page
-                        ? "bg-gray-100 text-dark"
-                        : "text-muted hover:bg-gray-50",
-                    )}
-                  >
-                    {page}
-                  </button>
-                ),
-              )}
+              <div className="flex items-center gap-1.5">
+                {pages.map((page, index) =>
+                  page === "..." ? (
+                    <span
+                      key={`gap-${index}`}
+                      className="px-2 text-[13px] text-muted"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition-colors",
+                        safeCurrentPage === page
+                          ? "bg-gray-100 text-dark"
+                          : "text-muted hover:bg-gray-50",
+                      )}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
+              </div>
+
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                disabled={safeCurrentPage === totalPages}
+                className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next →
+              </Button>
             </div>
-
-            <Button
-              type="button"
-              variant="outlined"
-              onClick={() =>
-                setCurrentPage((page) => Math.min(totalPages, page + 1))
-              }
-              disabled={safeCurrentPage === totalPages}
-              className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next →
-            </Button>
-          </div>
+          )}
 
           {hideFooterActions ? null : (
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -881,22 +969,25 @@ export default function WishlistGiftSelectionStep({
             </div>
           )}
         </div>
+        )
       }
       contentClassName={cn(
-        "pr-0 sm:pr-1",
+        "pr-0 sm:pr-1 h-full",
         disableContentScroll && "overflow-y-visible",
       )}
     >
-      <FilterDrawer
-        open={isFilterDrawerOpen}
-        onOpenChange={setIsFilterDrawerOpen}
-        title="Filter gifts"
-        description="Choose the options you want, then apply them to refresh the gift list."
-        onApply={handleApplyFilters}
-        onClear={handleClearFilters}
-      >
-        {drawerFilterControls}
-      </FilterDrawer>
+      {isExternalProductSource ? null : (
+        <FilterDrawer
+          open={isFilterDrawerOpen}
+          onOpenChange={setIsFilterDrawerOpen}
+          title="Filter gifts"
+          description="Choose the options you want, then apply them to refresh the gift list."
+          onApply={handleApplyFilters}
+          onClear={handleClearFilters}
+        >
+          {drawerFilterControls}
+        </FilterDrawer>
+      )}
 
       {showLoading ? (
         <div className="rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:p-5">
@@ -918,6 +1009,7 @@ export default function WishlistGiftSelectionStep({
                 onView={
                   onViewProduct ? () => onViewProduct(product) : undefined
                 }
+                hideSelectionControls={hideSelectionControls}
               />
             ))}
           </div>

@@ -1,8 +1,6 @@
 "use client";
 
-import DrawNameInviteStep, {
-  type DrawNameInviteParticipant,
-} from "@/components/DrawNameInviteStep";
+import DrawNameInviteStep from "@/components/DrawNameInviteStep";
 import DrawNameReadyStep from "@/components/DrawNameReadyStep";
 import DrawNameResultStep from "@/components/DrawNameResultStep";
 import DrawNameSpinStep from "@/components/DrawNameSpinStep";
@@ -45,17 +43,9 @@ type DrawNameExecutionFlowStepsProps = {
   resultPrimaryActionLabel: string;
   isResultPrimaryActionPending: boolean;
   onInviteBack: () => void;
-  inviteParticipants: DrawNameInviteParticipant[];
-  isCopyListOpen: boolean;
-  onToggleCopyList: () => void;
   onSendEmail: () => void;
-  onCopyLink: (participantId: string) => void;
+  onCopyLink: () => void;
   isSendingEmail: boolean;
-  isLoadingLinks: boolean;
-  isLinksError: boolean;
-  onRetryLinks: () => void;
-  inviteSearchValue: string;
-  onInviteSearchValueChange: (value: string) => void;
 };
 
 export default function DrawNameExecutionFlowSteps({
@@ -89,17 +79,9 @@ export default function DrawNameExecutionFlowSteps({
   resultPrimaryActionLabel,
   isResultPrimaryActionPending,
   onInviteBack,
-  inviteParticipants,
-  isCopyListOpen,
-  onToggleCopyList,
   onSendEmail,
   onCopyLink,
   isSendingEmail,
-  isLoadingLinks,
-  isLinksError,
-  onRetryLinks,
-  inviteSearchValue,
-  onInviteSearchValueChange,
 }: DrawNameExecutionFlowStepsProps) {
   if (currentStep === "wishlist-gifts") {
     return (
@@ -110,6 +92,7 @@ export default function DrawNameExecutionFlowSteps({
         maximumSpend={maximumSpend}
         onBack={onWishlistBack}
         onNext={onWishlistNext}
+        // disableContentScroll={true}
         isInitialSelectionLoading={isInitialSelectionLoading}
         isInitialSelectionError={isInitialSelectionError}
         onRetryInitialSelection={onRetryInitialSelection}
@@ -172,17 +155,9 @@ export default function DrawNameExecutionFlowSteps({
     return (
       <DrawNameInviteStep
         onBack={onInviteBack}
-        participants={inviteParticipants}
-        isCopyListOpen={isCopyListOpen}
-        onToggleCopyList={onToggleCopyList}
         onSendEmail={onSendEmail}
         onCopyLink={onCopyLink}
         isSendingEmail={isSendingEmail}
-        isLoadingLinks={isLoadingLinks}
-        isLinksError={isLinksError}
-        onRetryLinks={onRetryLinks}
-        searchValue={inviteSearchValue}
-        onSearchValueChange={onInviteSearchValueChange}
       />
     );
   }

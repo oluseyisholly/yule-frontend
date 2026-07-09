@@ -11,9 +11,9 @@ import Logo from "@/assets/images/logoblue.svg";
 import { useAuthStore } from "@/stores/auth-store";
 import { YULE_SIGN_IN_URL, YULE_SIGN_UP_URL } from "@/lib/external-links";
 import { Spinner } from "@/components/ui/spinner";
+import AuthCtaButton from "@/components/AuthCtaButton";
 
 const navLinks = [
-  { label: "Home", href: "/" },
   { label: "Find Gifts", href: "/gifts" },
   { label: "Find Hangouts", href: "/hangouts" },
 ];
@@ -118,18 +118,20 @@ export default function Header() {
     }
 
     const nextSearchParams = new URLSearchParams(window.location.search);
-    setHasPendingAccessToken(Boolean(nextSearchParams.get("accessToken")?.trim()));
+    setHasPendingAccessToken(
+      Boolean(nextSearchParams.get("accessToken")?.trim()),
+    );
   }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:gap-10 xl:px-8">
+      <div className="mx-auto flex max-w-[calc(100%-10rem)] items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:gap-10 xl:px-8">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">
           <Image
             src={Logo}
             alt="Yule logo"
-            className="h-[30px] w-[56px] sm:h-[35px] sm:w-[65.5px]"
+            className="h-[30px] w-[66px] sm:h-[45px] sm:w-[65.5px]"
             priority
           />
         </Link>
@@ -165,7 +167,11 @@ export default function Header() {
             />
           ) : (
             <>
-              <Button
+              <AuthCtaButton
+                signUpHref={YULE_SIGN_UP_URL}
+                signInHref={YULE_SIGN_IN_URL}
+              />
+              {/* <Button
                 label="Create your first celebration"
                 href={YULE_SIGN_UP_URL}
                 variant="outlined"
@@ -174,7 +180,7 @@ export default function Header() {
                 label="Start Celebrating"
                 href={YULE_SIGN_IN_URL}
                 variant="filled"
-              />
+              /> */}
             </>
           )}
           <ThemeToggle />

@@ -14,6 +14,70 @@ export type CreateBulkGiftItemPayload = {
   productSlug?: string;
 };
 
+export type ContactGiftCartPayload = CreateBulkGiftItemPayload;
+
+export type ContactGiftCartContact = {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  profileUrl?: string | null;
+};
+
+export type ContactGiftCartItem = {
+  id: string;
+  contactId: string;
+  participantGiftId: string;
+  title: string;
+  description?: string | null;
+  amount: number | string;
+  currency?: string | null;
+  imageUrl?: string | null;
+  categorySlug?: string | null;
+  subCategorySlug?: string | null;
+  condition?: string | null;
+  locationState?: string | null;
+  locationCity?: string | null;
+  sellerId?: string | null;
+  productSlug?: string | null;
+  contact?: ContactGiftCartContact | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ContactGiftCartItemsParams = {
+  page?: number;
+  per_page?: number;
+};
+
+export type ContactGiftCartItemsPage = {
+  data: ContactGiftCartItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type ContactGiftCartItemsResponse = {
+  code: number;
+  message: string;
+  data: ContactGiftCartItemsPage;
+};
+
+export type ContactGiftCartCountResponse = {
+  code: number;
+  message: string;
+  data: {
+    count: number;
+  };
+};
+
+export type ContactGiftCartMutationResponse = {
+  code: number;
+  message: string;
+  data: ContactGiftCartItem;
+};
+
 export type CreateBulkGiftsPayload = {
   eventId: string;
   recipientParticipantId: string;

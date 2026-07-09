@@ -82,6 +82,8 @@ import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCrea
 import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
+import { useCreateContactGiftCartItemMutation } from "@/features/gifts/hooks/useCreateContactGiftCartItemMutation";
+import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import { useGiftMetricsQuery } from "@/features/gifts/hooks/useGiftMetricsQuery";
 import { useGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useGivenGroupedGiftsQuery";
 import { useReceivedGiftsQuery } from "@/features/gifts/hooks/useReceivedGiftsQuery";
@@ -100,6 +102,7 @@ import type {
   GivenGroupedGiftPerson,
   ReceivedGift,
   ReceivedGiftParticipantContact,
+  ContactGiftCartItem,
 } from "@/features/gifts/types";
 import type {
   GiftingEventParticipant,
@@ -137,6 +140,7 @@ type GiftRow = {
   id: string;
   item: string;
   image: StaticImageData | string;
+  product: MarketplaceProduct;
   eventName: string;
   eventDate: string;
   amount: string;
@@ -579,18 +583,71 @@ function toSentGiftStatus(
   return "Pending";
 }
 
+function toGiftRowProduct(
+  gift: GivenGroupedGift | ReceivedGift,
+  fallbackId: string,
+): MarketplaceProduct {
+  const imageUrl = gift.imageUrl?.trim();
+
+  return {
+    _id:
+      gift.participantGiftId?.trim() ||
+      ("id" in gift ? gift.id?.trim() : "") ||
+      fallbackId,
+    title: gift.title?.trim() || "Gift item",
+    description: gift.description?.trim() || "",
+    amount: Number(gift.amount ?? 0),
+    images: imageUrl ? [imageUrl] : [],
+    categorySlug: gift.categorySlug?.trim() || undefined,
+    subCategorySlug: gift.subCategorySlug?.trim() || undefined,
+    condition:
+      (gift.condition?.trim() as MarketplaceProduct["condition"]) || undefined,
+    location: {
+      state: gift.locationState?.trim() || undefined,
+      city: gift.locationCity?.trim() || undefined,
+    },
+    sellerId: gift.sellerId?.trim() || undefined,
+    slug: gift.productSlug?.trim() || undefined,
+  };
+}
+
+function toCartGiftProduct(item: ContactGiftCartItem): MarketplaceProduct {
+  const imageUrl = item.imageUrl?.trim();
+
+  return {
+    _id: item.participantGiftId?.trim() || item.id,
+    title: item.title?.trim() || "Gift item",
+    description: item.description?.trim() || "",
+    amount: Number(item.amount ?? 0),
+    images: imageUrl ? [imageUrl] : [],
+    categorySlug: item.categorySlug?.trim() || undefined,
+    subCategorySlug: item.subCategorySlug?.trim() || undefined,
+    condition:
+      (item.condition?.trim() as MarketplaceProduct["condition"]) || undefined,
+    location: {
+      state: item.locationState?.trim() || undefined,
+      city: item.locationCity?.trim() || undefined,
+    },
+    sellerId: item.sellerId?.trim() || undefined,
+    slug: item.productSlug?.trim() || undefined,
+  };
+}
+
 function toSentGiftRow(gift: GivenGroupedGift, index: number): GiftRow {
   const people = toGivenGiftPeople(gift.people);
   const recipientCount =
     gift.recipientCount ?? (people.length > 0 ? people.length : 1);
   const event = gift.event;
+  const rowId =
+    gift.id?.trim() || gift.participantGiftId?.trim() || `given-gift-${index}`;
 
   return {
-    id: gift.id?.trim() || `given-gift-${index}`,
+    id: rowId,
     item: gift.title?.trim() || "Gift item",
     image:
       gift.imageUrl?.trim() ||
       fallbackGiftImages[index % fallbackGiftImages.length],
+    product: toGiftRowProduct(gift, rowId),
     eventName: event?.title?.trim() || "-",
     eventDate: formatDate(event?.eventDate),
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
@@ -610,6 +667,12 @@ function toReceivedStatus(gift: ReceivedGift): GiftStatus {
   return "Pending";
 }
 
+function toGiftDetailStatus(status: GiftStatus) {
+  return status === "Completed" || status === "Delivered"
+    ? "Completed"
+    : "Ongoing";
+}
+
 function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
   const giverContact = gift.giverParticipant?.eventContact;
   const giverName = toDisplayName(giverContact);
@@ -620,6 +683,7 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
     image:
       gift.imageUrl?.trim() ||
       fallbackGiftImages[index % fallbackGiftImages.length],
+    product: toGiftRowProduct(gift, gift.id),
     eventName: gift.event?.title?.trim() || "-",
     eventDate: formatDate(gift.event?.eventDate),
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
@@ -1106,6 +1170,42 @@ function GiftingEventRowActions({
   );
 }
 
+function GiftRowActions({
+  row,
+  onView,
+}: {
+  row: GiftRow;
+  onView: (row: GiftRow) => void;
+}) {
+  return (
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`More options for ${row.item}`}
+            className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-40 rounded-xl border-[#ECE8F7] bg-white p-1.5 shadow-[0_16px_40px_rgba(51,0,201,0.08)]"
+        >
+          <DropdownMenuItem
+            onSelect={() => onView(row)}
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"
+          >
+            <ViewIcon className="size-4 text-[#292D32]" />
+            View
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 function GiftItemImage({
   image,
   alt,
@@ -1198,6 +1298,7 @@ export default function DashboardGiftsScreen() {
     useState(false);
   const [viewingGiftProduct, setViewingGiftProduct] =
     useState<MarketplaceProduct | null>(null);
+  const [viewingGiftRow, setViewingGiftRow] = useState<GiftRow | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
@@ -1229,6 +1330,8 @@ export default function DashboardGiftsScreen() {
   const isGiftInviteStep = currentGiftFlowStep === "invite";
   const activeTabParam = searchParams.get("tab")?.trim().toLowerCase() ?? null;
   const isBrowseGiftsFlow = searchParams.get("browse") === "true";
+  const shouldReturnToGiftFlow =
+    isBrowseGiftsFlow && searchParams.get("returnToGiftFlow") === "true";
   const activeTab: GiftsTab = isValidGiftsTab(activeTabParam)
     ? activeTabParam
     : "events";
@@ -1302,6 +1405,24 @@ export default function DashboardGiftsScreen() {
   const isReceivedTab = activeTab === "received";
   const isEventsTab = activeTab === "events";
   const {
+    data: cartItemsResponse,
+    isLoading: isCartItemsLoading,
+    isFetching: isCartItemsFetching,
+    isError: isCartItemsError,
+    refetch: refetchCartItems,
+  } = useContactGiftCartItemsQuery(
+    {
+      page: 1,
+      per_page: 100,
+    },
+    {
+      enabled:
+        isGiftFlowOpen &&
+        currentGiftFlowStep === "gift-selection" &&
+        !isBrowseGiftsFlow,
+    },
+  );
+  const {
     data: giftingEventsResponse,
     isLoading: isGiftingEventsLoading,
     isFetching: isGiftingEventsFetching,
@@ -1364,6 +1485,8 @@ export default function DashboardGiftsScreen() {
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
+  const createContactGiftCartItemMutation =
+    useCreateContactGiftCartItemMutation();
   const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
   const shouldEnableContactsQuery =
     isGiftFlowOpen &&
@@ -1428,6 +1551,13 @@ export default function DashboardGiftsScreen() {
         toReceivedGiftRow(gift, index),
       ),
     [receivedGiftsResponse?.data.data],
+  );
+  const cartGiftProducts = useMemo(
+    () =>
+      (cartItemsResponse?.data.data ?? []).map((item) =>
+        toCartGiftProduct(item),
+      ),
+    [cartItemsResponse?.data.data],
   );
 
   const rows = isSentTab ? sentRows : receivedRows;
@@ -1647,6 +1777,18 @@ export default function DashboardGiftsScreen() {
 
   const displayedGiftRows = giftRows;
   const displayedEventRows = eventRows;
+  const giftSelectionReturnHref =
+    eventId && giftingEventId
+      ? `/dashboard/gifts/flow/gift-selection?mode=${mode}&eventId=${eventId}&giftingEventId=${giftingEventId}&tab=events`
+      : "/dashboard/gifts?tab=events";
+  const browseGiftsFromGiftFlowHref =
+    eventId && giftingEventId
+      ? `${giftSelectionReturnHref}&browse=true&returnToGiftFlow=true`
+      : "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true";
+
+  const handleViewGiftRow = (row: GiftRow) => {
+    setViewingGiftRow(row);
+  };
 
   const handleOpenGiftFlow = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
@@ -1850,12 +1992,40 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
-    setStoredSelectedGiftIds(flowSelectionKey, [
-      ...selectedGiftIds,
-      viewingGiftProduct._id,
-    ]);
-    handleGiftFlowProductToggle(viewingGiftProduct, true);
-    toast.success("Gift added to cart.");
+    createContactGiftCartItemMutation.mutate(
+      {
+        participantGiftId: viewingGiftProduct._id,
+        title: viewingGiftProduct.title,
+        description: viewingGiftProduct.description ?? "",
+        amount: viewingGiftProduct.amount,
+        currency: "NGN",
+        imageUrl: viewingGiftProduct.images[0] || undefined,
+        categorySlug: viewingGiftProduct.categorySlug || undefined,
+        subCategorySlug: viewingGiftProduct.subCategorySlug || undefined,
+        condition: viewingGiftProduct.condition || undefined,
+        locationState: viewingGiftProduct.location?.state || undefined,
+        locationCity: viewingGiftProduct.location?.city || undefined,
+        sellerId: viewingGiftProduct.sellerId || undefined,
+        productSlug: viewingGiftProduct.slug || undefined,
+      },
+      {
+        onSuccess: (response) => {
+          setStoredSelectedGiftIds(flowSelectionKey, [
+            ...selectedGiftIds,
+            viewingGiftProduct._id,
+          ]);
+          handleGiftFlowProductToggle(viewingGiftProduct, true);
+          toast.success(response.message || "Gift added to cart.");
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Unable to add this gift to your cart right now.",
+          );
+        },
+      },
+    );
   };
 
   const handleGiftFlowEventNext = async () => {
@@ -2683,12 +2853,23 @@ export default function DashboardGiftsScreen() {
       onViewProduct={setViewingGiftProduct}
       onBack={() =>
         isBrowseGiftsFlow
-          ? router.push("/dashboard/gifts?tab=events", { scroll: false })
+          ? router.push(
+              shouldReturnToGiftFlow
+                ? giftSelectionReturnHref
+                : "/dashboard/gifts?tab=events",
+              { scroll: false },
+            )
           : setGiftFlowStep("review-records", mode, eventId, giftingEventId)
       }
       onNext={
         isBrowseGiftsFlow
-          ? () => router.push("/dashboard/gifts?tab=events", { scroll: false })
+          ? () =>
+              router.push(
+                shouldReturnToGiftFlow
+                  ? giftSelectionReturnHref
+                  : "/dashboard/gifts?tab=events",
+                { scroll: false },
+              )
           : handleGiftFlowSelectionNext
       }
       nextDisabled={
@@ -2707,8 +2888,34 @@ export default function DashboardGiftsScreen() {
             : "Next"
       }
       hideFooterActions={isBrowseGiftsFlow}
-      disableContentScroll={isBrowseGiftsFlow}
-      enableInfiniteScroll={isBrowseGiftsFlow}
+      disableContentScroll={true}
+      enableInfiniteScroll={true}
+      hideSelectionControls={isBrowseGiftsFlow}
+      externalProducts={isBrowseGiftsFlow ? undefined : cartGiftProducts}
+      externalSourceLabel="From your cart"
+      externalSourceDescription="Select gifts saved in your cart for this gifting event."
+      externalProductsLoading={isCartItemsLoading || isCartItemsFetching}
+      externalProductsError={isCartItemsError}
+      onRetryExternalProducts={() => void refetchCartItems()}
+      emptyStateText={
+        isBrowseGiftsFlow
+          ? "No gifts matched your current filters."
+          : "No gifts in your cart match your search. Browse gifts to add something to your cart."
+      }
+      externalSourceAction={
+        isBrowseGiftsFlow ? null : (
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={() =>
+              router.push(browseGiftsFromGiftFlowHref, { scroll: false })
+            }
+            className="h-10 rounded-lg border-[#3300C9] bg-white px-3.5 text-[12px] font-semibold text-[#3300C9] hover:bg-[#F6F2FF]"
+          >
+            Browse Gifts
+          </Button>
+        )
+      }
     />
   );
 
@@ -2717,7 +2924,11 @@ export default function DashboardGiftsScreen() {
       return (
         <div className="space-y-2">
           <EventGiftDetailView
-            backHref="/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
+            backHref={
+              shouldReturnToGiftFlow
+                ? giftSelectionReturnHref
+                : "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
+            }
             backLabel="Back "
             onBack={() => setViewingGiftProduct(null)}
             eventTitle="Browse Gifts"
@@ -2732,6 +2943,12 @@ export default function DashboardGiftsScreen() {
             hideDeleteAction
             onDelete={() => undefined}
             onAddToCart={handleBrowseGiftAddToCart}
+            addToCartLabel={
+              createContactGiftCartItemMutation.isPending
+                ? "Adding..."
+                : "Add to cart"
+            }
+            addToCartDisabled={createContactGiftCartItemMutation.isPending}
             onMessageVendor={() =>
               toast("Vendor messaging is not available yet.")
             }
@@ -2746,22 +2963,27 @@ export default function DashboardGiftsScreen() {
       <div className="space-y-6">
         {isBrowseGiftsFlow ? (
           <div className="inline-flex items-center gap-3 text-[18px] font-semibold text-[#3300C9]">
-            <span>Gifts</span>
             <BackButton
               onClick={() =>
-                router.push("/dashboard/gifts?tab=events", { scroll: false })
+                router.push(
+                  shouldReturnToGiftFlow
+                    ? giftSelectionReturnHref
+                    : "/dashboard/gifts?tab=events",
+                  { scroll: false },
+                )
               }
               ariaLabel="Back to gifts"
               className="rounded-full bg-[#F4F0F8] px-4 text-[#3300C9] transition-colors hover:bg-[#ECE5F5]"
               iconClassName="text-[#3300C9]"
             />
+            <span>Gifts</span>
           </div>
         ) : null}
 
         <div
           className={cn(
-            "mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8",
-            !isBrowseGiftsFlow && "lg:h-[calc(100dvh-12rem)] lg:min-h-0",
+            "mx-auto  w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8",
+            !isBrowseGiftsFlow && " lg:min-h-0",
           )}
         >
           <div
@@ -2790,6 +3012,41 @@ export default function DashboardGiftsScreen() {
           closeOnEscape={false}
         />
       </div>
+    );
+  }
+
+  if (viewingGiftRow) {
+    const sentPeople = viewingGiftRow.sentTo ?? [];
+    const receivedPeople = viewingGiftRow.receivedFrom ?? [];
+    const counterpartyPeople = sentPeople.length ? sentPeople : receivedPeople;
+    const counterpartyName =
+      counterpartyPeople
+        .map((person) => person.name)
+        .filter(Boolean)
+        .join(", ") || "Yule";
+    const createdBy = sentPeople.length
+      ? `Sent to ${counterpartyName}`
+      : `Received from ${counterpartyName}`;
+
+    return (
+      <EventGiftDetailView
+        backHref="/dashboard/gifts"
+        backLabel="Back to gifts"
+        onBack={() => setViewingGiftRow(null)}
+        eventTitle={viewingGiftRow.eventName}
+        createdBy={createdBy}
+        createdAt={viewingGiftRow.eventDate}
+        status={toGiftDetailStatus(viewingGiftRow.status)}
+        avatarInitials="GF"
+        summaryItems={[]}
+        showSummaryItems={false}
+        product={viewingGiftRow.product}
+        hideDeleteAction
+        onDelete={() => undefined}
+        onMessageVendor={() => toast("Vendor messaging is not available yet.")}
+        onReportItem={() => toast("Thanks. We will review this item.")}
+        onShareProduct={() => toast.success("Product link copied.")}
+      />
     );
   }
 
@@ -3108,15 +3365,10 @@ export default function DashboardGiftsScreen() {
                             <StatusPill status={row.status} />
                           </td>
                           <td className="rounded-r-[16px] border-r border-[#F1EDF8] px-3">
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                aria-label={`More options for ${row.item}`}
-                                className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-[#F6F2FF] hover:text-[#434343]"
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </button>
-                            </div>
+                            <GiftRowActions
+                              row={row}
+                              onView={handleViewGiftRow}
+                            />
                           </td>
                         </tr>
                       );
@@ -3236,6 +3488,7 @@ export default function DashboardGiftsScreen() {
             onBack={() =>
               setGiftFlowStep("review-records", mode, eventId, giftingEventId)
             }
+            // disableContentScroll={true}
             onNext={handleGiftFlowSelectionNext}
             nextDisabled={
               !selectedGiftIds.length ||

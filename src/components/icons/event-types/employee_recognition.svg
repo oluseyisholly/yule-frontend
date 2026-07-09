@@ -1,5 +1,3 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="employee_recognition">
-  <!-- DESIGNER: replace this placeholder with final SVG content for "employee_recognition" -->
-  <rect width="24" height="24" fill="none"/>
+﻿<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 1L17.5 3.5L20 1M17.5 4V11M6.5 18H11.5L17.625 16.115C18.0151 15.9954 18.4278 15.9689 18.8299 16.0377C19.2321 16.1065 19.6126 16.2686 19.9407 16.511C20.2689 16.7534 20.5357 17.0694 20.7197 17.4336C20.9036 17.7978 20.9996 18.2 21 18.608V19L11.5 22H1M11.5 18V15L5.21 14.032C4.78205 13.9661 4.3449 13.9935 3.92854 14.1124C3.51218 14.2313 3.12645 14.4388 2.79781 14.7207C2.46916 15.0026 2.20536 15.3523 2.0245 15.7457C1.84364 16.1391 1.75 16.567 1.75 17M13 4H22V11H13V4Z" stroke="black" stroke-width="1.5"/>
 </svg>

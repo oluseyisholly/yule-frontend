@@ -9,7 +9,7 @@ export default function HangoutsHeader() {
     <div className="flex flex-col gap-6 md:gap-8">
       {/* Title */}
       <div>
-        <h1 className="font-title text-[26px] sm:text-[30px] md:text-[34px] lg:text-[36px] text-dark leading-tight mb-2">
+        <h1 className="font-poppins font-[600] text-[26px] sm:text-[30px] md:text-[34px] lg:text-[36px] text-dark leading-tight mb-2">
           Your Next Hangout Starts Here
         </h1>
         <p className="text-muted text-[13px] sm:text-[14px] max-w-xl">

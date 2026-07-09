@@ -1,85 +1,208 @@
 "use client";
 
+import Image, { type StaticImageData } from "next/image";
+
 import Button from "@/components/Button";
-import Image from "next/image";
-import pics1 from "@/assets/icons/firstHead.svg";
-import pics2 from "@/assets/icons/secondHead.svg";
-import pics3 from "@/assets/icons/thirdHead.svg";
-import pics5 from "@/assets/icons/fifthHead.svg";
+import { cn } from "@/lib/utils";
 import {
   getAuthAwareCtaHref,
-  YULE_SIGN_IN_URL,
   YULE_SIGN_UP_URL,
 } from "@/lib/external-links";
 import { useAuthStore } from "@/stores/auth-store";
 
-const avatars = [pics1, pics2, pics3, pics3, pics5];
+import hero from "@/assets/images/hero1.svg";
+import diagArrow from "@/assets/icons/diagArrow.svg";
+import dashSearch from "@/assets/icons/dashSearch.svg";
+import dashLocation from "@/assets/icons/dashLocation.svg";
+
+type SearchFieldProps = {
+  label: string;
+  icon: StaticImageData;
+  placeholder: string;
+  className?: string;
+  onClick?: () => void;
+};
+
+function SearchField({
+  label,
+  icon,
+  placeholder,
+  className,
+  onClick,
+}: SearchFieldProps) {
+  return (
+    <Button
+      type="button"
+      label={label}
+      variant="filled"
+      onClick={onClick}
+      className={cn(
+        "flex min-h-[58px] w-full items-center justify-start gap-3",
+        "rounded-[20px] !bg-white px-4 py-3 text-left",
+        "sm:min-h-[64px] sm:px-5",
+        className,
+      )}
+    >
+      <Image
+        src={icon}
+        alt=""
+        aria-hidden="true"
+        className="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+      />
+
+      <span className="min-w-0 truncate text-[12px] font-normal text-[#716F6F] sm:text-[13px]">
+        {placeholder}
+      </span>
+    </Button>
+  );
+}
 
 export default function HeroSection() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const startCelebratingHref = getAuthAwareCtaHref(
-    isAuthenticated,
-    YULE_SIGN_IN_URL,
-  );
+
   const createCelebrationHref = getAuthAwareCtaHref(
     isAuthenticated,
     YULE_SIGN_UP_URL,
   );
 
   return (
-    <section className="flex flex-col items-center px-5 pb-8 pt-9 text-center sm:px-6 md:px-10 md:pb-18 md:pt-19 lg:px-20 xl:px-28">
-      {/* Social proof */}
-      <div className="mb-5 flex flex-wrap items-center justify-center gap-3 sm:mb-6 sm:gap-4 lg:mb-7">
-        <div className="flex -space-x-2">
-          {avatars.map((avatar, i) => (
-            <Image
-              key={i}
-              src={avatar}
-              alt={`user avatar ${i + 1}`}
-              width={36}
-              height={36}
-              className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full border-[0.3px] border-white"
-            />
-          ))}
+    <section>
+      <div
+        className={cn(
+          "flex flex-col gap-8 pt-3",
+          "md:flex-row md:items-center md:gap-6 md:pt-8",
+          "lg:gap-10",
+        )}
+      >
+        {/* Hero content */}
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col justify-center gap-3",
+            "sm:gap-4",
+            "lg:gap-5",
+          )}
+        >
+          <h1
+            className={cn(
+              "mb-1 max-w-[560px] font-[600]",
+              "text-[34px] leading-[1.12] tracking-[0.04em] text-dark",
+              "sm:mb-3 sm:text-[44px]",
+              "md:text-[50px]",
+              "lg:mb-6 lg:max-w-[854px] lg:text-[60px]",
+              "font-poppins"
+            )}
+          >
+            Celebrate Life&apos;s Moments{" "}
+            <span className="block sm:inline">
+              Without Missing a Beat
+            </span>
+          </h1>
+
+          <p
+            className={cn(
+              "mb-2 max-w-[660px] text-[15px] leading-relaxed text-muted",
+              "sm:mb-3 sm:text-[16px]",
+              "md:text-[18px]",
+              "lg:text-[20px]",
+            )}
+          >
+            Life is full of moments worth celebrating. Yule helps you turn them
+            into meaningful gestures through effortless messages, thoughtful
+            gifts, and memorable experiences, so no special moment ever goes
+            unnoticed. 🎉
+          </p>
+
+          <div className="flex w-full max-w-[420px] flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-4">
+            <Button
+              label="Get Started"
+              href={createCelebrationHref}
+              variant="filled"
+              className={cn(
+                "w-full px-6 py-3 text-[14px]",
+                "sm:w-auto sm:px-7",
+                "lg:px-8 lg:text-base",
+              )}
+            >
+              <span className="inline-flex items-center justify-center gap-3">
+                Get Started
+
+                <Image
+                  src={diagArrow}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0"
+                />
+              </span>
+            </Button>
+          </div>
         </div>
-        <span className="text-[11px] sm:text-[12px] text-text-dark text-muted">
-          Over 200 thousand users
-        </span>
+
+        {/* Hero illustration */}
+        <div
+          className={cn(
+            "relative min-h-[320px] w-full flex-1",
+            "sm:min-h-[420px]",
+            "md:min-h-[460px]",
+            "lg:min-h-[560px]",
+          )}
+        >
+          <Image
+            src={hero}
+            alt="People celebrating special moments with Yule"
+            fill
+            priority
+            sizes="(max-width: 767px) 100vw, 50vw"
+            className="object-contain"
+          />
+        </div>
       </div>
 
-      {/* Heading */}
-      <h1 className="mb-4 max-w-[340px] font-title text-[28px] leading-[1.12] tracking-[0.04em] sm:mb-5 sm:max-w-[560px] sm:text-[38px] md:max-w-[720px] md:text-[46px] lg:mb-6 lg:max-w-[854px] lg:text-[52px] lg:mx-auto">
-        <span className="text-primary">Celebrate </span>
-        <span className="text-dark">
-          Life&apos;s Moment&apos;s
-          <br className="hidden sm:block" />
-          <span className="sm:ml-2">without Missing a Beat</span>
-        </span>
-      </h1>
+      {/* Search panel */}
+      <div
+        className={cn(
+          "w-full rounded-[20px] bg-[#104A63]",
+          "px-4 py-5",
+          "sm:px-6 sm:py-6",
+          "lg:px-12 lg:py-7",
+        )}
+      >
+        <p className="pb-4 text-[18px] font-light text-white sm:text-[21px] lg:text-[24px]">
+          What do you feel like doing today?
+        </p>
 
-      {/* Subtitle */}
-      <p className="text-muted mb-5 max-w-[320px] text-[14px] leading-relaxed sm:mb-6 sm:max-w-[620px] sm:text-base md:max-w-[860px] md:text-[20px] lg:mx-auto">
-        Life is full of moments worth celebrating. Yule helps you turn them into meaningful gestures through effortless messages, thoughtful
-        <br className="hidden lg:inline" />
-        {" "}gifts, and memorable experiences so no special moment ever goes
-        <br className="hidden lg:inline" />
-        {" "}unnoticed. 🎉
-      </p>
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-3",
+            "sm:gap-4",
+            "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)_auto]",
+          )}
+        >
+          <SearchField
+            label="Search for a hangout"
+            icon={dashSearch}
+            placeholder="Dinner, birthday, romantic dinner, coffee date"
+          />
 
-      {/* CTAs */}
-      <div className="flex w-full max-w-[420px] flex-col justify-center gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-4">
-        <Button
-          label="Start Celebrating"
-          href={startCelebratingHref}
-          variant="filled"
-          className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
-        />
-        <Button
-          label="Create your first celebration"
-          href={createCelebrationHref}
-          variant="outlined"
-          className="w-full px-6 py-3 text-[14px] sm:w-auto sm:px-7 sm:py-3.5 lg:px-8 lg:text-base"
-        />
+          <SearchField
+            label="Choose a location"
+            icon={dashLocation}
+            placeholder="Location"
+          />
+
+          <Button
+            label="Find hangout"
+            href={createCelebrationHref}
+            variant="filled"
+            className={cn(
+              "min-h-[58px] w-full rounded-[20px] !bg-[#FF6600]",
+              "px-7 py-3 text-[14px]",
+              "sm:min-h-[64px]",
+              "lg:w-auto lg:min-w-[170px] lg:text-base",
+            )}
+          >
+            Find hangout
+          </Button>
+        </div>
       </div>
     </section>
   );

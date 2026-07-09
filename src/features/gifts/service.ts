@@ -5,6 +5,11 @@ import type {
   ClaimGiftResponse,
   ClaimedGiftsParams,
   ClaimedGiftsResponse,
+  ContactGiftCartCountResponse,
+  ContactGiftCartItemsParams,
+  ContactGiftCartItemsResponse,
+  ContactGiftCartMutationResponse,
+  ContactGiftCartPayload,
   CreateBulkGiftsPayload,
   CreateBulkGiftsResponse,
   EventSelectedGiftsParams,
@@ -23,6 +28,7 @@ const GIFTS_BULK_ENDPOINT = "/gift/bulk";
 const GIFTS_ASSIGN_BULK_ENDPOINT = "/gift/assign/bulk";
 const GIFTS_ENDPOINT = "/gift";
 const PARTICIPANT_ENDPOINT = "/participant";
+const CONTACT_GIFT_CART_ENDPOINT = "/contact-gift-cart";
 
 export async function getGiftMetrics() {
   return getApi<GiftMetricsResponse>(`/dashboard/gift-metrics`);
@@ -39,6 +45,32 @@ export async function assignBulkGifts(payload: AssignBulkGiftsPayload) {
   return postApi<AssignBulkGiftsResponse, AssignBulkGiftsPayload>(
     GIFTS_ASSIGN_BULK_ENDPOINT,
     payload,
+  );
+}
+
+export async function createContactGiftCartItem(
+  payload: ContactGiftCartPayload,
+) {
+  return postApi<ContactGiftCartMutationResponse, ContactGiftCartPayload>(
+    CONTACT_GIFT_CART_ENDPOINT,
+    payload,
+  );
+}
+
+export async function getContactGiftCartItems(
+  params: ContactGiftCartItemsParams = {},
+) {
+  return getApi<ContactGiftCartItemsResponse>(CONTACT_GIFT_CART_ENDPOINT, {
+    params: {
+      page: params.page ?? 1,
+      per_page: params.per_page ?? 25,
+    },
+  });
+}
+
+export async function getContactGiftCartCount() {
+  return getApi<ContactGiftCartCountResponse>(
+    `${CONTACT_GIFT_CART_ENDPOINT}/count`,
   );
 }
 

@@ -10,13 +10,17 @@ import {
   MenuIcon,
   SearchIcon,
   SettingsIcon,
+  ShoppingCartIcon,
   UserRoundPlusIcon,
   XIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import ProfilePhotoCropModal from "@/components/ProfilePhotoCropModal";
+import NotificationDrawer, {
+  type NotificationDrawerItem,
+} from "@/components/NotificationDrawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +31,10 @@ import {
 import ThemeToggle from "@/components/ThemeToggle";
 import { getDashboardNavItemByPathname } from "@/components/dashboard/navigation";
 import { updateExternalProfile } from "@/features/auth/service";
+import { useContactGiftCartCountQuery } from "@/features/gifts/hooks/useContactGiftCartCountQuery";
+import { useMarkNotificationsReadMutation } from "@/features/notifications/hooks/useMarkNotificationsReadMutation";
+import { useNotificationsInfiniteQuery } from "@/features/notifications/hooks/useNotificationsInfiniteQuery";
+import { useUnreadNotificationCountQuery } from "@/features/notifications/hooks/useUnreadNotificationCountQuery";
 import { cn } from "@/lib/utils";
 import { clearStoredAuthSession, useAuthStore } from "@/stores/auth-store";
 import { AUTH_APP_BASE_URL_MANAGE_ACCOUNT } from "@/lib/external-links";
@@ -215,6 +223,51 @@ function ProfileMenuRow({
         {icon}
       </span>
       <span>{label}</span>
+    </button>
+  );
+}
+
+function HeaderCartButton({ count }: { count: number }) {
+  const displayCount = count > 99 ? "99+" : `${count}`;
+
+  return (
+    <Link
+      href="/dashboard/cart"
+      aria-label={`Cart${count ? `, ${count} item${count === 1 ? "" : "s"}` : ""}`}
+      className="relative flex size-9 items-center justify-center rounded-full bg-white text-[#434343] transition-colors hover:bg-[#f8f5ff] lg:size-10"
+    >
+      <ShoppingCartIcon className="size-4.5" strokeWidth={1.8} />
+      {count > 0 ? (
+        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
+          {displayCount}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function HeaderNotificationButton({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  const displayCount = count > 99 ? "99+" : `${count}`;
+
+  return (
+    <button
+      type="button"
+      aria-label={`Notifications${count ? `, ${count} unread` : ""}`}
+      onClick={onClick}
+      className="relative flex size-9 items-center justify-center rounded-full bg-white text-[#434343] transition-colors hover:bg-[#f8f5ff] lg:size-10"
+    >
+      <BellIcon className="size-4" />
+      {count > 0 ? (
+        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
+          {displayCount}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -441,6 +494,60 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const { data: cartCountResponse } = useContactGiftCartCountQuery(Boolean(user));
+  const cartItemCount = cartCountResponse?.data.count ?? 0;
+  const { data: unreadNotificationCountResponse } =
+    useUnreadNotificationCountQuery({
+      enabled: Boolean(user),
+    });
+  const {
+    data: notificationsResponse,
+    isLoading: isNotificationsLoading,
+    isFetchingNextPage: isFetchingMoreNotifications,
+    hasNextPage: hasMoreNotifications,
+    fetchNextPage: fetchNextNotificationsPage,
+  } = useNotificationsInfiniteQuery(
+    {
+      per_page: 25,
+    },
+    {
+      enabled: Boolean(user),
+    },
+  );
+  const markNotificationsReadMutation = useMarkNotificationsReadMutation();
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] =
+    useState(false);
+  const notificationRecords = useMemo(
+    () =>
+      notificationsResponse?.pages.flatMap((page) => page.data.data) ?? [],
+    [notificationsResponse],
+  );
+  const notificationItems: NotificationDrawerItem[] = useMemo(
+    () =>
+      notificationRecords.map((notification) => ({
+        id: notification.id,
+        title: notification.title,
+        body: notification.description,
+        createdAt: notification.createdAt,
+        isRead: notification.isRead,
+      })),
+    [notificationRecords],
+  );
+  const notificationCount =
+    unreadNotificationCountResponse?.data.unreadCount ?? 0;
+
+  const handleMarkNotificationsRead = async () => {
+    try {
+      const response = await markNotificationsReadMutation.mutateAsync();
+      toast.success(response.message);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notifications as read right now.",
+      );
+    }
+  };
   const activeItem = getDashboardNavItemByPathname(pathname);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const activeBusinessName = "Yule";
@@ -493,14 +600,12 @@ export default function DashboardHeader({
               <SearchIcon className="size-4" />
             </Button>
 
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative flex size-9 items-center justify-center rounded-full text-[#434343] transition-colors hover:bg-[#f6f2ff]"
-            >
-              <BellIcon className="size-4" />
-              <span className="absolute right-2.5 top-2.5 size-1.5 rounded-full bg-[#ff6600]" />
-            </button>
+            <HeaderCartButton count={cartItemCount} />
+
+            <HeaderNotificationButton
+              count={notificationCount}
+              onClick={() => setIsNotificationDrawerOpen(true)}
+            />
 
             <DashboardProfileMenu
               profileName={dashboardHeaderProfile.name}
@@ -550,6 +655,7 @@ export default function DashboardHeader({
 
           <div className="flex items-center gap-3">
             <ThemeToggle className="size-10" />
+            <HeaderCartButton count={cartItemCount} />
             <DashboardProfileMenu
               profileName={dashboardHeaderProfile.name}
               profileEmail={dashboardHeaderProfile.email}
@@ -578,14 +684,10 @@ export default function DashboardHeader({
               }
             />
 
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative flex size-10 items-center justify-center rounded-full  bg-white text-[#434343] transition-colors hover:bg-[#f8f5ff]"
-            >
-              <BellIcon className="size-4" />
-              <span className="absolute right-3 top-3 size-1.5 rounded-full bg-[#ff6600]" />
-            </button>
+            <HeaderNotificationButton
+              count={notificationCount}
+              onClick={() => setIsNotificationDrawerOpen(true)}
+            />
           </div>
         </div>
       </div>
@@ -604,6 +706,23 @@ export default function DashboardHeader({
           />
         </div>
       </div>
+
+      <NotificationDrawer
+        open={isNotificationDrawerOpen}
+        onOpenChange={setIsNotificationDrawerOpen}
+        notifications={notificationItems}
+        count={notificationCount}
+        isLoading={isNotificationsLoading && !notificationItems.length}
+        isLoadingMore={isFetchingMoreNotifications}
+        hasMore={Boolean(hasMoreNotifications)}
+        onLoadMore={() => {
+          if (!isFetchingMoreNotifications) {
+            void fetchNextNotificationsPage();
+          }
+        }}
+        onMarkAllRead={handleMarkNotificationsRead}
+        isMarkingRead={markNotificationsReadMutation.isPending}
+      />
     </header>
   );
 }

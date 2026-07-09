@@ -9,6 +9,7 @@
   --font-title: var(--font-oambe), var(--font-raleway), sans-serif;
   --font-inter: var(--font-inter), sans-serif;
   --font-nunito: var(--font-nunito), sans-serif;
+  --font-poppins: var(--font-poppins), sans-serif;
 
   --color-primary: #3300c9;
   --color-muted: #7d7d7d;
@@ -393,4 +394,13 @@ html.dark .yule-theme-toggle:hover {
 /* Make the blue landing logo readable on dark sticky header */
 html.dark header img[alt="Yule logo"] {
   filter: brightness(0) invert(1);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

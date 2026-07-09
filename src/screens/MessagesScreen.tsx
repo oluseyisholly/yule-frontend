@@ -54,7 +54,8 @@ const messageThreads: MessageThread[] = [
     online: true,
     unreadCount: 4,
     dateLabel: "Oct 2",
-    preview: "I did. I'll send it to you after this meeting so we can make the changes.",
+    preview:
+      "I did. I'll send it to you after this meeting so we can make the changes.",
     folder: "inbox",
     messages: [
       {
@@ -92,7 +93,8 @@ const messageThreads: MessageThread[] = [
     avatarColor: "#0067C9",
     online: true,
     dateLabel: "Oct 1",
-    preview: "Sounds good. Have you heard anything from the IT team about the software issue?",
+    preview:
+      "Sounds good. Have you heard anything from the IT team about the software issue?",
     folder: "inbox",
     messages: [
       {
@@ -296,7 +298,12 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
 
   return (
     <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
-      <div className={cn("max-w-[92%] sm:max-w-[75%]", isMine ? "items-end" : "items-start")}>
+      <div
+        className={cn(
+          "max-w-[92%] sm:max-w-[75%]",
+          isMine ? "items-end" : "items-start",
+        )}
+      >
         <div
           className={cn(
             "rounded-[26px] px-4 py-3 text-sm leading-6 shadow-[0_4px_14px_rgba(51,0,201,0.04)]",
@@ -325,7 +332,9 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
 export default function MessagesScreen() {
   const [activeFolder, setActiveFolder] = useState<MessageFolder>("inbox");
   const [query, setQuery] = useState("");
-  const [selectedThreadId, setSelectedThreadId] = useState(messageThreads[0]?.id ?? "");
+  const [selectedThreadId, setSelectedThreadId] = useState(
+    messageThreads[0]?.id ?? "",
+  );
   const [draftMessage, setDraftMessage] = useState("");
 
   const filteredThreads = useMemo(() => {
@@ -354,11 +363,6 @@ export default function MessagesScreen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Messages"
-        description="Stay close to every conversation around your celebrations."
-      />
-
       <section className="overflow-hidden  border border-[#ECE8F7] bg-white shadow-[0_18px_48px_rgba(41,24,99,0.06)]">
         <div className="grid min-h-[calc(100vh-14rem)] grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="border-b border-[#F0EDF7] xl:border-b-0 xl:border-r">
@@ -467,7 +471,9 @@ export default function MessagesScreen() {
                 </div>
 
                 <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-                  <div className="text-center text-xs text-[#B8B3C5]">Today</div>
+                  <div className="text-center text-xs text-[#B8B3C5]">
+                    Today
+                  </div>
                   {selectedThread.messages.map((message) => (
                     <MessageBubble key={message.id} message={message} />
                   ))}

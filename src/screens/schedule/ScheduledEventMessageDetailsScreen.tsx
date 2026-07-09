@@ -580,8 +580,6 @@ export default function ScheduledEventMessageDetailsScreen({
                 <DetailLine label="Event ID" value={record.eventId || "-"} /> */}
               </div>
             </aside>
-
-            
           </div>
         </div>
       </section>
@@ -609,10 +607,7 @@ export default function ScheduledEventMessageDetailsScreen({
           <div className="space-y-4 px-6 py-5">
             <div className="grid gap-3 md:grid-cols-2">
               <DetailLine label="Subject" value={record.subject || "-"} />
-              <DetailLine
-                label="Created"
-                value={formatDateTime(record.createdAt)}
-              />
+
               <DetailLine
                 label="Scheduled Date"
                 value={formatDateTime(record.scheduledAt)}
@@ -625,10 +620,10 @@ export default function ScheduledEventMessageDetailsScreen({
                 label="Sent At"
                 value={formatDateTime(record.sentAt)}
               />
-              <DetailLine
+              {/* <DetailLine
                 label="Gift Link Expires"
                 value={formatDateTime(record.giftUrlExpiresAt)}
-              />
+              /> */}
             </div>
 
             <div className="rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-4">

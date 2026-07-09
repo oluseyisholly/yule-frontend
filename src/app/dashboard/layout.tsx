@@ -64,7 +64,7 @@ export default function DashboardLayout({
       <aside className="hidden bg-white px-6 py-10 lg:block lg:h-screen lg:w-[288px] lg:shrink-0 lg:overflow-y-auto lg:px-7 lg:py-12">
         <Link href="/" className="mb-10 ml-[32px] block w-fit">
           <YuleWordmarkIcon
-            className="h-auto w-[66px]"
+            className="h-auto w-[72px]"
             role="img"
             aria-label="Yule logo"
           />

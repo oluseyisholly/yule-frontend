@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import BackButton from "@/components/BackButton";
 import ModalButton from "@/components/ModalButtons";
+import EmailInviteComposeModal from "@/components/EmailInviteComposeModal";
 import { ModalPanelSkeleton } from "@/components/ui/context-skeletons";
 import ContentModal from "@/components/ui/modal";
 import OverlaySelect, {
@@ -68,9 +69,9 @@ import { useAvailableEventTypesQuery } from "@/features/event-types/hooks/useAva
 import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCreateEventTypeMutation";
 import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
-import { useDrawNameEventInvitationsQuery } from "@/features/invitations/hooks/useDrawNameEventInvitationsQuery";
-import { useSendDrawNameEventInvitationsMutation } from "@/features/invitations/hooks/useSendDrawNameEventInvitationsMutation";
+import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
 import { useAuthStore } from "@/stores/auth-store";
+import { YULE_SIGN_IN_URL } from "@/lib/external-links";
 import {
   buildDrawNameFlowSelectionKey,
   EMPTY_DRAW_NAME_ADD_RECORD_DRAFT,
@@ -592,18 +593,13 @@ export default function DrawNameStartModal({
     useState<SearchableRecordItem | null>(null);
   const [isCompleteDrawConfirmationOpen, setIsCompleteDrawConfirmationOpen] =
     useState(false);
-  const [isSendEmailConfirmationOpen, setIsSendEmailConfirmationOpen] =
-    useState(false);
-  const [isCopyInvitePanelOpen, setIsCopyInvitePanelOpen] = useState(false);
+  const [isInviteEmailModalOpen, setIsInviteEmailModalOpen] = useState(false);
   const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
     string[]
   >([]);
   const [selectedOnedaContactIds, setSelectedOnedaContactIds] = useState<
     string[]
   >([]);
-  const [inviteSearchValue, setInviteSearchValue] = useState("");
-  const [debouncedInviteSearchValue, setDebouncedInviteSearchValue] =
-    useState("");
   const [deletedRecordIds, setDeletedRecordIds] = useState<string[]>([]);
   const [addRecordReturnStep, setAddRecordReturnStep] = useState<
     "record" | "review-records"
@@ -684,8 +680,7 @@ export default function DrawNameStartModal({
   const createDrawNameEventMutation = useCreateDrawNameEventMutation();
   const drawNameEventMutation = useDrawNameEventMutation();
   const updateDrawNameEventMutation = useUpdateDrawNameEventMutation();
-  const sendDrawNameEventInvitationsMutation =
-    useSendDrawNameEventInvitationsMutation();
+  const sendEmailMutation = useSendEmailMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
   const createBulkGiftsMutation = useCreateBulkGiftsMutation();
   const createParticipantExclusionsBulkMutation =
@@ -710,6 +705,7 @@ export default function DrawNameStartModal({
           "draw-ready",
           "draw-spin",
           "draw-result",
+          "draw-invite",
         ].includes(currentStep),
     });
   const isCreatorForCurrentDrawFlow = useMemo(
@@ -829,6 +825,7 @@ export default function DrawNameStartModal({
           "exclusion-record",
           "draw-spin",
           "draw-result",
+          "draw-invite",
         ].includes(currentStep),
     },
   );
@@ -860,23 +857,6 @@ export default function DrawNameStartModal({
   } = useParticipantGiftSelectionsQuery(currentParticipantId, eventId, {
     enabled: open && currentStep === "wishlist-gifts",
   });
-  const {
-    data: drawNameEventInvitationsResponse,
-    isLoading: isDrawNameEventInvitationsLoading,
-    isFetching: isDrawNameEventInvitationsFetching,
-    isError: isDrawNameEventInvitationsError,
-    refetch: refetchDrawNameEventInvitations,
-  } = useDrawNameEventInvitationsQuery(
-    drawNameEventId,
-    {
-      per_page: 25,
-      page: 1,
-      searchQuery: debouncedInviteSearchValue,
-    },
-    {
-      enabled: open && currentStep === "draw-invite",
-    },
-  );
   const { data: giftRecipientResponse, refetch: refetchGiftRecipient } =
     useGiftRecipientQuery(eventId, {
       enabled: open && ["draw-result"].includes(currentStep),
@@ -969,15 +949,16 @@ export default function DrawNameStartModal({
       ),
     [eventParticipantsResponse],
   );
-  const inviteUrlByParticipantId = useMemo(
-    () =>
-      Object.fromEntries(
-        (drawNameEventInvitationsResponse?.data.data ?? []).map(
-          (invitation) => [invitation.participantId, invitation.inviteUrl],
-        ),
-      ) as Record<string, string>,
-    [drawNameEventInvitationsResponse],
-  );
+  const drawNameEventViewPath = drawNameEventId
+    ? `/dashboard/draw-names/${drawNameEventId}`
+    : "/dashboard/draw-names";
+  const drawNameEventViewUrl =
+    typeof window === "undefined"
+      ? drawNameEventViewPath
+      : `${window.location.origin}${drawNameEventViewPath}`;
+  const drawNameSignInInviteUrl = `${YULE_SIGN_IN_URL}&redirectUrl=${encodeURIComponent(
+    drawNameEventViewUrl,
+  )}`;
   const participantGiftSelections = useMemo(
     () =>
       normalizeParticipantGiftSelections(
@@ -987,38 +968,61 @@ export default function DrawNameStartModal({
   );
   const drawInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
     () =>
-      (drawNameEventInvitationsResponse?.data.data ?? []).map((invitation) => {
-        const actor = invitation.eventContact;
-        const fullName =
-          `${actor.firstName ?? ""} ${actor.lastName ?? ""}`.trim() ||
-          actor.email ||
-          "Participant";
-        const firstInitial = actor.firstName?.trim().charAt(0) ?? "";
-        const lastInitial = actor.lastName?.trim().charAt(0) ?? "";
-        const initials =
-          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
-          fullName.slice(0, 2).toUpperCase();
-        const { avatarBg, avatarColor } = getContactAvatarStyle(
-          actor.id || invitation.participantId || fullName,
-        );
+      (eventParticipantsResponse?.data.data ?? []).map((participant) => {
+          const actor = participant.eventContact ?? participant.user ?? null;
+          const fullName =
+            `${actor?.firstName ?? ""} ${actor?.lastName ?? ""}`.trim() ||
+            actor?.email ||
+            "Participant";
+          const firstInitial = actor?.firstName?.trim().charAt(0) ?? "";
+          const lastInitial = actor?.lastName?.trim().charAt(0) ?? "";
+          const initials =
+            `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
+            fullName.slice(0, 2).toUpperCase();
+          const { avatarBg, avatarColor } = getContactAvatarStyle(
+            actor?.id || participant.id || fullName,
+          );
 
-        return {
-          id: actor.id || invitation.participantId,
-          participantId: invitation.participantId,
-          name: fullName,
-          role:
-            invitation.status.toLowerCase() === "accepted"
-              ? "Accepted invite"
-              : actor.email || "Pending invite",
-          initials,
-          avatarBg,
-          avatarColor,
-          profileUrl: actor.profileUrl?.trim() || null,
-          inviteUrl: invitation.inviteUrl ?? null,
-        };
-      }),
-    [drawNameEventInvitationsResponse],
+          return {
+            id: actor?.id || participant.id,
+            participantId: participant.id,
+            name: fullName,
+            role:
+              participant.role.toLowerCase() === "creator"
+                ? "Creator"
+                : actor?.email || "Participant",
+            initials,
+            avatarBg,
+            avatarColor,
+            email: actor?.email?.trim() || null,
+            profileUrl: actor?.profileUrl?.trim() || null,
+            inviteUrl: drawNameSignInInviteUrl,
+          };
+        }),
+    [drawNameSignInInviteUrl, eventParticipantsResponse],
   );
+  const lockedInviteEmails = useMemo(() => {
+    const signedInEmailAddress = authUser?.email?.trim().toLowerCase() || "";
+    const seen = new Set<string>();
+
+    return drawInviteParticipants
+      .filter((participant) => participant.role.toLowerCase() !== "creator")
+      .map((participant) => participant.email?.trim() ?? "")
+      .filter(Boolean)
+      .filter((email) => {
+        const normalizedEmail = email.toLowerCase();
+
+        if (
+          normalizedEmail === signedInEmailAddress ||
+          seen.has(normalizedEmail)
+        ) {
+          return false;
+        }
+
+        seen.add(normalizedEmail);
+        return true;
+      });
+  }, [authUser?.email, drawInviteParticipants]);
   const exclusionIdByContactPairKey = useMemo(
     () =>
       Object.fromEntries(
@@ -1124,6 +1128,19 @@ export default function DrawNameStartModal({
     groupName.trim() ||
     drawNameEventResponse?.data.event?.title?.trim() ||
     suggestedGroupName;
+  const resolvedInviteEmailTitle =
+    drawNameEventResponse?.data.event?.title?.trim() ||
+    groupName.trim() ||
+    selectedEventLabel ||
+    "Draw Name Invitation";
+  const defaultInviteEmailBody = `Hi,
+
+You have been invited to join ${resolvedInviteEmailTitle} on Yule.
+
+Please sign in with the link below to view the event and participate:
+${drawNameSignInInviteUrl}
+
+Thank you.`;
   const resolvedDrawResultName =
     getGiftRecipientDisplayName(giftRecipientResponse?.data ?? null) ||
     drawResultName ||
@@ -1316,10 +1333,7 @@ export default function DrawNameStartModal({
     setSelectedWishlistGiftProductsById({});
     setWishlistNotificationChoice("yes");
     setIsCompleteDrawConfirmationOpen(false);
-    setIsSendEmailConfirmationOpen(false);
-    setIsCopyInvitePanelOpen(false);
-    setInviteSearchValue("");
-    setDebouncedInviteSearchValue("");
+    setIsInviteEmailModalOpen(false);
     setDrawResultName("");
     setRecordSearchValue("");
     setDebouncedRecordSearchValue("");
@@ -1666,14 +1680,6 @@ export default function DrawNameStartModal({
 
     return () => window.clearTimeout(timeoutId);
   }, [recordSearchValue]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedInviteSearchValue(inviteSearchValue.trim());
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [inviteSearchValue]);
 
   useEffect(() => {
     if (!fetchedRecordOptions.length) {
@@ -2028,7 +2034,7 @@ export default function DrawNameStartModal({
 
     if (currentStep === "draw-invite") {
       if (drawNameEventId) {
-        void refetchDrawNameEventInvitations();
+        void refetchEventParticipants();
       }
 
       return;
@@ -2053,7 +2059,6 @@ export default function DrawNameStartModal({
     refetchDrawNameEvent,
     refetchEventParticipantContactIds,
     refetchEventParticipants,
-    refetchDrawNameEventInvitations,
     refetchGiftRecipient,
     refetchMyParticipant,
     refetchParticipantExclusions,
@@ -2800,60 +2805,62 @@ export default function DrawNameStartModal({
   };
 
   const handleRequestSendEmailInvites = () => {
-    setIsSendEmailConfirmationOpen(true);
+    setIsInviteEmailModalOpen(true);
   };
 
-  const handleConfirmSendEmailInvites = async () => {
-    if (!drawNameEventId) {
-      handleCloseAndRedirect();
+  const handleSendInviteEmail = async ({
+    title,
+    body,
+    emails,
+  }: {
+    title: string;
+    body: string;
+    emails: string[];
+  }) => {
+    const resolvedEventId =
+      eventId?.trim() ||
+      drawNameEventResponse?.data.eventId?.trim() ||
+      drawNameEventResponse?.data.event?.id?.trim() ||
+      "";
+    const resolvedDrawNameEventId = drawNameEventId?.trim() || "";
+
+    if (!resolvedEventId || !resolvedDrawNameEventId) {
+      toast.error("Unable to resolve this draw name event right now.");
       return;
     }
 
     try {
-      const response = await sendDrawNameEventInvitationsMutation.mutateAsync({
-        drawNameEventId,
-        payload: {
-          channel: "email",
-        },
+      const response = await sendEmailMutation.mutateAsync({
+        eventId: resolvedEventId,
+        title,
+        body,
+        redirectUrl: drawNameSignInInviteUrl,
+        emails,
+        drawNameId: resolvedDrawNameEventId,
       });
-      toast.success(response.message);
-      setIsSendEmailConfirmationOpen(false);
-      setIsCopyInvitePanelOpen(true);
-      await refetchDrawNameEventInvitations();
+
+      toast.success(response.message || "Invitation email sent successfully.");
+      setIsInviteEmailModalOpen(false);
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to send invitation emails right now.",
+          : "Unable to send this invitation email right now.",
       );
     }
   };
 
-  const handleToggleCopyInvitePanel = () => {
-    setIsCopyInvitePanelOpen((current) => {
-      const next = !current;
-
-      if (next && drawNameEventId) {
-        void refetchDrawNameEventInvitations();
-      }
-
-      return next;
-    });
-  };
-
-  const handleCopyInvitationLink = async (participantId: string) => {
-    const inviteUrl = inviteUrlByParticipantId[participantId];
+  const handleCopyInvitationLink = async () => {
+    const inviteUrl = drawNameSignInInviteUrl;
 
     if (!inviteUrl) {
-      toast.error(
-        "No invitation link is available for this participant yet. Send email invite first.",
-      );
+      toast.error("Unable to resolve this invitation link right now.");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      toast.success("Invitation link copied.");
+      toast.success("Invitation sign in link copied.");
     } catch {
       toast.error("Unable to copy this invitation link right now.");
     }
@@ -3570,22 +3577,9 @@ export default function DrawNameStartModal({
         }
         isResultPrimaryActionPending={completeDrawNameEventMutation.isPending}
         onInviteBack={() => onStepChange("draw-result")}
-        inviteParticipants={drawInviteParticipants}
-        isCopyListOpen={isCopyInvitePanelOpen}
-        onToggleCopyList={handleToggleCopyInvitePanel}
         onSendEmail={handleRequestSendEmailInvites}
         onCopyLink={handleCopyInvitationLink}
-        isSendingEmail={sendDrawNameEventInvitationsMutation.isPending}
-        isLoadingLinks={
-          isDrawNameEventInvitationsLoading ||
-          isDrawNameEventInvitationsFetching
-        }
-        isLinksError={isDrawNameEventInvitationsError}
-        onRetryLinks={() => {
-          void refetchDrawNameEventInvitations();
-        }}
-        inviteSearchValue={inviteSearchValue}
-        onInviteSearchValueChange={setInviteSearchValue}
+        isSendingEmail={sendEmailMutation.isPending}
       />
     ) : null;
 
@@ -3639,17 +3633,14 @@ export default function DrawNameStartModal({
         closeOnEscape={false}
       />
 
-      <ConfirmationModal
-        open={isSendEmailConfirmationOpen}
-        onClose={() => setIsSendEmailConfirmationOpen(false)}
-        onConfirm={handleConfirmSendEmailInvites}
-        action="save"
-        title="Send Invitation Emails"
-        description="Are you sure you want to send invitation emails to all pending participants?"
-        confirmText="Send Emails"
-        isLoading={sendDrawNameEventInvitationsMutation.isPending}
-        closeOnOverlayClick={false}
-        closeOnEscape={false}
+      <EmailInviteComposeModal
+        open={isInviteEmailModalOpen}
+        onClose={() => setIsInviteEmailModalOpen(false)}
+        initialTitle={resolvedInviteEmailTitle}
+        initialBody={defaultInviteEmailBody}
+        lockedEmails={lockedInviteEmails}
+        onSubmit={handleSendInviteEmail}
+        isSubmitting={sendEmailMutation.isPending}
       />
     </>
   );

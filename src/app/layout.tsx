@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Raleway, Geist, Inter, Nunito } from "next/font/google";
+import { Raleway, Geist, Inter, Nunito, Poppins } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 
@@ -7,6 +7,7 @@ import "./globals.css";
 import AppProviders from "@/components/providers/AppProviders";
 import { cn } from "@/lib/utils";
 import { ThemeProvider, themeNoFlashScript } from "@/components/ThemeProvider";
+import { poppins } from "@/screens/HomeScreen";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -28,6 +29,15 @@ const raleway = Raleway({
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
+  display: "swap",
+});
+
+
 
 const oambe = localFont({
   src: "../../public/fonts/Oambe-Wpqlv.otf",
@@ -55,6 +65,7 @@ export default function RootLayout({
         oambe.variable,
         inter.variable,
         nunito.variable,
+        poppins.variable,
         "font-sans",
         geist.variable,
       )}
@@ -66,7 +77,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body
-        className={`${raleway.className} min-h-full flex flex-col`}
+        className={`${raleway.className}  min-h-full flex flex-col`}
         suppressHydrationWarning
       >
         <AppProviders>

@@ -2,9 +2,6 @@
 
 import type { ReactNode } from "react";
 import BackButton from "@/components/BackButton";
-import UserAvatar from "@/components/UserAvatar";
-import { InviteLinksLoadingSkeleton } from "@/components/ui/context-skeletons";
-import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
 
 export type DrawNameInviteParticipant = {
@@ -15,6 +12,7 @@ export type DrawNameInviteParticipant = {
   initials: string;
   avatarBg: string;
   avatarColor: string;
+  email?: string | null;
   profileUrl?: string | null;
   inviteUrl?: string | null;
 };
@@ -22,17 +20,9 @@ export type DrawNameInviteParticipant = {
 type DrawNameInviteStepProps = {
   title?: ReactNode;
   onBack: () => void;
-  participants: DrawNameInviteParticipant[];
-  isCopyListOpen: boolean;
-  onToggleCopyList: () => void;
   onSendEmail: () => void;
-  onCopyLink: (participantId: string) => void;
+  onCopyLink: () => void;
   isSendingEmail?: boolean;
-  isLoadingLinks?: boolean;
-  isLinksError?: boolean;
-  onRetryLinks?: () => void;
-  searchValue: string;
-  onSearchValueChange: (value: string) => void;
 };
 
 const inviteOptions = [
@@ -71,17 +61,9 @@ const inviteOptions = [
 export default function DrawNameInviteStep({
   title,
   onBack,
-  participants,
-  isCopyListOpen,
-  onToggleCopyList,
   onSendEmail,
   onCopyLink,
   isSendingEmail = false,
-  isLoadingLinks = false,
-  isLinksError = false,
-  onRetryLinks,
-  searchValue,
-  onSearchValueChange,
 }: DrawNameInviteStepProps) {
   return (
     <div className="space-y-8 pt-2 sm:space-y-12">
@@ -108,7 +90,7 @@ export default function DrawNameInviteStep({
                 option.label === "Email"
                   ? onSendEmail
                   : option.label === "Copy"
-                    ? onToggleCopyList
+                    ? onCopyLink
                     : undefined
               }
               disabled={
@@ -132,100 +114,6 @@ export default function DrawNameInviteStep({
           ))}
         </div>
       </div>
-
-      {isCopyListOpen ? (
-        <div className="space-y-4 rounded-[18px] border border-[#EEEAF7] bg-white px-5 py-5">
-          <div className="space-y-1">
-            <p className="text-[16px] font-semibold text-[#1E1E1E]">
-              Copy invitation links
-            </p>
-            <p className="text-[12px] text-[#7D7D7D]">
-              Copy the unique invitation link for each participant.
-            </p>
-          </div>
-
-          <SearchInput
-            value={searchValue}
-            onChange={(event) => onSearchValueChange(event.target.value)}
-            placeholder="Search participant"
-            containerClassName="w-full"
-            className="h-10 rounded-[12px] border-[#ECE8F7] bg-[#FFFFFF] text-[13px] placeholder:text-[#9A97A5]"
-          />
-
-          {isLoadingLinks ? (
-            <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5">
-              <InviteLinksLoadingSkeleton rows={4} />
-            </div>
-          ) : isLinksError ? (
-            <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
-              <p>Unable to load invitation links right now.</p>
-              {onRetryLinks ? (
-                <button
-                  type="button"
-                  onClick={onRetryLinks}
-                  className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
-                >
-                  Retry
-                </button>
-              ) : null}
-            </div>
-          ) : participants.length ? (
-            <div className="max-h-[200px] space-y-1 overflow-y-auto pr-1">
-              {participants.map((participant) => (
-                <div
-                  key={participant.participantId}
-                  className="flex items-center justify-between gap-3 border-b border-[#F1EDF8] py-3 last:border-b-0"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <UserAvatar
-                      name={participant.name}
-                      initials={participant.initials}
-                      imageUrl={participant.profileUrl}
-                      bgColor={participant.avatarBg}
-                      textColor={participant.avatarColor}
-                      className="size-11 text-sm font-semibold"
-                      title={participant.name}
-                    />
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#1E1E1E]">
-                        {participant.name}
-                      </p>
-                      <p className="truncate text-xs text-[#7D7D7D]">
-                        {participant.role}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label={`Copy invitation link for ${participant.name}`}
-                    onClick={() => onCopyLink(participant.participantId)}
-                    disabled={!participant.inviteUrl}
-                    className={cn(
-                      "inline-flex h-[28px] w-[28px] items-center justify-center rounded-[10px] transition-colors",
-                      participant.inviteUrl
-                        ? "cursor-pointer bg-[#F6F2FF] hover:bg-[#EEE7FF]"
-                        : "cursor-not-allowed bg-[#F7F6FA] opacity-60",
-                    )}
-                  >
-                    <img
-                      src="/invite-copy.svg"
-                      alt=""
-                      aria-hidden="true"
-                      className="h-[20px] w-[20px]"
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[14px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-5 text-sm text-[#7D7D7D]">
-              No participants available for invitation yet.
-            </div>
-          )}
-        </div>
-      ) : null}
 
       <div className="flex justify-center pt-2">
         <BackButton

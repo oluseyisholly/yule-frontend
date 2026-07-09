@@ -35,6 +35,7 @@ type EventGiftDetailViewProps = {
   hideDeleteAction?: boolean;
   onAddToCart?: () => void;
   addToCartLabel?: string;
+  addToCartDisabled?: boolean;
   onMessageVendor: () => void;
   onReportItem: () => void;
   onShareProduct: () => void;
@@ -186,6 +187,7 @@ export default function EventGiftDetailView({
   hideDeleteAction = false,
   onAddToCart,
   addToCartLabel = "Add to cart",
+  addToCartDisabled = false,
   onMessageVendor,
   onReportItem,
   onShareProduct,
@@ -369,6 +371,7 @@ export default function EventGiftDetailView({
                       type="button"
                       className="w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:w-auto"
                       onClick={onAddToCart}
+                      disabled={addToCartDisabled}
                     >
                       {addToCartLabel}
                     </Button>
