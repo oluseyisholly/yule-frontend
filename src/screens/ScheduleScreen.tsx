@@ -280,6 +280,28 @@ function getParticipantName(participant?: ParticipatedEventParticipant | null) {
   return fullName || contact?.email || "Unnamed participant";
 }
 
+function getScheduledMessageParticipant(
+  row?: ScheduledEventMessageRecord | null,
+) {
+  return row?.participant ?? row?.participants?.[0] ?? null;
+}
+
+function getScheduledMessageRecipientName(row: ScheduledEventMessageRecord) {
+  const participant = getScheduledMessageParticipant(row);
+
+  return row.recipientName?.trim() || getParticipantName(participant);
+}
+
+function getScheduledMessageRecipientEmail(row: ScheduledEventMessageRecord) {
+  const participant = getScheduledMessageParticipant(row);
+
+  return (
+    row.recipientEmail?.trim() ||
+    participant?.eventContact?.email?.trim() ||
+    "-"
+  );
+}
+
 function getRecordStatus(row: ScheduledEventMessageRecord): ScheduleStatus {
   if (row.status === "sent" || row.sentAt) {
     return "Past";
@@ -509,8 +531,9 @@ function AvatarBubble({ name, initials }: { name: string; initials: string }) {
 }
 
 function RecipientCell({ row }: { row: ScheduledEventMessageRecord }) {
-  const participantContact = row.participant?.eventContact;
-  const name = row.recipientName || getParticipantName(row.participant);
+  const participant = getScheduledMessageParticipant(row);
+  const participantContact = participant?.eventContact;
+  const name = getScheduledMessageRecipientName(row);
   const initials = getInitials(
     participantContact?.firstName ?? name,
     participantContact?.lastName ?? "",
@@ -543,7 +566,9 @@ function ScheduleRowActions({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`More options for ${row.recipientName}`}
+            aria-label={`More options for ${getScheduledMessageRecipientName(
+              row,
+            )}`}
             className="rounded-full p-1 text-[#9A97A5] transition-colors hover:bg-white hover:text-[#434343]"
           >
             <MoreHorizontal className="size-4" />
@@ -955,14 +980,16 @@ export default function ScheduleScreen() {
 
     hydratedMessageIdRef.current = hydrationKey;
 
-    const participantContact = record.participant?.eventContact;
+    const recordParticipant = getScheduledMessageParticipant(record);
+    const participantContact = recordParticipant?.eventContact;
     const participantContactId =
-      participantContact?.id ?? record.participant?.eventContactId ?? "";
-    const reviewRecordId = participantContactId || record.participantId || "";
+      participantContact?.id ?? recordParticipant?.eventContactId ?? "";
+    const recordParticipantId = recordParticipant?.id ?? record.participantId ?? "";
+    const reviewRecordId = participantContactId || recordParticipantId || "";
 
     setSelectedEventId(record.eventId);
     setSelectedEventTypeId(record.event.eventTypeId);
-    setSelectedRecipientParticipantId(record.participantId);
+    setSelectedRecipientParticipantId(recordParticipantId);
 
     if (reviewRecordId) {
       const selectedRecord: SearchableRecordItem = {
@@ -1181,14 +1208,6 @@ export default function ScheduleScreen() {
       return null;
     }
 
-    await updateMessageMutation.mutateAsync({
-      id: scheduleEventMessageId,
-      payload: {
-        eventId: selectedEventId,
-        participantId: recipientParticipant.id,
-      },
-    });
-
     setSelectedParticipantIds(contactIds);
     setSelectedParticipantRecords(records);
     setSelectedRecipientParticipantId(recipientParticipant.id);
@@ -1272,16 +1291,20 @@ export default function ScheduleScreen() {
     const selectedContactId = selectedParticipantIds[0] ?? "";
     const existingRecord = editingMessageResponse?.data;
     const existingContactId =
-      existingRecord?.participant?.eventContactId ||
-      existingRecord?.participant?.eventContact?.id ||
+      getScheduledMessageParticipant(existingRecord)?.eventContactId ||
+      getScheduledMessageParticipant(existingRecord)?.eventContact?.id ||
+      "";
+    const existingParticipantId =
+      getScheduledMessageParticipant(existingRecord)?.id ||
+      existingRecord?.participantId ||
       "";
 
     if (
-      existingRecord?.participantId &&
+      existingParticipantId &&
       (selectedContactId === existingContactId ||
-        selectedContactId === existingRecord.participantId)
+        selectedContactId === existingParticipantId)
     ) {
-      setSelectedRecipientParticipantId(existingRecord.participantId);
+      setSelectedRecipientParticipantId(existingParticipantId);
       updateRoute("compose");
       return;
     }
@@ -1330,7 +1353,6 @@ export default function ScheduleScreen() {
         const response = await updateMessageMutation.mutateAsync({
           id: editingMessageId,
           payload: {
-            ...(selectedEventId ? { eventId: selectedEventId } : {}),
             event: {
               title: eventTitle,
               eventTypeId: selectedEventTypeOption.value,
@@ -1366,6 +1388,8 @@ export default function ScheduleScreen() {
           eventTypeId: selectedEventTypeOption.value,
           eventDate: draftEventDate,
         },
+        subject: form.subject.trim() || eventTitle,
+        ...(form.message.trim() ? { message: form.message.trim() } : {}),
         sendNow: mode === "message",
         metadata: {
           source: "dashboard",
@@ -1492,6 +1516,7 @@ export default function ScheduleScreen() {
 
       const recipientParticipantId =
         selectedRecipientParticipantId ||
+        getScheduledMessageParticipant(editingMessageResponse?.data)?.id ||
         editingMessageResponse?.data?.participantId;
       const resolvedEventId = selectedEventId || routeEventId;
 
@@ -1577,7 +1602,7 @@ export default function ScheduleScreen() {
           <Checkbox
             checked={selectedIds.includes(row.id)}
             onChange={() => toggleRow(row.id)}
-            aria-label={`Select ${row.recipientName}`}
+            aria-label={`Select ${getScheduledMessageRecipientName(row)}`}
           />
         ),
       },
@@ -1591,7 +1616,7 @@ export default function ScheduleScreen() {
       {
         id: "email",
         header: "Email Address",
-        accessor: "recipientEmail",
+        accessor: getScheduledMessageRecipientEmail,
         headerClassName: "min-w-[190px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
       },
@@ -1739,7 +1764,6 @@ export default function ScheduleScreen() {
           const response = await updateMessageMutation.mutateAsync({
             id: scheduleEventMessageId,
             payload: {
-              ...(selectedEventId ? { eventId: selectedEventId } : {}),
               event: {
                 eventDate: toIsoDateTime(form.eventDate),
               },
@@ -2291,7 +2315,6 @@ export default function ScheduleScreen() {
                 await updateMessageMutation.mutateAsync({
                   id: scheduleEventMessageId,
                   payload: {
-                    ...(selectedEventId ? { eventId: selectedEventId } : {}),
                     subject: form.subject.trim(),
                     message: form.message.trim(),
                     sendNow: mode === "message",

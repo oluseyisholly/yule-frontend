@@ -233,12 +233,12 @@ function HeaderCartButton({ count }: { count: number }) {
   return (
     <Link
       href="/dashboard/cart"
-      aria-label={`Cart${count ? `, ${count} item${count === 1 ? "" : "s"}` : ""}`}
-      className="relative flex size-9 items-center justify-center rounded-full bg-white text-[#434343] transition-colors hover:bg-[#f8f5ff] lg:size-10"
+      aria-label={`Caught My Eye${count ? `, ${count} item${count === 1 ? "" : "s"}` : ""}`}
+      className="relative flex size-9 items-center justify-center rounded-full bg-white text-[#3300C9] transition-colors hover:bg-[#f8f5ff] lg:size-10"
     >
       <ShoppingCartIcon className="size-4.5" strokeWidth={1.8} />
       {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
+        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#FFFFFF] px-1  py-1 text-[10px] font-semibold leading-none text-[#3300C9] border-[0.5px] border-[#3300C9] border-solid shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
           {displayCount}
         </span>
       ) : null}
@@ -264,7 +264,7 @@ function HeaderNotificationButton({
     >
       <BellIcon className="size-4" />
       {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
+        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1 py-1 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
           {displayCount}
         </span>
       ) : null}

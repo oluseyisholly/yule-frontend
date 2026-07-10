@@ -1,8 +1,9 @@
-import { getApi, patchApi, postApi } from "@/lib/api";
+import { deleteApi, getApi, patchApi, postApi } from "@/lib/api";
 import type {
   AssignBulkGiftsPayload,
   AssignBulkGiftsResponse,
   ClaimGiftResponse,
+  ContactGiftCartDeleteResponse,
   ClaimedGiftsParams,
   ClaimedGiftsResponse,
   ContactGiftCartCountResponse,
@@ -71,6 +72,12 @@ export async function getContactGiftCartItems(
 export async function getContactGiftCartCount() {
   return getApi<ContactGiftCartCountResponse>(
     `${CONTACT_GIFT_CART_ENDPOINT}/count`,
+  );
+}
+
+export async function deleteContactGiftCartItem(id: string) {
+  return deleteApi<ContactGiftCartDeleteResponse>(
+    `${CONTACT_GIFT_CART_ENDPOINT}/${id}`,
   );
 }
 

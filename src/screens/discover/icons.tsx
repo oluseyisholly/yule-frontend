@@ -1,3 +1,5 @@
+import type { ComponentPropsWithoutRef } from "react";
+
 type IconProps = ComponentPropsWithoutRef<"svg">;
 
 

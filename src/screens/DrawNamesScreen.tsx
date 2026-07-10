@@ -6,7 +6,10 @@ import PageHeader from "@/components/dashboard/PageHeader";
 import DrawNamesStats from "@/screens/draw-names/DrawNamesStats";
 import DrawNamesActivity from "@/screens/draw-names/DrawNamesActivity";
 import DrawNameStartModal from "@/screens/draw-names/DrawNameStartModal";
-import { isParticipantDrawNameFlowStep } from "@/screens/draw-names/modal-steps";
+import {
+  isBackendRequiredDrawNameStep,
+  isParticipantDrawNameFlowStep,
+} from "@/screens/draw-names/modal-steps";
 import { useDrawNameModalRouteState } from "@/screens/draw-names/useDrawNameModalRouteState";
 import { useDrawNameEventQuery } from "@/features/draw-name-events/hooks/useDrawNameEventQuery";
 import {
@@ -117,10 +120,14 @@ export default function DrawNamesScreen() {
   };
 
   useEffect(() => {
-    if (isOpen && currentStep !== "event" && !drawNameEventId) {
+    if (
+      isOpen &&
+      isBackendRequiredDrawNameStep(currentStep) &&
+      (!eventId || !drawNameEventId)
+    ) {
       closeModal();
     }
-  }, [closeModal, currentStep, drawNameEventId, isOpen]);
+  }, [closeModal, currentStep, drawNameEventId, eventId, isOpen]);
 
   useEffect(() => {
     if (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image, { type StaticImageData } from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -1301,6 +1301,7 @@ export default function DashboardGiftsScreen() {
     useState(false);
   const [viewingGiftProduct, setViewingGiftProduct] =
     useState<MarketplaceProduct | null>(null);
+  const autoPreselectedCaughtMyEyeFlowKeysRef = useRef<Set<string>>(new Set());
   const [viewingGiftRow, setViewingGiftRow] = useState<GiftRow | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [newColleagueForm, setNewColleagueForm] =
@@ -1410,10 +1411,6 @@ export default function DashboardGiftsScreen() {
   const isEventsTab = activeTab === "events";
   const {
     data: cartItemsResponse,
-    isLoading: isCartItemsLoading,
-    isFetching: isCartItemsFetching,
-    isError: isCartItemsError,
-    refetch: refetchCartItems,
   } = useContactGiftCartItemsQuery(
     {
       page: 1,
@@ -1562,6 +1559,10 @@ export default function DashboardGiftsScreen() {
         toCartGiftProduct(item),
       ),
     [cartItemsResponse?.data.data],
+  );
+  const cartGiftProductIds = useMemo(
+    () => cartGiftProducts.map((product) => product._id).filter(Boolean),
+    [cartGiftProducts],
   );
 
   const rows = isSentTab ? sentRows : receivedRows;
@@ -1785,10 +1786,6 @@ export default function DashboardGiftsScreen() {
     eventId && giftingEventId
       ? `/dashboard/gifts/flow/gift-selection?mode=${mode}&eventId=${eventId}&giftingEventId=${giftingEventId}&tab=events`
       : "/dashboard/gifts?tab=events";
-  const browseGiftsFromGiftFlowHref =
-    eventId && giftingEventId
-      ? `${giftSelectionReturnHref}&browse=true&returnToGiftFlow=true`
-      : "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true";
 
   const handleViewGiftRow = (row: GiftRow) => {
     setViewingGiftRow(row);
@@ -1992,7 +1989,7 @@ export default function DashboardGiftsScreen() {
     }
 
     if (selectedGiftIds.includes(viewingGiftProduct._id)) {
-      toast.success("This gift is already in your cart.");
+      toast.success("This gift is already in Caught My Eye.");
       return;
     }
 
@@ -2019,13 +2016,13 @@ export default function DashboardGiftsScreen() {
             viewingGiftProduct._id,
           ]);
           handleGiftFlowProductToggle(viewingGiftProduct, true);
-          toast.success(response.message || "Gift added to cart.");
+          toast.success(response.message || "Gift added to Caught My Eye.");
         },
         onError: (error) => {
           toast.error(
             error instanceof Error
               ? error.message
-              : "Unable to add this gift to your cart right now.",
+              : "Unable to add this gift to Caught My Eye right now.",
           );
         },
       },
@@ -2855,6 +2852,43 @@ export default function DashboardGiftsScreen() {
     isGiftFlowOpen,
   ]);
 
+  useEffect(() => {
+    if (
+      !isGiftFlowOpen ||
+      currentGiftFlowStep !== "gift-selection" ||
+      isBrowseGiftsFlow ||
+      !cartGiftProducts.length ||
+      autoPreselectedCaughtMyEyeFlowKeysRef.current.has(flowSelectionKey)
+    ) {
+      return;
+    }
+
+    autoPreselectedCaughtMyEyeFlowKeysRef.current.add(flowSelectionKey);
+
+    const nextSelectedGiftIds = Array.from(
+      new Set([...selectedGiftIds, ...cartGiftProductIds]),
+    );
+    const nextSelectedGiftProductsById = { ...selectedGiftProductsById };
+
+    cartGiftProducts.forEach((product) => {
+      nextSelectedGiftProductsById[product._id] = product;
+    });
+
+    setStoredSelectedGiftIds(flowSelectionKey, nextSelectedGiftIds);
+    setSelectedGiftProductsById(flowSelectionKey, nextSelectedGiftProductsById);
+  }, [
+    cartGiftProductIds,
+    cartGiftProducts,
+    currentGiftFlowStep,
+    flowSelectionKey,
+    isBrowseGiftsFlow,
+    isGiftFlowOpen,
+    selectedGiftIds,
+    selectedGiftProductsById,
+    setSelectedGiftProductsById,
+    setStoredSelectedGiftIds,
+  ]);
+
   const giftSelectionStep = (
     <WishlistGiftSelectionStep
       selectedIds={selectedGiftIds}
@@ -2903,30 +2937,11 @@ export default function DashboardGiftsScreen() {
       disableContentScroll={true}
       enableInfiniteScroll={true}
       hideSelectionControls={isBrowseGiftsFlow}
-      externalProducts={isBrowseGiftsFlow ? undefined : cartGiftProducts}
-      externalSourceLabel="From your cart"
-      externalSourceDescription="Select gifts saved in your cart for this gifting event."
-      externalProductsLoading={isCartItemsLoading || isCartItemsFetching}
-      externalProductsError={isCartItemsError}
-      onRetryExternalProducts={() => void refetchCartItems()}
+      caughtMyEyeProductIds={cartGiftProductIds}
       emptyStateText={
         isBrowseGiftsFlow
           ? "No gifts matched your current filters."
-          : "No gifts in your cart match your search. Browse gifts to add something to your cart."
-      }
-      externalSourceAction={
-        isBrowseGiftsFlow ? null : (
-          <Button
-            type="button"
-            variant="outlined"
-            onClick={() =>
-              router.push(browseGiftsFromGiftFlowHref, { scroll: false })
-            }
-            className="h-10 rounded-lg border-[#3300C9] bg-white px-3.5 text-[12px] font-semibold text-[#3300C9] hover:bg-[#F6F2FF]"
-          >
-            Browse Gifts
-          </Button>
-        )
+          : "No gifts matched your current filters."
       }
     />
   );
@@ -2958,7 +2973,7 @@ export default function DashboardGiftsScreen() {
             addToCartLabel={
               createContactGiftCartItemMutation.isPending
                 ? "Adding..."
-                : "Add to cart"
+                : "Add to Caught My Eye"
             }
             addToCartDisabled={createContactGiftCartItemMutation.isPending}
             onMessageVendor={() =>

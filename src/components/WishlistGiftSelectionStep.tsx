@@ -68,6 +68,7 @@ type WishlistGiftSelectionStepProps = {
   externalProductsError?: boolean;
   onRetryExternalProducts?: () => void;
   hideSelectionControls?: boolean;
+  caughtMyEyeProductIds?: string[];
 };
 
 type FilterOption = {
@@ -299,12 +300,14 @@ function GiftCard({
   onToggle,
   onView,
   hideSelectionControls = false,
+  isCaughtMyEye = false,
 }: {
   product: MarketplaceProduct;
   checked: boolean;
   onToggle: () => void;
   onView?: () => void;
   hideSelectionControls?: boolean;
+  isCaughtMyEye?: boolean;
 }) {
   const primaryImage = product.images[0] || "";
 
@@ -336,9 +339,16 @@ function GiftCard({
           />
         </div>
 
-        <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-1.5 py-0.5 text-[8px] font-medium text-[#FF6600] sm:px-2 sm:text-[9px] lg:text-[10px]">
-          {formatConditionLabel(product.condition)}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-1.5 py-0.5 text-[8px] font-medium text-[#FF6600] sm:px-2 sm:text-[9px] lg:text-[10px]">
+            {formatConditionLabel(product.condition)}
+          </span>
+          {isCaughtMyEye ? (
+            <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#3300C9]/20 bg-[#F4F0FF] px-1.5 py-0.5 text-[8px] font-semibold text-[#3300C9] sm:px-2 sm:text-[9px] lg:text-[10px]">
+              Caught My Eye
+            </span>
+          ) : null}
+        </div>
 
         <p className="line-clamp-1 text-[8px] leading-snug text-neutral sm:line-clamp-2 sm:text-[9px]">
           {product.description?.trim() ||
@@ -412,6 +422,7 @@ export default function WishlistGiftSelectionStep({
   externalProductsError = false,
   onRetryExternalProducts,
   hideSelectionControls = false,
+  caughtMyEyeProductIds = [],
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -554,6 +565,10 @@ export default function WishlistGiftSelectionStep({
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pages = buildPages(safeCurrentPage, totalPages);
   const infiniteScrollSentinelRef = useRef<HTMLDivElement | null>(null);
+  const caughtMyEyeProductIdSet = useMemo(
+    () => new Set(caughtMyEyeProductIds.filter(Boolean)),
+    [caughtMyEyeProductIds],
+  );
 
   useEffect(() => {
     if (!products.length || !selectedIds.length) {
@@ -848,11 +863,11 @@ export default function WishlistGiftSelectionStep({
             <div className="flex flex-col gap-1 rounded-[16px] border border-[#E6E0F7] bg-[#FAF8FF] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[13px] font-semibold text-[#3300C9]">
-                  {externalSourceLabel || "From your cart"}
+                  {externalSourceLabel || "From Caught My Eye"}
                 </p>
                 <p className="text-[12px] text-[#7D7D7D]">
                   {externalSourceDescription ||
-                    "These gifts are pulled from your saved cart items."}
+                    "These gifts are pulled from items you saved to Caught My Eye."}
                 </p>
               </div>
               <span className="text-[12px] font-medium text-[#716F6F]">
@@ -1010,6 +1025,7 @@ export default function WishlistGiftSelectionStep({
                   onViewProduct ? () => onViewProduct(product) : undefined
                 }
                 hideSelectionControls={hideSelectionControls}
+                isCaughtMyEye={caughtMyEyeProductIdSet.has(product._id)}
               />
             ))}
           </div>

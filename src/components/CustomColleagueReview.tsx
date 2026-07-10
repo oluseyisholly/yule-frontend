@@ -20,6 +20,7 @@ type CustomColleagueReviewProps = {
   onEdit?: (id: string) => void;
   onDelete: (id: string) => void;
   nextDisabled?: boolean;
+  nextLabel?: string;
 };
 
 function ReviewItem({
@@ -85,6 +86,7 @@ export default function CustomColleagueReview({
   onEdit,
   onDelete,
   nextDisabled = false,
+  nextLabel = "Next",
 }: CustomColleagueReviewProps) {
   return (
     <div className="space-y-5 pt-1">
@@ -130,7 +132,7 @@ export default function CustomColleagueReview({
           disabled={nextDisabled}
           className="flex h-[40px] min-w-[108px] items-center justify-center rounded-[14px] bg-[#3300C9] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#2D00B4] disabled:cursor-not-allowed disabled:bg-[#BEB3EE]"
         >
-          Next
+          {nextLabel}
         </button>
       </div>
     </div>

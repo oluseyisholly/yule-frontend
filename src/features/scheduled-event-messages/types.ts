@@ -21,32 +21,31 @@ export type ScheduledEventMessageEvent = {
 export type ScheduledEventMessageRecord = {
   id: string;
   eventId: string;
-  participantId: string;
+  participantId?: string | null;
   subject: string;
   message: string;
-  recipientEmail: string;
-  recipientName: string;
+  recipientEmail?: string | null;
+  recipientName?: string | null;
   scheduledAt: string | null;
   sentAt: string | null;
   status: ScheduledEventMessageStatus;
-  giftUrl: string | null;
-  giftUrlExpiresAt: string | null;
+  giftUrl?: string | null;
+  giftUrlExpiresAt?: string | null;
   metadata: ScheduledEventMessageMetadata | null;
   failureReason: string | null;
   event: ScheduledEventMessageEvent;
-  participant: ParticipatedEventParticipant;
+  participant?: ParticipatedEventParticipant | null;
+  participants?: ParticipatedEventParticipant[];
   createdAt: string;
 };
 
 export type ScheduledEventMessagePayload = {
-  eventId?: string;
   event?: {
     title?: string;
     description?: string;
     eventTypeId?: string;
     eventDate?: string;
   };
-  participantId?: string;
   subject?: string;
   message?: string;
   sendNow?: boolean;

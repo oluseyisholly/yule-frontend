@@ -58,8 +58,18 @@ function formatCreatedBy(record?: {
       email?: string | null;
     } | null;
   } | null;
+  participants?: Array<{
+    eventContact?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+    } | null;
+  }>;
 }) {
-  const contact = record?.participant?.eventContact;
+  const contact =
+    record?.participant?.eventContact ??
+    record?.participants?.[0]?.eventContact ??
+    null;
   const fullName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
 
   return fullName || contact?.email?.trim() || "Yule";

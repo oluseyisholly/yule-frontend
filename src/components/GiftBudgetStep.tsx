@@ -13,6 +13,7 @@ type GiftBudgetStepProps = {
   onCustomValueChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  nextLabel?: string;
 };
 
 const BUDGET_OPTIONS = [
@@ -45,6 +46,7 @@ export default function GiftBudgetStep({
   onCustomValueChange,
   onBack,
   onNext,
+  nextLabel = "Next",
 }: GiftBudgetStepProps) {
   const isNextDisabled = !value || (value === "More" && !customValue.trim());
   const formattedCustomValue = formatCustomBudgetValue(customValue);
@@ -106,9 +108,9 @@ export default function GiftBudgetStep({
           type="button"
           onClick={onNext}
           disabled={isNextDisabled}
-          className="max-w-[146px] !h-[36px] px-6 text-[18px] sm:text-[20px]"
+          className="!w-fit !h-[36px] px-6 text-[18px] sm:text-[20px]"
         >
-          Next
+          {nextLabel}
         </ModalButton>
       </div>
     </div>

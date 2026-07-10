@@ -79,9 +79,11 @@ import {
   useDrawNameFlowStore,
 } from "@/stores/draw-name-flow-store";
 import {
+  isBackendRequiredDrawNameStep,
   isParticipantDrawNameFlowStep,
   type DrawNameModalStep,
 } from "@/screens/draw-names/modal-steps";
+import { shareInvite } from "@/lib/utils";
 
 type DrawNameStartModalProps = {
   open: boolean;
@@ -763,7 +765,9 @@ export default function DrawNameStartModal({
       (business) => getExternalBusinessRootId(business) === candidateId,
     );
 
-    return selectedBusiness ? getExternalBusinessRootId(selectedBusiness) : null;
+    return selectedBusiness
+      ? getExternalBusinessRootId(selectedBusiness)
+      : null;
   }, [onedaBusinesses, selectedOnedaBusinessIds]);
   const {
     data: onedaProfiles = [],
@@ -973,36 +977,36 @@ export default function DrawNameStartModal({
   const drawInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
     () =>
       (eventParticipantsResponse?.data.data ?? []).map((participant) => {
-          const actor = participant.eventContact ?? participant.user ?? null;
-          const fullName =
-            `${actor?.firstName ?? ""} ${actor?.lastName ?? ""}`.trim() ||
-            actor?.email ||
-            "Participant";
-          const firstInitial = actor?.firstName?.trim().charAt(0) ?? "";
-          const lastInitial = actor?.lastName?.trim().charAt(0) ?? "";
-          const initials =
-            `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
-            fullName.slice(0, 2).toUpperCase();
-          const { avatarBg, avatarColor } = getContactAvatarStyle(
-            actor?.id || participant.id || fullName,
-          );
+        const actor = participant.eventContact ?? participant.user ?? null;
+        const fullName =
+          `${actor?.firstName ?? ""} ${actor?.lastName ?? ""}`.trim() ||
+          actor?.email ||
+          "Participant";
+        const firstInitial = actor?.firstName?.trim().charAt(0) ?? "";
+        const lastInitial = actor?.lastName?.trim().charAt(0) ?? "";
+        const initials =
+          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
+          fullName.slice(0, 2).toUpperCase();
+        const { avatarBg, avatarColor } = getContactAvatarStyle(
+          actor?.id || participant.id || fullName,
+        );
 
-          return {
-            id: actor?.id || participant.id,
-            participantId: participant.id,
-            name: fullName,
-            role:
-              participant.role.toLowerCase() === "creator"
-                ? "Creator"
-                : actor?.email || "Participant",
-            initials,
-            avatarBg,
-            avatarColor,
-            email: actor?.email?.trim() || null,
-            profileUrl: actor?.profileUrl?.trim() || null,
-            inviteUrl: drawNameSignInInviteUrl,
-          };
-        }),
+        return {
+          id: actor?.id || participant.id,
+          participantId: participant.id,
+          name: fullName,
+          role:
+            participant.role.toLowerCase() === "creator"
+              ? "Creator"
+              : actor?.email || "Participant",
+          initials,
+          avatarBg,
+          avatarColor,
+          email: actor?.email?.trim() || null,
+          profileUrl: actor?.profileUrl?.trim() || null,
+          inviteUrl: drawNameSignInInviteUrl,
+        };
+      }),
     [drawNameSignInInviteUrl, eventParticipantsResponse],
   );
   const lockedInviteEmails = useMemo(() => {
@@ -1145,6 +1149,7 @@ Please sign in with the link below to view the event and participate:
 ${drawNameSignInInviteUrl}
 
 Thank you.`;
+  const drawNameInviteShareMessage = `You have been invited to join ${resolvedInviteEmailTitle} on Yule.\n\nSign in with the link below to view the event and participate:\n${drawNameSignInInviteUrl}`;
   const resolvedDrawResultName =
     getGiftRecipientDisplayName(giftRecipientResponse?.data ?? null) ||
     drawResultName ||
@@ -1971,6 +1976,15 @@ Thank you.`;
       return;
     }
 
+    if (
+      isBackendRequiredDrawNameStep(currentStep) &&
+      (!eventId || !drawNameEventId)
+    ) {
+      toast.error("Please save this draw name draft before continuing.");
+      onReplaceStep("event");
+      return;
+    }
+
     if (currentStep === "event") {
       void refetchAvailableEventTypes();
 
@@ -2076,6 +2090,7 @@ Thank you.`;
     refetchGiftRecipient,
     refetchMyParticipant,
     refetchParticipantExclusions,
+    onReplaceStep,
   ]);
 
   useEffect(() => {
@@ -2105,35 +2120,51 @@ Thank you.`;
     onClose();
   };
 
-  const handleEventNext = async () => {
-    if (!selectedEventId) return;
+  const ensureDrawNameDraft = async () => {
+    if (!selectedEventId) {
+      throw new Error("Please select an event to continue.");
+    }
 
-    try {
-      let nextDrawNameEventId = drawNameEventId;
-      let nextEventId = eventId;
-
-      if (drawNameEventId) {
-        await updateDrawNameEventMutation.mutateAsync({
-          id: drawNameEventId,
-          payload: {
-            event: {
-              eventTypeId: selectedEventId,
-            },
-          },
-        });
-      } else {
-        const response = await createDrawNameEventMutation.mutateAsync({
-          ...buildCreateDraftPayload(),
+    if (drawNameEventId) {
+      await updateDrawNameEventMutation.mutateAsync({
+        id: drawNameEventId,
+        payload: {
           event: {
-            ...buildCreateDraftPayload().event,
-            title: selectedEventLabel,
             eventTypeId: selectedEventId,
           },
-        });
+        },
+      });
 
-        nextDrawNameEventId = response.data.id;
-        nextEventId = response.data.event.id;
-      }
+      return {
+        nextDrawNameEventId: drawNameEventId,
+        nextEventId: eventId,
+      };
+    }
+
+    const createDraftPayload = buildCreateDraftPayload();
+    const response = await createDrawNameEventMutation.mutateAsync({
+      ...createDraftPayload,
+      event: {
+        ...createDraftPayload.event,
+        title: selectedEventLabel,
+        eventTypeId: selectedEventId,
+      },
+    });
+
+    return {
+      nextDrawNameEventId: response.data.id,
+      nextEventId: response.data.event.id,
+    };
+  };
+
+  const handleEventNext = () => {
+    if (!selectedEventId) return;
+    onStepChange("source");
+  };
+
+  const handleEventSaveAndContinue = async () => {
+    try {
+      const { nextEventId, nextDrawNameEventId } = await ensureDrawNameDraft();
 
       onStepChange("source", nextEventId, nextDrawNameEventId);
     } catch (error) {
@@ -2252,10 +2283,12 @@ Thank you.`;
             importedRecords.map((record) => [record.id, record]),
           ),
         }));
-        setSelectedRecordIds(importedRecordIds);
+        setSelectedRecordIds((current) =>
+          Array.from(new Set([...current, ...importedRecordIds])),
+        );
 
         toast.success(response.message);
-        onStepChange("review-records");
+        onStepChange("record");
       } catch (error) {
         toast.error(
           error instanceof Error
@@ -2274,8 +2307,26 @@ Thank you.`;
   const handleReviewNext = async () => {
     if (!selectedRecordIds.length) return;
 
-    if (!eventId) {
-      handleCloseAndRedirect();
+    let nextEventId = eventId;
+    let nextDrawNameEventId = drawNameEventId;
+
+    if (!nextEventId || !nextDrawNameEventId) {
+      try {
+        const draft = await ensureDrawNameDraft();
+        nextEventId = draft.nextEventId;
+        nextDrawNameEventId = draft.nextDrawNameEventId;
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to save this draw name draft right now.",
+        );
+        return;
+      }
+    }
+
+    if (!nextEventId || !nextDrawNameEventId) {
+      toast.error("Unable to resolve this draw name draft right now.");
       return;
     }
 
@@ -2286,7 +2337,7 @@ Thank you.`;
     if (participantContactIds.length > 0) {
       try {
         await createParticipantsBulkMutation.mutateAsync({
-          eventId,
+          eventId: nextEventId,
           role: "participant",
           contactIds: participantContactIds,
         });
@@ -2301,7 +2352,7 @@ Thank you.`;
     }
 
     setExclusionChoice((current) => current || "yes");
-    onStepChange("exclusion-choice");
+    onStepChange("exclusion-choice", nextEventId, nextDrawNameEventId);
   };
 
   const handleExclusionNext = () => {
@@ -2546,7 +2597,13 @@ Thank you.`;
     }
   };
 
-  const handleEventDateNext = async () => {
+  const handleEventDateNext = () => {
+    if (!eventDate) return;
+    setCameToBudgetFromGroupName(false);
+    onStepChange("budget");
+  };
+
+  const handleEventDateSaveAndContinue = async () => {
     if (!eventDate) return;
 
     if (!drawNameEventId) {
@@ -2880,6 +2937,33 @@ Thank you.`;
     }
   };
 
+  // const handleShareDrawNameInvite = (platform: "facebook" | "whatsapp") => {
+  //   const inviteUrl = drawNameSignInInviteUrl;
+
+  //   if (!inviteUrl) {
+  //     toast.error("Unable to resolve this invitation link right now.");
+  //     return;
+  //   }
+
+  //   const shareUrl =
+  //     platform === "whatsapp"
+  //       ? `https://wa.me/?text=${encodeURIComponent(drawNameInviteShareMessage)}`
+  //       : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteUrl)}&quote=${encodeURIComponent(drawNameInviteShareMessage)}`;
+
+  //   const shareWindow = window.open(shareUrl, "_blank", "noopener,noreferrer");
+
+  //   if (!shareWindow) {
+  //     toast.error(
+  //       `Unable to open ${platform === "whatsapp" ? "WhatsApp" : "Facebook"} right now.`,
+  //     );
+  //     return;
+  //   }
+
+  //   toast.success(
+  //     `${platform === "whatsapp" ? "WhatsApp" : "Facebook"} share opened.`,
+  //   );
+  // };
+
   const recordFooter = (
     <div className="flex flex-wrap items-center justify-center gap-3">
       <BackButton
@@ -3090,10 +3174,10 @@ Thank you.`;
       />
 
       <ModalButton
-        className="!h-[38px] max-w-[100px]"
+        className="!h-[38px] max-w-[170px]"
         onClick={handleExclusionRecordNext}
       >
-        Next
+        Save & Continue
       </ModalButton>
     </div>
   );
@@ -3173,12 +3257,24 @@ Thank you.`;
           </button>
         ) : null}
 
-        <ModalButton
-          onClick={handleEventNext}
-          disabled={!selectedEventId || activeDraftMutation}
-        >
-          {activeDraftMutation ? "Saving..." : "Next"}
-        </ModalButton>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <ModalButton
+            variant="secondary"
+            onClick={handleEventNext}
+            disabled={!selectedEventId || activeDraftMutation}
+            className="max-w-[140px]"
+          >
+            Next
+          </ModalButton>
+
+          <ModalButton
+            onClick={handleEventSaveAndContinue}
+            disabled={!selectedEventId || activeDraftMutation}
+            className="max-w-[210px]"
+          >
+            {activeDraftMutation ? "Saving..." : "Save & Continue"}
+          </ModalButton>
+        </div>
       </div>
     ) : currentStep === "source" ? (
       <div className="space-y-12 pt-2">
@@ -3200,7 +3296,7 @@ Thank you.`;
             From Record
           </ModalButton>
           <ModalButton onClick={handleOpenOnedaBusinessStep} className="w-full">
-            From Oneda
+            Import from Oneda
           </ModalButton>
         </div>
 
@@ -3473,9 +3569,15 @@ Thank you.`;
           }}
           nextDisabled={
             selectedRecordReviewDisplayItems.length === 0 ||
+            activeDraftMutation ||
             createParticipantsBulkMutation.isPending ||
             isEventParticipantsLoading ||
             isEventParticipantsFetching
+          }
+          nextLabel={
+            activeDraftMutation || createParticipantsBulkMutation.isPending
+              ? "Saving..."
+              : "Save & Continue"
           }
         />
 
@@ -3513,6 +3615,8 @@ Thank you.`;
         }}
         onBack={() => onStepChange("exclusion-choice")}
         onNext={handleEventDateNext}
+        onSaveAndContinue={handleEventDateSaveAndContinue}
+        isSaveAndContinuePending={updateDrawNameEventMutation.isPending}
         onGoToEventName={() => {
           setCameToBudgetFromGroupName(true);
           onStepChange("group-name");
@@ -3528,6 +3632,7 @@ Thank you.`;
         onBack={() => onStepChange("event-date")}
         onNext={handleGroupNameNext}
         onGoToEventName={() => onStepChange("event")}
+        nextLabel="Save & Continue"
       />
     ) : currentStep === "budget" ? (
       <GiftBudgetStep
@@ -3544,6 +3649,7 @@ Thank you.`;
           onStepChange(cameToBudgetFromGroupName ? "group-name" : "event-date")
         }
         onNext={handleBudgetNext}
+        nextLabel="Save & Continue"
       />
     ) : isParticipantDrawNameFlowStep(currentStep) ||
       currentStep === "draw-invite" ? (
@@ -3594,6 +3700,20 @@ Thank you.`;
         isResultPrimaryActionPending={completeDrawNameEventMutation.isPending}
         onInviteBack={() => onStepChange("draw-result")}
         onSendEmail={handleRequestSendEmailInvites}
+        onShareFacebook={() =>
+          shareInvite({
+            platform: "facebook",
+            inviteUrl: drawNameSignInInviteUrl,
+            message: drawNameInviteShareMessage,
+          })
+        }
+        onShareWhatsApp={() =>
+          shareInvite({
+            platform: "whatsapp",
+            inviteUrl: drawNameSignInInviteUrl,
+            message: drawNameInviteShareMessage,
+          })
+        }
         onCopyLink={handleCopyInvitationLink}
         isSendingEmail={sendEmailMutation.isPending}
       />

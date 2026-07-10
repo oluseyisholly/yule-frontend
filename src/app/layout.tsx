@@ -7,7 +7,6 @@ import "./globals.css";
 import AppProviders from "@/components/providers/AppProviders";
 import { cn } from "@/lib/utils";
 import { ThemeProvider, themeNoFlashScript } from "@/components/ThemeProvider";
-import { poppins } from "@/screens/HomeScreen";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 

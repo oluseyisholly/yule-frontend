@@ -78,6 +78,14 @@ export type ContactGiftCartMutationResponse = {
   data: ContactGiftCartItem;
 };
 
+export type ContactGiftCartDeleteResponse = {
+  code: number;
+  message: string;
+  data: {
+    id: string;
+  };
+};
+
 export type CreateBulkGiftsPayload = {
   eventId: string;
   recipientParticipantId: string;

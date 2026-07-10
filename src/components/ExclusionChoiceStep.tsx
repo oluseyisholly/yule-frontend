@@ -9,6 +9,7 @@ type ExclusionChoiceStepProps = {
   onChange: (value: "yes" | "no") => void;
   onBack: () => void;
   onNext: () => void;
+  nextLabel?: string;
 };
 
 export default function ExclusionChoiceStep({
@@ -16,6 +17,7 @@ export default function ExclusionChoiceStep({
   onChange,
   onBack,
   onNext,
+  nextLabel = "Next",
 }: ExclusionChoiceStepProps) {
   return (
     <div className="space-y-3 pt-1">
@@ -68,9 +70,9 @@ export default function ExclusionChoiceStep({
           type="button"
           onClick={onNext}
           disabled={!value}
-          className="max-w-[20px] !h-[37px]"
+          className="max-w-[170px] !h-[37px]"
         >
-          Next
+          {nextLabel}
         </ModalButton>
       </div>
     </div>

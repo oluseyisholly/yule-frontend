@@ -125,7 +125,8 @@ export default function NotificationDrawer({
                 Notifications
               </DialogPrimitive.Title>
               <DialogPrimitive.Description className="mt-1 text-[13px] leading-5 text-[#7D7888]">
-                Keep track of invites, gifts, reminders, and celebration updates.
+                Keep track of invites, gifts, reminders, and celebration
+                updates.
               </DialogPrimitive.Description>
             </div>
 
@@ -136,7 +137,7 @@ export default function NotificationDrawer({
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#F0ECF7] bg-white px-5 py-4 sm:px-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#F6F2FF] px-3 py-2 text-[13px] font-medium text-[#3300C9]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#F6F2FF] px-1 py-1 border-[0.5px] border-[#3300C9] border-solid text-[13px] font-medium text-[#3300C9]">
               <BellIcon className="size-4" />
               {count > 0 ? `${count} new` : "No new notifications"}
             </div>
@@ -209,8 +210,7 @@ export default function NotificationDrawer({
                   No notifications yet
                 </h3>
                 <p className="mt-2 max-w-[280px] text-[13px] leading-5 text-[#7D7888]">
-                  Once your notification APIs are connected, updates will appear
-                  here with infinite scroll.
+                  Once you have notification, updates will appear here
                 </p>
               </div>
             )}

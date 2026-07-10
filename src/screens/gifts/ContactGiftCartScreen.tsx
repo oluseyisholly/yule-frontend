@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ShoppingCartIcon } from "lucide-react";
+import { ShoppingCartIcon, Trash2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import Button from "@/components/Button";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import Pagination from "@/components/Pagination";
+import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import { GiftGridLoadingSkeleton } from "@/components/ui/context-skeletons";
+import { useDeleteContactGiftCartItemMutation } from "@/features/gifts/hooks/useDeleteContactGiftCartItemMutation";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import type { ContactGiftCartItem } from "@/features/gifts/types";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
@@ -67,9 +69,11 @@ function toMarketplaceProduct(item: ContactGiftCartItem): MarketplaceProduct {
 function CartItemCard({
   item,
   onView,
+  onDelete,
 }: {
   item: ContactGiftCartItem;
   onView: () => void;
+  onDelete: () => void;
 }) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[18px] border border-[#EEE9F8] bg-white shadow-[0_10px_28px_rgba(29,18,68,0.05)]">
@@ -101,13 +105,23 @@ function CartItemCard({
           <span className="text-[15px] font-semibold text-[#1E1E1E]">
             {formatCurrency(item.amount)}
           </span>
-          <Button
-            type="button"
-            onClick={onView}
-            className="rounded-full px-5 py-2 text-[12px]"
-          >
-            View
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={onView}
+              className="rounded-full px-5 py-2 text-[12px]"
+            >
+              View
+            </Button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Delete ${item.title}`}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-[#F6C8C8] bg-white text-[#E04F4F] transition-colors hover:bg-[#FFF5F5]"
+            >
+              <Trash2Icon className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
     </article>
@@ -119,11 +133,15 @@ export default function ContactGiftCartScreen() {
   const [selectedItem, setSelectedItem] = useState<ContactGiftCartItem | null>(
     null,
   );
+  const [pendingDeleteItem, setPendingDeleteItem] =
+    useState<ContactGiftCartItem | null>(null);
   const { data, isLoading, isFetching, isError, refetch } =
     useContactGiftCartItemsQuery({
       page: currentPage,
       per_page: PAGE_SIZE,
     });
+  const deleteContactGiftCartItemMutation =
+    useDeleteContactGiftCartItemMutation();
 
   const cartItems = data?.data.data ?? [];
   const totalPages = Math.max(data?.data.totalPages ?? 1, 1);
@@ -131,6 +149,34 @@ export default function ContactGiftCartScreen() {
     () => (selectedItem ? toMarketplaceProduct(selectedItem) : null),
     [selectedItem],
   );
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteItem) {
+      return;
+    }
+
+    try {
+      const response = await deleteContactGiftCartItemMutation.mutateAsync(
+        pendingDeleteItem.id,
+      );
+
+      if (selectedItem?.id === pendingDeleteItem.id) {
+        setSelectedItem(null);
+      }
+
+      setPendingDeleteItem(null);
+      toast.success(
+        response.message || "Caught My Eye item deleted successfully.",
+      );
+      await refetch();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this Caught My Eye item right now.",
+      );
+    }
+  };
 
   if (selectedItem && selectedProduct) {
     const contactName = [
@@ -144,9 +190,9 @@ export default function ContactGiftCartScreen() {
     return (
       <EventGiftDetailView
         backHref="/dashboard/cart"
-        backLabel="Back to cart"
+        backLabel="Back to Caught My Eye"
         onBack={() => setSelectedItem(null)}
-        eventTitle="My Cart"
+        eventTitle="Caught My Eye"
         createdBy={contactName || "You"}
         createdAt={formatDate(selectedItem.createdAt)}
         status="Ongoing"
@@ -156,7 +202,9 @@ export default function ContactGiftCartScreen() {
         showSummaryItems={false}
         product={selectedProduct}
         hideDeleteAction
-        onDelete={() => undefined}
+        showInlineDeleteAction
+        inlineDeleteActionLabel="Delete"
+        onDelete={() => setPendingDeleteItem(selectedItem)}
         onMessageVendor={() => toast("Vendor messaging is not available yet.")}
         onReportItem={() => toast("Thanks. We will review this item.")}
         onShareProduct={() => toast.success("Product link copied.")}
@@ -166,7 +214,7 @@ export default function ContactGiftCartScreen() {
 
   return (
     <div className="space-y-6">
-      <BackLink href="/dashboard/gifts" label="Cart" />
+      <BackLink href="/dashboard/gifts" label="Caught My Eye" />
 
       <div className="flex flex-col gap-4 rounded-[24px] border border-[#F1EDF9] bg-white p-5 shadow-[0_12px_40px_rgba(29,18,68,0.05)] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -175,7 +223,7 @@ export default function ContactGiftCartScreen() {
               <ShoppingCartIcon className="size-5" />
             </div>
             <h1 className="mt-3 text-[26px] font-semibold text-[#1E1E1E]">
-              My Cart
+              Caught My Eye
             </h1>
             <p className="mt-1 text-sm text-[#7D7D7D]">
               Review gifts you have saved from the marketplace.
@@ -190,7 +238,7 @@ export default function ContactGiftCartScreen() {
         {isError ? (
           <div className="rounded-[16px] border border-[#F2D8D8] bg-[#FFF8F8] p-5 text-center">
             <p className="text-sm text-[#8A5A5A]">
-              Unable to load your cart right now.
+              Unable to load Caught My Eye right now.
             </p>
             <button
               type="button"
@@ -210,6 +258,7 @@ export default function ContactGiftCartScreen() {
                   key={item.id}
                   item={item}
                   onView={() => setSelectedItem(item)}
+                  onDelete={() => setPendingDeleteItem(item)}
                 />
               ))}
             </div>
@@ -223,7 +272,7 @@ export default function ContactGiftCartScreen() {
 
             {isFetching ? (
               <p className="text-center text-xs text-[#7D7D7D]">
-                Refreshing cart...
+                Refreshing Caught My Eye...
               </p>
             ) : null}
           </>
@@ -231,10 +280,10 @@ export default function ContactGiftCartScreen() {
           <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[18px] border border-dashed border-[#E5DFF4] bg-[#FAF8FF] px-6 text-center">
             <ShoppingCartIcon className="size-10 text-[#3300C9]" />
             <h2 className="mt-4 text-[20px] font-semibold text-[#343039]">
-              Your cart is empty
+              Nothing has caught your eye yet
             </h2>
             <p className="mt-2 max-w-[420px] text-sm text-[#7D7D7D]">
-              Browse gifts and add the ones you would like to keep for later.
+              Browse gifts and save the ones that catch your eye.
             </p>
             <Button
               href="/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
@@ -245,6 +294,18 @@ export default function ContactGiftCartScreen() {
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        open={Boolean(pendingDeleteItem)}
+        onClose={() => setPendingDeleteItem(null)}
+        onConfirm={handleConfirmDelete}
+        action="delete"
+        title="Delete Caught My Eye Item"
+        description={`Are you sure you want to delete "${pendingDeleteItem?.title || "this gift"}" from Caught My Eye?`}
+        confirmText="Delete"
+        isLoading={deleteContactGiftCartItemMutation.isPending}
+        closeOnOverlayClick={false}
+      />
     </div>
   );
 }

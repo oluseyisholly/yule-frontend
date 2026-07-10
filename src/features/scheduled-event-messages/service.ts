@@ -29,9 +29,19 @@ export async function getCreatedScheduledEventMessages(
 }
 
 export async function getScheduledEventMessage(id: string) {
-  return getApi<ScheduledEventMessageResponse>(
+  const response = await getApi<ScheduledEventMessageResponse | ScheduledEventMessageResponse["data"]>(
     `${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/${id}`,
   );
+
+  if ("data" in response && response.data && "id" in response.data) {
+    return response as ScheduledEventMessageResponse;
+  }
+
+  return {
+    code: 200,
+    message: "Scheduled event message fetched successfully",
+    data: response as ScheduledEventMessageResponse["data"],
+  } satisfies ScheduledEventMessageResponse;
 }
 
 export async function createScheduledEventMessage(

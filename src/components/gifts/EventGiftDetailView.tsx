@@ -33,6 +33,8 @@ type EventGiftDetailViewProps = {
   product: MarketplaceProduct;
   onDelete: () => void;
   hideDeleteAction?: boolean;
+  showInlineDeleteAction?: boolean;
+  inlineDeleteActionLabel?: string;
   onAddToCart?: () => void;
   addToCartLabel?: string;
   addToCartDisabled?: boolean;
@@ -185,8 +187,10 @@ export default function EventGiftDetailView({
   product,
   onDelete,
   hideDeleteAction = false,
+  showInlineDeleteAction = false,
+  inlineDeleteActionLabel = "Delete",
   onAddToCart,
-  addToCartLabel = "Add to cart",
+  addToCartLabel = "Add to Caught My Eye",
   addToCartDisabled = false,
   onMessageVendor,
   onReportItem,
@@ -396,6 +400,16 @@ export default function EventGiftDetailView({
                   >
                     Report Item
                   </Button>
+                  {showInlineDeleteAction ? (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      className="w-full rounded-[15px] border-[#F6C8C8] bg-white px-6 py-3 text-xs font-medium text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F] sm:w-auto"
+                      onClick={onDelete}
+                    >
+                      {inlineDeleteActionLabel}
+                    </Button>
+                  ) : null}
                 </div>
 
                 <div className="pt-1">

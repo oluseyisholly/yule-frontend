@@ -44,6 +44,8 @@ type DrawNameExecutionFlowStepsProps = {
   isResultPrimaryActionPending: boolean;
   onInviteBack: () => void;
   onSendEmail: () => void;
+  onShareFacebook: () => void;
+  onShareWhatsApp: () => void;
   onCopyLink: () => void;
   isSendingEmail: boolean;
 };
@@ -80,6 +82,8 @@ export default function DrawNameExecutionFlowSteps({
   isResultPrimaryActionPending,
   onInviteBack,
   onSendEmail,
+  onShareFacebook,
+  onShareWhatsApp,
   onCopyLink,
   isSendingEmail,
 }: DrawNameExecutionFlowStepsProps) {
@@ -156,6 +160,8 @@ export default function DrawNameExecutionFlowSteps({
       <DrawNameInviteStep
         onBack={onInviteBack}
         onSendEmail={onSendEmail}
+        onShareFacebook={onShareFacebook}
+        onShareWhatsApp={onShareWhatsApp}
         onCopyLink={onCopyLink}
         isSendingEmail={isSendingEmail}
       />

@@ -133,7 +133,8 @@ function toInitials(name: string) {
 }
 
 function getRecipientDetails(record: ScheduledEventMessageRecord) {
-  const contact = record.participant?.eventContact;
+  const participant = record.participant ?? record.participants?.[0] ?? null;
+  const contact = participant?.eventContact;
   const contactName =
     `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
   const name =
@@ -147,7 +148,7 @@ function getRecipientDetails(record: ScheduledEventMessageRecord) {
     email: record.recipientEmail?.trim() || contact?.email?.trim() || "-",
     profileUrl: contact?.profileUrl?.trim() || null,
     initials: toInitials(name),
-    role: record.participant?.role || "participant",
+    role: participant?.role || "participant",
   };
 }
 

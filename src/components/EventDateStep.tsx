@@ -22,10 +22,14 @@ type EventDateStepProps = {
   onChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  onSaveAndContinue?: () => void;
   onGoToEventName?: () => void;
   heading?: string;
   headingAlign?: "center" | "left";
   showGoToEventNameLink?: boolean;
+  nextLabel?: string;
+  saveAndContinueLabel?: string;
+  isSaveAndContinuePending?: boolean;
 };
 
 function formatDate(value: string) {
@@ -52,10 +56,14 @@ export default function EventDateStep({
   onChange,
   onBack,
   onNext,
+  onSaveAndContinue,
   onGoToEventName,
   heading,
   headingAlign = "center",
   showGoToEventNameLink = true,
+  nextLabel = "Next",
+  saveAndContinueLabel = "Save & Continue",
+  isSaveAndContinuePending = false,
 }: EventDateStepProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const today = useMemo(() => {
@@ -73,7 +81,9 @@ export default function EventDateStep({
     parsedDate.setHours(0, 0, 0, 0);
     return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
   }, [value]);
-  const [calendarMonth, setCalendarMonth] = useState<Date>(selectedDate ?? today);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(
+    selectedDate ?? today,
+  );
 
   useEffect(() => {
     setCalendarMonth(selectedDate ?? today);
@@ -93,14 +103,17 @@ export default function EventDateStep({
   };
 
   const resolvedHeading =
-    heading ??
-    `Tell us the date of your ${eventName} event.`;
+    heading ?? `Tell us the date of your ${eventName} event.`;
   const isHeadingLeftAligned = headingAlign === "left";
 
   return (
     <div className="space-y-8 pt-1 sm:space-y-10">
       <div
-        className={isHeadingLeftAligned ? "space-y-5 text-left" : "space-y-6 text-center sm:space-y-8"}
+        className={
+          isHeadingLeftAligned
+            ? "space-y-5 text-left"
+            : "space-y-6 text-center sm:space-y-8"
+        }
       >
         <p
           className={
@@ -113,8 +126,8 @@ export default function EventDateStep({
             resolvedHeading
           ) : (
             <>
-              Tell us the date of your <span className="italic">{eventName}</span>{" "}
-              event.
+              Tell us the date of your{" "}
+              <span className="italic">{eventName}</span> event.
             </>
           )}
         </p>
@@ -175,22 +188,35 @@ export default function EventDateStep({
           ) : null}
         </div>
       </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
+          <BackButton
+            onClick={onBack}
+            className="flex min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            iconClassName="size-[24px]"
+          />
 
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
-        <BackButton
-          onClick={onBack}
-          className="flex min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[24px]"
-        />
-
-        <ModalButton
-          type="button"
-          onClick={onNext}
-          disabled={!value}
-          className="!h-[38px] max-w-[100px] rounded-[18px]"
-        >
-          Next
-        </ModalButton>
+          <ModalButton
+            type="button"
+            onClick={onNext}
+            disabled={!value || isSaveAndContinuePending}
+            className="!h-[38px] max-w-[170px] rounded-[18px]"
+          >
+            {nextLabel}
+          </ModalButton>
+        </div>
+        {/* <div>
+          {onSaveAndContinue ? (
+            <ModalButton
+              type="button"
+              onClick={onSaveAndContinue}
+              disabled={!value || isSaveAndContinuePending}
+              className="!h-[38px] max rounded-[18px] w-fit"
+            >
+              {isSaveAndContinuePending ? "Saving..." : saveAndContinueLabel}
+            </ModalButton>
+          ) : null}
+        </div> */}
       </div>
     </div>
   );
