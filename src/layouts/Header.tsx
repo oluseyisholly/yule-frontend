@@ -124,8 +124,8 @@ export default function Header() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[calc(100%-10rem)] items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:gap-10 xl:px-8">
+    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 px-5 sm:px-6 md:px-10 lg:px-20 xl:px-28 backdrop-blur">
+      <div className="mx-auto flex  items-center justify-between gap-4 py-4  sm:py-5 lg:gap-10 ">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">
           <Image
@@ -188,7 +188,35 @@ export default function Header() {
 
         {/* Mobile toggle + hamburger */}
         <div className="flex items-center gap-2 lg:hidden">
-          <ThemeToggle />
+          {shouldShowSigningInLoader ? (
+            <SigningInUserCard className="w-full" />
+          ) : shouldShowSignedInCard ? (
+            <SignedInUserCard
+              name={fullName}
+              email={email}
+              initials={initials}
+              imageUrl={profileImageUrl}
+              onClick={closeMenu}
+              className="w-full"
+            />
+          ) : (
+            <div className="flex flex-col gap-3">
+              <ThemeToggle />
+
+              <Button
+                label="Create your first celebration"
+                href={YULE_SIGN_UP_URL}
+                variant="outlined"
+                className="w-full"
+              />
+              <Button
+                label="Start Celebrating"
+                href={YULE_SIGN_IN_URL}
+                variant="filled"
+                className="w-full"
+              />
+            </div>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -237,33 +265,6 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          {shouldShowSigningInLoader ? (
-            <SigningInUserCard className="w-full" />
-          ) : shouldShowSignedInCard ? (
-            <SignedInUserCard
-              name={fullName}
-              email={email}
-              initials={initials}
-              imageUrl={profileImageUrl}
-              onClick={closeMenu}
-              className="w-full"
-            />
-          ) : (
-            <div className="flex flex-col gap-3">
-              <Button
-                label="Create your first celebration"
-                href={YULE_SIGN_UP_URL}
-                variant="outlined"
-                className="w-full"
-              />
-              <Button
-                label="Start Celebrating"
-                href={YULE_SIGN_IN_URL}
-                variant="filled"
-                className="w-full"
-              />
-            </div>
-          )}
         </div>
       </div>
     </header>

@@ -63,7 +63,7 @@ const features: FeatureCardData[] = [
     imageAlt: "Create a personal wishlist",
     imagePosition: "right",
 
-    cardClassName: "mt-[-12px] items-center bg-[#FCB900] px-5  sm:px-6 ",
+    cardClassName: "mt-[-12px] items-center bg-[#FCB900] pb-6 sm:pb-8 px-5  sm:px-6 ",
 
     imageWrapperClassName: "rounded-[8px] mt-[-25px] w-full",
 
