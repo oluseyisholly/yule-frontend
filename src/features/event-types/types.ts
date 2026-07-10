@@ -14,6 +14,7 @@ export type AvailableEventType = {
 export type AvailableEventTypesParams = {
   per_page?: number;
   page?: number;
+  searchQuery?: string;
 };
 
 export type AvailableEventTypesPage = {

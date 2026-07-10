@@ -648,6 +648,9 @@ export default function ScheduleScreen() {
   const [activeTab, setActiveTab] = useState<ScheduleStatus>("Upcoming");
   const [query, setQuery] = useState("");
   const [recordSearchValue, setRecordSearchValue] = useState("");
+  const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
+  const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
+    useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectedEventTypeId = flowSelection.selectedEventTypeId;
@@ -770,6 +773,7 @@ export default function ScheduleScreen() {
     {
       page: 1,
       per_page: 100,
+      searchQuery: debouncedEventTypeSearchValue,
     },
     {
       enabled: isFlowOpen && currentStep === "event",
@@ -913,6 +917,14 @@ export default function ScheduleScreen() {
   useEffect(() => {
     setCurrentPage(1);
   }, [query]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventTypeSearchValue]);
 
   useEffect(() => {
     setSelectedIds((current) =>
@@ -1668,6 +1680,8 @@ export default function ScheduleScreen() {
           placeholder="Select Event"
           panelTitle="Select an Event"
           searchPlaceholder=""
+          searchValue={eventTypeSearchValue}
+          onSearchValueChange={setEventTypeSearchValue}
           addActionLabel="Add New"
           onCreateOption={handleCreateEventOption}
           onUpdateOption={handleUpdateEventOption}

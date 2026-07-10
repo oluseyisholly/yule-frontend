@@ -8,5 +8,6 @@ export const eventTypeQueryKeys = {
       ...eventTypeQueryKeys.availableLists(),
       params.per_page ?? 10,
       params.page ?? 1,
+      params.searchQuery?.trim() ?? "",
     ] as const,
 };

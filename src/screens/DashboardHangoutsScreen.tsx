@@ -930,6 +930,9 @@ export default function DashboardHangoutsScreen() {
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
     useState("");
+  const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
+  const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
+    useState("");
   const [customContactRecordItems, setCustomContactRecordItems] = useState<
     SearchableRecordItem[]
   >([]);
@@ -1050,6 +1053,7 @@ export default function DashboardHangoutsScreen() {
     {
       page: 1,
       per_page: 100,
+      searchQuery: debouncedEventTypeSearchValue,
     },
     {
       enabled: isHangoutFlowOpen && currentHangoutFlowStep === "event",
@@ -1437,6 +1441,14 @@ export default function DashboardHangoutsScreen() {
 
     return () => window.clearTimeout(timeoutId);
   }, [recordSearchValue]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventTypeSearchValue]);
 
   useEffect(() => {
     if (currentContactId?.trim()) {
@@ -3284,6 +3296,8 @@ export default function DashboardHangoutsScreen() {
                 placeholder="Select Event"
                 panelTitle="Select Event"
                 searchPlaceholder=""
+                searchValue={eventTypeSearchValue}
+                onSearchValueChange={setEventTypeSearchValue}
                 addActionLabel="Add New"
                 onCreateOption={handleCreateEventOption}
                 onUpdateOption={handleUpdateEventOption}

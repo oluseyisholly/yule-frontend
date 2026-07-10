@@ -777,6 +777,9 @@ export default function WishListScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
+  const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
+    useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<WishListActivityTab>("organizer");
   const [wishlistInviteSearchValue, setWishlistInviteSearchValue] = useState("");
@@ -802,6 +805,7 @@ export default function WishListScreen() {
     {
       per_page: 25,
       page: 1,
+      searchQuery: debouncedEventTypeSearchValue,
     },
     {
       enabled: isOpen && currentStep === "event",
@@ -1026,6 +1030,14 @@ export default function WishListScreen() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchValue]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventTypeSearchValue]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -2137,6 +2149,8 @@ export default function WishListScreen() {
                 placeholder="Select Event"
                 panelTitle="Select Event"
                 searchPlaceholder=""
+                searchValue={eventTypeSearchValue}
+                onSearchValueChange={setEventTypeSearchValue}
                 addActionLabel="Add New"
                 onCreateOption={handleCreateEventOption}
                 onUpdateOption={handleUpdateEventOption}

@@ -1281,6 +1281,9 @@ export default function DashboardGiftsScreen() {
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
     useState("");
+  const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
+  const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
+    useState("");
   const [addRecordReturnStep, setAddRecordReturnStep] = useState<
     "record" | "review-records"
   >("record");
@@ -1347,6 +1350,7 @@ export default function DashboardGiftsScreen() {
     {
       per_page: 25,
       page: 1,
+      searchQuery: debouncedEventTypeSearchValue,
     },
     {
       enabled: isGiftFlowOpen && currentGiftFlowStep === "event",
@@ -2693,6 +2697,14 @@ export default function DashboardGiftsScreen() {
   }, [recordSearchValue]);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventTypeSearchValue]);
+
+  useEffect(() => {
     if (currentContactId?.trim()) {
       setEnsuredCurrentContactId(currentContactId.trim());
       setHasEnsuredCurrentContact(true);
@@ -3922,6 +3934,8 @@ export default function DashboardGiftsScreen() {
                 placeholder="Select Event"
                 panelTitle="Select Event"
                 searchPlaceholder=""
+                searchValue={eventTypeSearchValue}
+                onSearchValueChange={setEventTypeSearchValue}
                 addActionLabel="Add New"
                 onCreateOption={handleCreateEventOption}
                 onUpdateOption={handleUpdateEventOption}

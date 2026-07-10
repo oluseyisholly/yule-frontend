@@ -628,6 +628,9 @@ export default function DrawNameStartModal({
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
     useState("");
+  const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
+  const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
+    useState("");
   const [persistedFetchedRecordItemsById, setPersistedFetchedRecordItemsById] =
     useState<Record<string, SearchableRecordItem>>({});
   const [hasEnsuredMyContact, setHasEnsuredMyContact] = useState(false);
@@ -726,6 +729,7 @@ export default function DrawNameStartModal({
     {
       per_page: 10,
       page: 1,
+      searchQuery: debouncedEventTypeSearchValue,
     },
     {
       enabled: open && currentStep === "event",
@@ -1337,6 +1341,8 @@ Thank you.`;
     setDrawResultName("");
     setRecordSearchValue("");
     setDebouncedRecordSearchValue("");
+    setEventTypeSearchValue("");
+    setDebouncedEventTypeSearchValue("");
     setPersistedFetchedRecordItemsById({});
     setHasEnsuredMyContact(false);
     setEnsureRequested(false);
@@ -1680,6 +1686,14 @@ Thank you.`;
 
     return () => window.clearTimeout(timeoutId);
   }, [recordSearchValue]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventTypeSearchValue]);
 
   useEffect(() => {
     if (!fetchedRecordOptions.length) {
@@ -3139,6 +3153,8 @@ Thank you.`;
             placeholder={eventSelectPlaceholder}
             panelTitle="Select an Event"
             searchPlaceholder=""
+            searchValue={eventTypeSearchValue}
+            onSearchValueChange={setEventTypeSearchValue}
             addActionLabel="Add New"
             onCreateOption={handleCreateEventOption}
             onUpdateOption={handleUpdateEventOption}

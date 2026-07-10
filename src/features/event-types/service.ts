@@ -12,10 +12,13 @@ const EVENT_TYPES_ENDPOINT = "/event-type";
 export async function getAvailableEventTypes(
   params: AvailableEventTypesParams = {},
 ) {
+  const searchQuery = params.searchQuery?.trim();
+
   return getApi<AvailableEventTypesResponse>(AVAILABLE_EVENT_TYPES_ENDPOINT, {
     params: {
       per_page: params.per_page ?? 10,
       page: params.page ?? 1,
+      ...(searchQuery ? { searchQuery } : {}),
     },
   });
 }

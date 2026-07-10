@@ -49,6 +49,8 @@ type OverlaySelectProps = {
     label: string,
   ) => Promise<OverlaySelectOption | void> | OverlaySelectOption | void;
   onDeleteOption?: (option: OverlaySelectOption) => Promise<void> | void;
+  searchValue?: string;
+  onSearchValueChange?: (value: string) => void;
   className?: string;
   triggerClassName?: string;
   panelClassName?: string;
@@ -66,6 +68,8 @@ export default function OverlaySelect({
   onCreateOption,
   onUpdateOption,
   onDeleteOption,
+  searchValue: controlledSearchValue,
+  onSearchValueChange,
   className,
   triggerClassName,
   panelClassName,
@@ -79,7 +83,7 @@ export default function OverlaySelect({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
+  const [internalSearchValue, setInternalSearchValue] = useState("");
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const [composerMode, setComposerMode] = useState<"idle" | "create" | "edit">(
     "idle",
@@ -95,18 +99,20 @@ export default function OverlaySelect({
     () => options.find((option) => option.value === value),
     [options, value],
   );
+  const searchValue = controlledSearchValue ?? internalSearchValue;
+  const shouldFilterLocally = !onSearchValueChange;
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
 
-    if (!normalizedQuery) {
+    if (!normalizedQuery || !shouldFilterLocally) {
       return options;
     }
 
     return options.filter((option) =>
       option.label.toLowerCase().includes(normalizedQuery),
     );
-  }, [options, searchValue]);
+  }, [options, searchValue, shouldFilterLocally]);
 
   useEffect(() => {
     setMounted(true);
@@ -212,7 +218,16 @@ export default function OverlaySelect({
   const handleSelect = (nextValue: string) => {
     onValueChange(nextValue);
     setIsOpen(false);
-    setSearchValue("");
+    handleSearchChange("");
+  };
+
+  const handleSearchChange = (nextValue: string) => {
+    if (onSearchValueChange) {
+      onSearchValueChange(nextValue);
+      return;
+    }
+
+    setInternalSearchValue(nextValue);
   };
 
   const handleOpenCreate = () => {
@@ -364,7 +379,7 @@ export default function OverlaySelect({
               <div className="relative mt-4">
                 <Input
                   value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
+                  onChange={(event) => handleSearchChange(event.target.value)}
                   placeholder={searchPlaceholder}
                   className="h-[47px] w-full rounded-[16px] border border-[#ECE8F7] bg-white px-4 pr-12 text-sm text-[#434343] outline-none transition-colors placeholder:text-[#B6B2C4] focus:border-[#D6CCF5]"
                 />
