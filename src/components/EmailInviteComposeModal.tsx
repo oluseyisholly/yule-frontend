@@ -204,7 +204,7 @@ export default function EmailInviteComposeModal({
                       }
                     }}
                     placeholder="Add another email"
-                    className="h-[44px] flex-1 rounded-[14px] border-[#ECE8F7] bg-white px-4 text-[14px]"
+                    className="!h-[44px]  rounded-[14px] border-[#ECE8F7] bg-white px-4 text-[14px]"
                     disabled={isSubmitting}
                   />
 
