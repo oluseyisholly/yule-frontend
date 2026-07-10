@@ -150,13 +150,12 @@ const participantPalette = [
 function useDerivedWishListStats() {
   const { data: metrics = null } = useWishListMetricsQuery(true);
 
-  const m =
-    metrics ?? {
-      totalItems: { value: 0, percentageChangeThisMonth: 0 },
-      activeWishlists: { value: 0, newThisWeek: 0 },
-      totalParticipants: { value: 0 },
-      reservedItems: { value: 0 },
-    };
+  const m = metrics ?? {
+    totalItems: { value: 0, percentageChangeThisMonth: 0 },
+    activeWishlists: { value: 0, newThisWeek: 0 },
+    totalParticipants: { value: 0 },
+    reservedItems: { value: 0 },
+  };
 
   const stats: WishListStat[] = [
     {
@@ -348,18 +347,20 @@ function mapParticipantGiftSelectionToMarketplaceProduct(
   };
 }
 
-function hasRichMarketplaceProductSnapshot(product?: MarketplaceProduct | null) {
+function hasRichMarketplaceProductSnapshot(
+  product?: MarketplaceProduct | null,
+) {
   if (!product) {
     return false;
   }
 
   return Boolean(
     (product.title?.trim() && product.title.trim() !== "Selected gift") ||
-      (typeof product.amount === "number" && product.amount > 0) ||
-      product.description?.trim() ||
-      product.images?.length ||
-      product.sellerId ||
-      product.slug,
+    (typeof product.amount === "number" && product.amount > 0) ||
+    product.description?.trim() ||
+    product.images?.length ||
+    product.sellerId ||
+    product.slug,
   );
 }
 
@@ -457,10 +458,16 @@ function getParticipantDisplayName(participant: WishlistEventParticipant) {
     return "Participant";
   }
 
-  return `${actor.firstName} ${actor.lastName}`.trim() || actor.email || "Participant";
+  return (
+    `${actor.firstName} ${actor.lastName}`.trim() ||
+    actor.email ||
+    "Participant"
+  );
 }
 
-function mapWishlistParticipants(participants: WishlistEventParticipant[] = []) {
+function mapWishlistParticipants(
+  participants: WishlistEventParticipant[] = [],
+) {
   return createParticipants(
     participants.map((participant) => {
       const actor = participant.eventContact ?? participant.user;
@@ -527,11 +534,11 @@ function hasWishListFlowDraft(
 
   return Boolean(
     selection.lastVisitedStep ||
-      selection.selectedEventTypeId ||
-      selection.eventDate ||
-      selection.eventDeadline ||
-      selection.eventName ||
-      selection.celebrationType,
+    selection.selectedEventTypeId ||
+    selection.eventDate ||
+    selection.eventDeadline ||
+    selection.eventName ||
+    selection.celebrationType,
   );
 }
 
@@ -734,7 +741,9 @@ function WishListRowActions({
             <DeleteIcon
               className={cn(
                 "size-4",
-                isOngoingState || isCompletedState ? "text-[#B8B5C3]" : "text-[#DC2626]",
+                isOngoingState || isCompletedState
+                  ? "text-[#B8B5C3]"
+                  : "text-[#DC2626]",
               )}
             />
             Delete Wish List
@@ -782,11 +791,14 @@ export default function WishListScreen() {
     useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<WishListActivityTab>("organizer");
-  const [wishlistInviteSearchValue, setWishlistInviteSearchValue] = useState("");
+  const [wishlistInviteSearchValue, setWishlistInviteSearchValue] =
+    useState("");
   const [isWishlistInviteCopyListOpen, setIsWishlistInviteCopyListOpen] =
     useState(false);
-  const [isCompleteWishlistConfirmationOpen, setIsCompleteWishlistConfirmationOpen] =
-    useState(false);
+  const [
+    isCompleteWishlistConfirmationOpen,
+    setIsCompleteWishlistConfirmationOpen,
+  ] = useState(false);
   const [participantClaimSelectedGiftIds, setParticipantClaimSelectedGiftIds] =
     useState<string[]>([]);
   const [pendingDeleteRow, setPendingDeleteRow] = useState<WishListRow | null>(
@@ -889,9 +901,9 @@ export default function WishListScreen() {
   );
   const isParticipantClaimWishlistStep = Boolean(
     isWishlistGiftSelectionStep &&
-      wishlistEventId &&
-      activeWishlistEventRecord &&
-      !canManageActiveWishlist,
+    wishlistEventId &&
+    activeWishlistEventRecord &&
+    !canManageActiveWishlist,
   );
   const {
     data: participantGiftSelectionsResponse,
@@ -939,7 +951,10 @@ export default function WishListScreen() {
       return `/wishlist/${wishlistEventId}`;
     }
 
-    return new URL(`/wishlist/${wishlistEventId}`, window.location.origin).toString();
+    return new URL(
+      `/wishlist/${wishlistEventId}`,
+      window.location.origin,
+    ).toString();
   }, [wishlistEventId]);
 
   const eventTypeOptions = useMemo<OverlaySelectOption[]>(
@@ -957,8 +972,9 @@ export default function WishListScreen() {
 
   const selectedEventTypeOption = useMemo(
     () =>
-      eventTypeOptions.find((eventType) => eventType.value === selectedEventTypeId) ??
-      null,
+      eventTypeOptions.find(
+        (eventType) => eventType.value === selectedEventTypeId,
+      ) ?? null,
     [eventTypeOptions, selectedEventTypeId],
   );
   const participantGiftSelections = useMemo(
@@ -968,17 +984,20 @@ export default function WishListScreen() {
       ),
     [participantGiftSelectionsResponse],
   );
-  const wishlistInviteParticipants = useMemo<DrawNameInviteParticipant[]>(() => {
+  const wishlistInviteParticipants = useMemo<
+    DrawNameInviteParticipant[]
+  >(() => {
     if (!authUser || !currentParticipantId) {
       return [];
     }
 
     const firstName = authUser.firstName?.trim() ?? "";
     const lastName = authUser.lastName?.trim() ?? "";
-    const fullName = `${firstName} ${lastName}`.trim() || authUser.email || "Participant";
-    const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`
-      .trim()
-      .toUpperCase() || "WL";
+    const fullName =
+      `${firstName} ${lastName}`.trim() || authUser.email || "Participant";
+    const initials =
+      `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase() ||
+      "WL";
 
     return [
       {
@@ -1002,7 +1021,9 @@ export default function WishListScreen() {
     publicWishlistLink,
   ]);
   const filteredWishlistInviteParticipants = useMemo(() => {
-    const normalizedSearchValue = wishlistInviteSearchValue.trim().toLowerCase();
+    const normalizedSearchValue = wishlistInviteSearchValue
+      .trim()
+      .toLowerCase();
 
     if (!normalizedSearchValue) {
       return wishlistInviteParticipants;
@@ -1086,12 +1107,7 @@ export default function WishListScreen() {
     setWishListDraftFields(flowSelectionKey, {
       lastVisitedStep: currentStep,
     });
-  }, [
-    currentStep,
-    flowSelectionKey,
-    isOpen,
-    setWishListDraftFields,
-  ]);
+  }, [currentStep, flowSelectionKey, isOpen, setWishListDraftFields]);
 
   useEffect(() => {
     if (
@@ -1199,7 +1215,10 @@ export default function WishListScreen() {
   ]);
 
   useEffect(() => {
-    if (!isParticipantClaimWishlistStep && participantClaimSelectedGiftIds.length) {
+    if (
+      !isParticipantClaimWishlistStep &&
+      participantClaimSelectedGiftIds.length
+    ) {
       setParticipantClaimSelectedGiftIds([]);
     }
   }, [isParticipantClaimWishlistStep, participantClaimSelectedGiftIds.length]);
@@ -1224,7 +1243,8 @@ export default function WishListScreen() {
       ) {
         setWishListDraftFields(flowSelectionKey, {
           lastVisitedStep:
-            createFlowSelection.lastVisitedStep && isWishListModalStep(createFlowSelection.lastVisitedStep)
+            createFlowSelection.lastVisitedStep &&
+            isWishListModalStep(createFlowSelection.lastVisitedStep)
               ? createFlowSelection.lastVisitedStep
               : "event",
           selectedEventTypeId: createFlowSelection.selectedEventTypeId,
@@ -1278,8 +1298,7 @@ export default function WishListScreen() {
     }
 
     if (!flowSelection.eventName) {
-      const nextEventName =
-        sourceSelection.eventName || matchingRow.titleValue;
+      const nextEventName = sourceSelection.eventName || matchingRow.titleValue;
 
       if (nextEventName) {
         nextFields.eventName = nextEventName;
@@ -1350,8 +1369,7 @@ export default function WishListScreen() {
       selectedEventTypeId:
         sourceSelection.selectedEventTypeId || row.eventTypeId,
       eventDate: sourceSelection.eventDate || row.eventDateValue,
-      eventDeadline:
-        sourceSelection.eventDeadline || row.eventDeadlineValue,
+      eventDeadline: sourceSelection.eventDeadline || row.eventDeadlineValue,
       eventName: sourceSelection.eventName || row.titleValue,
       celebrationType: sourceSelection.celebrationType,
     });
@@ -1365,8 +1383,10 @@ export default function WishListScreen() {
       );
     }
     if (
-      !Object.keys(existingEditSelection.selectedWishlistGiftProductsById).length &&
-      Object.keys(existingCreateSelection.selectedWishlistGiftProductsById).length
+      !Object.keys(existingEditSelection.selectedWishlistGiftProductsById)
+        .length &&
+      Object.keys(existingCreateSelection.selectedWishlistGiftProductsById)
+        .length
     ) {
       setStoredSelectedWishlistGiftProductsById(
         editFlowKey,
@@ -1498,12 +1518,7 @@ export default function WishListScreen() {
       }
 
       toast.success(response.message);
-      setCurrentStep(
-        "event-date",
-        "create",
-        nextEventId,
-        nextWishlistEventId,
-      );
+      setCurrentStep("event-date", "create", nextEventId, nextWishlistEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -1590,7 +1605,11 @@ export default function WishListScreen() {
       return;
     }
 
-    if (!selectedEventTypeId || !selectedWishListDate || !selectedWishListDeadline) {
+    if (
+      !selectedEventTypeId ||
+      !selectedWishListDate ||
+      !selectedWishListDeadline
+    ) {
       toast.error("Please complete all wish list details.");
       return;
     }
@@ -1953,26 +1972,27 @@ export default function WishListScreen() {
       "border-y border-[#F0EEFF] bg-white text-[12px] text-[#434343] transition-colors first:border-l first:rounded-l-[12px] last:border-r last:rounded-r-[12px] group-hover:bg-[#F4F0FF]",
     rowClassName: (row) =>
       cn("transition-colors", selected.includes(row.id) ? "" : "group"),
-    emptyState: isWishlistEventsLoading || isWishlistEventsFetching ? (
-      <TableLoadingState rows={5} />
-    ) : (
-      <div className="flex flex-col items-center justify-center py-10 text-center">
-        <p className="text-sm text-[#7D7D7D]">
-          {isWishlistEventsError
-            ? "Unable to load wish list activity."
-            : "No wish list activity found."}
-        </p>
-        {isWishlistEventsError ? (
-          <button
-            type="button"
-            onClick={() => refetchWishlistEvents()}
-            className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
-          >
-            Retry
-          </button>
-        ) : null}
-      </div>
-    ),
+    emptyState:
+      isWishlistEventsLoading || isWishlistEventsFetching ? (
+        <TableLoadingState rows={5} />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <p className="text-sm text-[#7D7D7D]">
+            {isWishlistEventsError
+              ? "Unable to load wish list activity."
+              : "No wish list activity found."}
+          </p>
+          {isWishlistEventsError ? (
+            <button
+              type="button"
+              onClick={() => refetchWishlistEvents()}
+              className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+            >
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ),
     emptyRowClassName: "bg-white",
   };
 
@@ -2339,7 +2359,12 @@ export default function WishListScreen() {
               }
               onSelectedProductToggle={handleWishlistGiftProductToggle}
               onBack={() =>
-                setCurrentStep("celebration-type", mode, eventId, wishlistEventId)
+                setCurrentStep(
+                  "celebration-type",
+                  mode,
+                  eventId,
+                  wishlistEventId,
+                )
               }
               onNext={handleWishListGiftSelectionNext}
               isInitialSelectionLoading={
@@ -2360,14 +2385,14 @@ export default function WishListScreen() {
                 isMyParticipantFetching
               }
               nextLabel={
-                createBulkGiftsMutation.isPending
-                  ? "Saving..."
-                  : "Next"
+                createBulkGiftsMutation.isPending ? "Saving..." : "Next"
               }
             />
           )
         ) : currentStep === "invite" ? (
           <DrawNameInviteStep
+            onShareFacebook={() => {}}
+            onShareWhatsApp={() => {}}
             onBack={handleWishlistInviteBack}
             participants={filteredWishlistInviteParticipants}
             isCopyListOpen={isWishlistInviteCopyListOpen}

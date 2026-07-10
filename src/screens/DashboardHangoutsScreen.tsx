@@ -3159,6 +3159,8 @@ export default function DashboardHangoutsScreen() {
                 hangout.
               </>
             }
+             onShareFacebook={() => {}}
+            onShareWhatsApp={() => {}}
             onBack={handleHangoutInviteBack}
             participants={filteredHangoutInviteParticipants}
             isCopyListOpen={isHangoutInviteCopyListOpen}

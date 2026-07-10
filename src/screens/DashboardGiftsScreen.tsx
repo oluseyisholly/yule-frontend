@@ -1409,9 +1409,7 @@ export default function DashboardGiftsScreen() {
   const isSentTab = activeTab === "sent";
   const isReceivedTab = activeTab === "received";
   const isEventsTab = activeTab === "events";
-  const {
-    data: cartItemsResponse,
-  } = useContactGiftCartItemsQuery(
+  const { data: cartItemsResponse } = useContactGiftCartItemsQuery(
     {
       page: 1,
       per_page: 100,
@@ -3534,6 +3532,8 @@ export default function DashboardGiftsScreen() {
                 gifting event.
               </>
             }
+            onShareFacebook={() => {}}
+            onShareWhatsApp={() => {}}
             onBack={handleGiftInviteBack}
             participants={filteredGiftInviteParticipants}
             isCopyListOpen={isGiftInviteCopyListOpen}

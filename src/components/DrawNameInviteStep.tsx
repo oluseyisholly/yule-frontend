@@ -105,8 +105,7 @@ export default function DrawNameInviteStep({
           {title ?? (
             <>
               Invite members of the group to draw
-              <br />
-              a name.
+              <br />a name.
             </>
           )}
         </p>
@@ -126,9 +125,9 @@ export default function DrawNameInviteStep({
                     ? onShareFacebook
                     : option.label === "WhatsApp"
                       ? onShareWhatsApp
-                  : option.label === "Copy"
-                    ? onToggleCopyList ?? (() => onCopyLink(""))
-                    : undefined
+                      : option.label === "Copy"
+                        ? (onToggleCopyList ?? (() => onCopyLink("")))
+                        : undefined
               }
               disabled={
                 isSendingEmail ||
@@ -138,9 +137,7 @@ export default function DrawNameInviteStep({
               }
               className={cn(
                 "inline-flex h-[38px] w-[38px] items-center justify-center transition-opacity",
-                ["Email", "Copy", "Facebook", "WhatsApp"].includes(
-                  option.label,
-                )
+                ["Email", "Copy", "Facebook", "WhatsApp"].includes(option.label)
                   ? "cursor-pointer hover:opacity-90"
                   : "cursor-not-allowed opacity-60",
               )}
