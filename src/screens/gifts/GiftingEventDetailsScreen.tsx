@@ -645,8 +645,8 @@ export default function GiftingEventDetailsScreen({
         accessor: "categoryLabel",
       },
       {
-        id: "assignedTo",
-        header: "Assigned to",
+        id: "recipients",
+        header: "Recipients",
         headerClassName: "min-w-[170px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
         render: (row) => (

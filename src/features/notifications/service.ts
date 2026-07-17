@@ -1,5 +1,6 @@
 import { getApi, patchApi } from "@/lib/api";
 import type {
+  MarkNotificationReadResponse,
   MarkNotificationsReadResponse,
   NotificationsParams,
   NotificationsResponse,
@@ -20,6 +21,12 @@ export function getNotifications(params: NotificationsParams = {}) {
 export function markNotificationsAsRead() {
   return patchApi<MarkNotificationsReadResponse>(
     `${NOTIFICATIONS_ENDPOINT}/read`,
+  );
+}
+
+export function markNotificationAsRead(id: string) {
+  return patchApi<MarkNotificationReadResponse>(
+    `${NOTIFICATIONS_ENDPOINT}/read/${encodeURIComponent(id)}`,
   );
 }
 

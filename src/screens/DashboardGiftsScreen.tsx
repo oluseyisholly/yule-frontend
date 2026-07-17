@@ -8,7 +8,9 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import {
   CalendarDaysIcon,
+  CheckCircle2,
   MoreHorizontal,
+  Clock3,
   PlusIcon,
   SearchIcon,
   Settings2Icon,
@@ -25,9 +27,8 @@ import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomColleagueReview from "@/components/CustomColleagueReview";
-import DrawNameInviteStep, {
-  type DrawNameInviteParticipant,
-} from "@/components/DrawNameInviteStep";
+import EmailInviteComposeModal from "@/components/EmailInviteComposeModal";
+import DrawNameInviteStep from "@/components/DrawNameInviteStep";
 import EventDateStep from "@/components/EventDateStep";
 import GroupNameStep from "@/components/GroupNameStep";
 import ModalButton from "@/components/ModalButtons";
@@ -82,18 +83,19 @@ import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCrea
 import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
-import { useCreateContactGiftCartItemMutation } from "@/features/gifts/hooks/useCreateContactGiftCartItemMutation";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
+import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
 import { useGiftMetricsQuery } from "@/features/gifts/hooks/useGiftMetricsQuery";
 import { useGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useGivenGroupedGiftsQuery";
 import { useReceivedGiftsQuery } from "@/features/gifts/hooks/useReceivedGiftsQuery";
+import { useUpdateGiftFulfillmentMutation } from "@/features/gifts/hooks/useUpdateGiftFulfillmentMutation";
+import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
 import { canManageGiftingEvent } from "@/features/gifting-events/access";
 import { useCreateGiftingEventMutation } from "@/features/gifting-events/hooks/useCreateGiftingEventMutation";
 import { useDeleteGiftingEventMutation } from "@/features/gifting-events/hooks/useDeleteGiftingEventMutation";
 import { useCompleteGiftingEventMutation } from "@/features/gifting-events/hooks/useCompleteGiftingEventMutation";
 import { useGiftingEventsQuery } from "@/features/gifting-events/hooks/useGiftingEventsQuery";
 import { useUpdateGiftingEventMutation } from "@/features/gifting-events/hooks/useUpdateGiftingEventMutation";
-import { useGiftingEventInvitationsQuery } from "@/features/invitations/hooks/useGiftingEventInvitationsQuery";
 import { useSendGiftingEventInvitationsMutation } from "@/features/invitations/hooks/useSendGiftingEventInvitationsMutation";
 import type {
   GiftMetricStat,
@@ -112,7 +114,11 @@ import type {
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
 import { useMyParticipantQuery } from "@/features/participants/hooks/useMyParticipantQuery";
-import { cn } from "@/lib/utils";
+import { cn, shareInvite } from "@/lib/utils";
+import {
+  buildInviteShareMessage,
+  buildSignedInInviteUrl,
+} from "@/lib/invite-links";
 import {
   isGiftModalStep,
   type GiftModalStep,
@@ -127,7 +133,7 @@ import {
 } from "@/stores/gift-flow-store";
 
 type GiftsTab = "events" | "sent" | "received";
-type GiftStatus = "Delivered" | "Pending" | "Completed";
+type GiftStatus = "not_fulfilled" | "fulfilled";
 type GiftingEventStatusLabel = "Draft" | "Ongoing" | "Completed";
 
 type GiftRowPerson = {
@@ -138,6 +144,9 @@ type GiftRowPerson = {
 
 type GiftRow = {
   id: string;
+  eventId?: string | null;
+  participantGiftId?: string | null;
+  isFulfilled?: boolean;
   item: string;
   image: StaticImageData | string;
   product: MarketplaceProduct;
@@ -572,15 +581,9 @@ function toGivenGiftPeople(people?: GivenGroupedGiftPerson[] | null) {
 }
 
 function toSentGiftStatus(
-  event: GivenGroupedGiftEvent | null | undefined,
+  gift: GivenGroupedGift,
 ): GiftStatus {
-  const normalizedStatus = event?.status?.trim().toLowerCase();
-
-  if (normalizedStatus === "completed") {
-    return "Completed";
-  }
-
-  return "Pending";
+  return gift.isFulfilled ? "fulfilled" : "not_fulfilled";
 }
 
 function toGiftRowProduct(
@@ -639,10 +642,17 @@ function toSentGiftRow(gift: GivenGroupedGift, index: number): GiftRow {
     gift.recipientCount ?? (people.length > 0 ? people.length : 1);
   const event = gift.event;
   const rowId =
-    gift.id?.trim() || gift.participantGiftId?.trim() || `given-gift-${index}`;
+    [
+      gift.participantGiftId?.trim() || gift.id?.trim() || "given-gift",
+      index,
+    ]
+      .filter(Boolean)
+      .join("-");
 
   return {
     id: rowId,
+    eventId: event?.id?.trim() || null,
+    participantGiftId: gift.participantGiftId?.trim() || null,
     item: gift.title?.trim() || "Gift item",
     image:
       gift.imageUrl?.trim() ||
@@ -651,26 +661,15 @@ function toSentGiftRow(gift: GivenGroupedGift, index: number): GiftRow {
     eventName: event?.title?.trim() || "-",
     eventDate: formatDate(event?.eventDate),
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
-    status: toSentGiftStatus(event),
+    status: toSentGiftStatus(gift),
+    isFulfilled: Boolean(gift.isFulfilled),
     sentTo: people,
     recipientCount,
   };
 }
 
 function toReceivedStatus(gift: ReceivedGift): GiftStatus {
-  const normalizedStatus = gift.event?.status?.trim().toLowerCase();
-
-  if (normalizedStatus === "completed") {
-    return "Completed";
-  }
-
-  return "Pending";
-}
-
-function toGiftDetailStatus(status: GiftStatus) {
-  return status === "Completed" || status === "Delivered"
-    ? "Completed"
-    : "Ongoing";
+  return gift.isFulfilled ? "fulfilled" : "not_fulfilled";
 }
 
 function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
@@ -679,6 +678,8 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
 
   return {
     id: gift.id,
+    eventId: gift.eventId?.trim() || null,
+    participantGiftId: gift.participantGiftId?.trim() || null,
     item: gift.title?.trim() || "Gift item",
     image:
       gift.imageUrl?.trim() ||
@@ -688,6 +689,7 @@ function toReceivedGiftRow(gift: ReceivedGift, index: number): GiftRow {
     eventDate: formatDate(gift.event?.eventDate),
     amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
     status: toReceivedStatus(gift),
+    isFulfilled: Boolean(gift.isFulfilled),
     receivedFrom: giverName
       ? [
           {
@@ -712,6 +714,25 @@ function toGiftingEventStatus(status?: string | null): GiftingEventStatusLabel {
   }
 
   return "Draft";
+}
+
+function getGiftRowKey(row: GiftRow, index: number) {
+  const eventId = row.eventId?.trim();
+  const participantGiftId = row.participantGiftId?.trim();
+
+  if (eventId && participantGiftId) {
+    return `${eventId}-${participantGiftId}`;
+  }
+
+  if (participantGiftId) {
+    return participantGiftId;
+  }
+
+  if (eventId) {
+    return `${eventId}-${row.id || index}`;
+  }
+
+  return row.id || `gift-row-${index}`;
 }
 
 function hasGiftFlowDraft(selection: GiftFlowSelectionState) {
@@ -1173,9 +1194,11 @@ function GiftingEventRowActions({
 function GiftRowActions({
   row,
   onView,
+  onToggleFulfillment,
 }: {
   row: GiftRow;
   onView: (row: GiftRow) => void;
+  onToggleFulfillment?: (row: GiftRow) => void;
 }) {
   return (
     <div className="flex justify-end">
@@ -1200,6 +1223,24 @@ function GiftRowActions({
             <ViewIcon className="size-4 text-[#292D32]" />
             View
           </DropdownMenuItem>
+          {onToggleFulfillment ? (
+            <DropdownMenuItem
+              onSelect={() => onToggleFulfillment(row)}
+              className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9] flex items-center gap-2"
+            >
+              {row.isFulfilled ? (
+                <>
+                  <Clock3 className="size-4 text-[#292D32]" />
+                  Mark as Not Fulfilled
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="size-4 text-[#292D32]" />
+                  Mark as Fulfilled
+                </>
+              )}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -1276,6 +1317,11 @@ export default function DashboardGiftsScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pendingDeleteEventRow, setPendingDeleteEventRow] =
     useState<GiftingEventRow | null>(null);
+  const [pendingFulfillmentGiftRow, setPendingFulfillmentGiftRow] =
+    useState<GiftRow | null>(null);
+  const [pendingFulfillmentTarget, setPendingFulfillmentTarget] = useState<
+    boolean | null
+  >(null);
   const [recordPendingDelete, setRecordPendingDelete] =
     useState<SearchableRecordItem | null>(null);
   const [recordSearchValue, setRecordSearchValue] = useState("");
@@ -1287,9 +1333,6 @@ export default function DashboardGiftsScreen() {
   const [addRecordReturnStep, setAddRecordReturnStep] = useState<
     "record" | "review-records"
   >("record");
-  const [giftInviteSearchValue, setGiftInviteSearchValue] = useState("");
-  const [isGiftInviteCopyListOpen, setIsGiftInviteCopyListOpen] =
-    useState(false);
   const [giftsStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
   ]);
@@ -1297,12 +1340,9 @@ export default function DashboardGiftsScreen() {
     isCompleteGiftingEventConfirmationOpen,
     setIsCompleteGiftingEventConfirmationOpen,
   ] = useState(false);
-  const [isSendGiftEmailConfirmationOpen, setIsSendGiftEmailConfirmationOpen] =
+  const [isGiftInviteEmailComposeOpen, setIsGiftInviteEmailComposeOpen] =
     useState(false);
-  const [viewingGiftProduct, setViewingGiftProduct] =
-    useState<MarketplaceProduct | null>(null);
   const autoPreselectedCaughtMyEyeFlowKeysRef = useRef<Set<string>>(new Set());
-  const [viewingGiftRow, setViewingGiftRow] = useState<GiftRow | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
@@ -1422,6 +1462,16 @@ export default function DashboardGiftsScreen() {
     },
   );
   const {
+    data: cartParticipantGiftIdsResponse,
+    isLoading: isCartParticipantGiftIdsLoading,
+    isFetching: isCartParticipantGiftIdsFetching,
+  } = useContactGiftCartParticipantGiftIdsQuery({
+    enabled:
+      isGiftFlowOpen &&
+      currentGiftFlowStep === "gift-selection" &&
+      !isBrowseGiftsFlow,
+  });
+  const {
     data: giftingEventsResponse,
     isLoading: isGiftingEventsLoading,
     isFetching: isGiftingEventsFetching,
@@ -1476,16 +1526,14 @@ export default function DashboardGiftsScreen() {
   const deleteGiftingEventMutation = useDeleteGiftingEventMutation();
   const completeGiftingEventMutation = useCompleteGiftingEventMutation();
   const updateGiftingEventMutation = useUpdateGiftingEventMutation();
-  const sendGiftingEventInvitationsMutation =
-    useSendGiftingEventInvitationsMutation();
+  const updateGiftFulfillmentMutation = useUpdateGiftFulfillmentMutation();
+  const sendEmailMutation = useSendEmailMutation();
   const ensureMyContactMutation = useEnsureMyContactMutation();
   const createBulkContactsMutation = useCreateBulkContactsMutation();
   const createContactMutation = useCreateContactMutation();
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
-  const createContactGiftCartItemMutation =
-    useCreateContactGiftCartItemMutation();
   const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
   const shouldEnableContactsQuery =
     isGiftFlowOpen &&
@@ -1520,23 +1568,6 @@ export default function DashboardGiftsScreen() {
       Boolean(eventId),
   });
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
-  const {
-    data: giftingEventInvitationsResponse,
-    isLoading: isGiftingEventInvitationsLoading,
-    isFetching: isGiftingEventInvitationsFetching,
-    isError: isGiftingEventInvitationsError,
-    refetch: refetchGiftingEventInvitations,
-  } = useGiftingEventInvitationsQuery(
-    giftingEventId,
-    {
-      per_page: 100,
-      page: 1,
-    },
-    {
-      enabled: isGiftFlowOpen && isGiftInviteStep,
-    },
-  );
-
   const sentRows = useMemo<GiftRow[]>(
     () =>
       (givenGroupedGiftsResponse?.data.data ?? []).map((gift, index) =>
@@ -1561,6 +1592,14 @@ export default function DashboardGiftsScreen() {
   const cartGiftProductIds = useMemo(
     () => cartGiftProducts.map((product) => product._id).filter(Boolean),
     [cartGiftProducts],
+  );
+  const caughtMyEyeGiftProductIds = useMemo(
+    () => cartParticipantGiftIdsResponse?.data.participantGiftIds ?? [],
+    [cartParticipantGiftIdsResponse?.data.participantGiftIds],
+  );
+  const prioritizedGiftProductIds = useMemo(
+    () => Array.from(new Set([...selectedGiftIds, ...caughtMyEyeGiftProductIds])),
+    [caughtMyEyeGiftProductIds, selectedGiftIds],
   );
 
   const rows = isSentTab ? sentRows : receivedRows;
@@ -1630,68 +1669,32 @@ export default function DashboardGiftsScreen() {
       eventRows.find((row) => row.giftingEventId === giftingEventId) ?? null,
     [eventRows, giftingEventId],
   );
-  const giftInviteUrlByContactId = useMemo(
+  const giftInviteShareUrl = useMemo(
     () =>
-      Object.fromEntries(
-        (giftingEventInvitationsResponse?.data.data ?? []).map((invitation) => [
-          invitation.eventContactId,
-          invitation.inviteUrl,
-        ]),
-      ) as Record<string, string>,
-    [giftingEventInvitationsResponse],
+      giftingEventId
+        ? buildSignedInInviteUrl(`/dashboard/gifts/${giftingEventId}`)
+        : "",
+    [giftingEventId],
   );
-  const giftInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
+  const giftInviteShareMessage = useMemo(
     () =>
-      (giftingEventInvitationsResponse?.data.data ?? []).map((invitation) => {
-        const actor = invitation.eventContact;
-        const fullName =
-          `${actor.firstName ?? ""} ${actor.lastName ?? ""}`.trim() ||
-          actor.email ||
-          "Participant";
-        const firstInitial = actor.firstName?.trim().charAt(0) ?? "";
-        const lastInitial = actor.lastName?.trim().charAt(0) ?? "";
-        const initials =
-          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
-          fullName.slice(0, 2).toUpperCase();
-        const { avatarBg, avatarColor } = getContactAvatarStyle(
-          actor.id || invitation.eventContactId || fullName,
-        );
-
-        return {
-          id: actor.id || invitation.eventContactId,
-          participantId:
-            invitation.participantId ||
-            currentEventRow?.participantIdsByContactId[
-              invitation.eventContactId
-            ] ||
-            invitation.eventContactId,
-          name: fullName,
-          role:
-            invitation.status.toLowerCase() === "accepted"
-              ? "Accepted invite"
-              : actor.email || "Pending invite",
-          initials,
-          avatarBg,
-          avatarColor,
-          inviteUrl: invitation.inviteUrl ?? null,
-        };
-      }),
-    [
-      currentEventRow?.participantIdsByContactId,
-      giftingEventInvitationsResponse,
-    ],
+      buildInviteShareMessage(
+        currentEventRow?.eventName || giftEventName || "this gifting event",
+        giftInviteShareUrl || "",
+      ),
+    [currentEventRow?.eventName, giftEventName, giftInviteShareUrl],
   );
-  const filteredGiftInviteParticipants = useMemo(() => {
-    const normalizedSearch = giftInviteSearchValue.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return giftInviteParticipants;
-    }
-
-    return giftInviteParticipants.filter((participant) =>
-      participant.name.toLowerCase().includes(normalizedSearch),
-    );
-  }, [giftInviteParticipants, giftInviteSearchValue]);
+  const giftInviteLockedEmails = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (currentEventRow?.participants ?? [])
+            .map((participant) => participant.email?.trim() || "")
+            .filter(Boolean),
+        ),
+      ),
+    [currentEventRow?.participants],
+  );
   const contactRecordOptions = useMemo(
     () =>
       mergeRecordItems(
@@ -1786,20 +1789,61 @@ export default function DashboardGiftsScreen() {
       : "/dashboard/gifts?tab=events";
 
   const handleViewGiftRow = (row: GiftRow) => {
-    setViewingGiftRow(row);
+    router.push(
+      `/dashboard/gifts/item/${encodeURIComponent(row.id)}?tab=${encodeURIComponent(activeTab)}`,
+    );
+  };
+
+  const handleToggleReceivedGiftFulfillment = (row: GiftRow) => {
+    setPendingFulfillmentGiftRow(row);
+    setPendingFulfillmentTarget(!row.isFulfilled);
+  };
+
+  const handleConfirmToggleGiftFulfillment = async () => {
+    if (!pendingFulfillmentGiftRow || pendingFulfillmentTarget === null) {
+      return;
+    }
+
+    try {
+      await updateGiftFulfillmentMutation.mutateAsync({
+        giftId: pendingFulfillmentGiftRow.id,
+        payload: {
+          isFulfilled: pendingFulfillmentTarget,
+        },
+      });
+
+      toast.success(
+        pendingFulfillmentTarget
+          ? "Gift marked as fulfilled."
+          : "Gift marked as not fulfilled.",
+      );
+      setPendingFulfillmentGiftRow(null);
+      setPendingFulfillmentTarget(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update this gift right now.",
+      );
+    }
   };
 
   const handleOpenGiftFlow = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
-    setViewingGiftProduct(null);
     openGiftFlowModal("event", "create", null, null);
   };
 
   const handleBrowseGifts = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
-    setViewingGiftProduct(null);
     router.push(
       "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true",
+      { scroll: false },
+    );
+  };
+
+  const handleViewBrowseGiftProduct = (product: MarketplaceProduct) => {
+    router.push(
+      `/dashboard/gifts/product/${encodeURIComponent(product._id)}?backHref=${encodeURIComponent("/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true")}`,
       { scroll: false },
     );
   };
@@ -1981,175 +2025,207 @@ export default function DashboardGiftsScreen() {
     setSelectedGiftProductsById(flowSelectionKey, nextProductsById);
   };
 
-  const handleBrowseGiftAddToCart = () => {
-    if (!viewingGiftProduct) {
-      return;
-    }
-
-    if (selectedGiftIds.includes(viewingGiftProduct._id)) {
-      toast.success("This gift is already in Caught My Eye.");
-      return;
-    }
-
-    createContactGiftCartItemMutation.mutate(
-      {
-        participantGiftId: viewingGiftProduct._id,
-        title: viewingGiftProduct.title,
-        description: viewingGiftProduct.description ?? "",
-        amount: viewingGiftProduct.amount,
-        currency: "NGN",
-        imageUrl: viewingGiftProduct.images[0] || undefined,
-        categorySlug: viewingGiftProduct.categorySlug || undefined,
-        subCategorySlug: viewingGiftProduct.subCategorySlug || undefined,
-        condition: viewingGiftProduct.condition || undefined,
-        locationState: viewingGiftProduct.location?.state || undefined,
-        locationCity: viewingGiftProduct.location?.city || undefined,
-        sellerId: viewingGiftProduct.sellerId || undefined,
-        productSlug: viewingGiftProduct.slug || undefined,
-      },
-      {
-        onSuccess: (response) => {
-          setStoredSelectedGiftIds(flowSelectionKey, [
-            ...selectedGiftIds,
-            viewingGiftProduct._id,
-          ]);
-          handleGiftFlowProductToggle(viewingGiftProduct, true);
-          toast.success(response.message || "Gift added to Caught My Eye.");
-        },
-        onError: (error) => {
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : "Unable to add this gift to Caught My Eye right now.",
-          );
-        },
-      },
+  const promoteGiftFlowSelection = (
+    nextEventId: string,
+    nextGiftingEventId: string,
+    lastVisitedStep: GiftModalStep,
+  ) => {
+    const nextFlowKey = buildGiftFlowSelectionKey(
+      "create",
+      nextGiftingEventId,
+      nextEventId,
     );
+
+    setGiftFlowDraftFields(nextFlowKey, {
+      lastVisitedStep,
+      selectedEventTypeId: selectedGiftEventTypeId,
+      eventDate: selectedGiftEventDate,
+      eventName:
+        giftEventName.trim() ||
+        selectedEventTypeOption?.label ||
+        "Untitled event",
+    });
+
+    if (selectedParticipantContactIds.length) {
+      setSelectedParticipantContactIds(nextFlowKey, selectedParticipantContactIds);
+    }
+
+    if (selectedGiftIds.length) {
+      setStoredSelectedGiftIds(nextFlowKey, selectedGiftIds);
+    }
+
+    if (Object.keys(selectedGiftProductsById).length) {
+      setSelectedGiftProductsById(nextFlowKey, selectedGiftProductsById);
+    }
+
+    if (flowSelectionKey !== nextFlowKey) {
+      resetGiftFlowSelection(flowSelectionKey);
+    }
   };
 
-  const handleGiftFlowEventNext = async () => {
+  const handleGiftFlowEventNext = () => {
     if (!selectedEventTypeOption) {
       toast.error("Please select an event first.");
       return;
     }
 
-    if (mode === "edit") {
-      if (!giftingEventId) {
-        toast.error("Unable to resolve this gifting event right now.");
-        return;
-      }
+    setGiftFlowDraftFields(flowSelectionKey, {
+      selectedEventTypeId: selectedEventTypeOption.value,
+      eventName:
+        giftEventName.trim() ||
+        selectedEventTypeOption.label ||
+        "Untitled event",
+    });
+    setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+  };
 
-      try {
-        await updateGiftingEventMutation.mutateAsync({
-          id: giftingEventId,
-          payload: {
-            event: {
-              eventTypeId: selectedEventTypeOption.value,
-            },
-          },
-        });
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to update this gifting event right now.",
-        );
-        return;
-      }
-
-      setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+  const handleGiftFlowEventSaveAndContinue = async () => {
+    if (!selectedEventTypeOption) {
+      toast.error("Please select an event first.");
       return;
     }
 
     try {
+      if (mode === "edit") {
+        if (!giftingEventId) {
+          toast.error("Unable to resolve this gifting event right now.");
+          return;
+        }
+
+        const response = await updateGiftingEventMutation.mutateAsync({
+          id: giftingEventId,
+          payload: {
+            event: {
+              title:
+                giftEventName.trim() ||
+                selectedEventTypeOption.label ||
+                "Untitled event",
+              eventTypeId: selectedEventTypeOption.value,
+            },
+          },
+        });
+
+        toast.success(response.message);
+        setGiftFlowDraftFields(flowSelectionKey, {
+          selectedEventTypeId: selectedEventTypeOption.value,
+          eventName:
+            giftEventName.trim() ||
+            selectedEventTypeOption.label ||
+            "Untitled event",
+        });
+        setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+        return;
+      }
+
       const response = await createGiftingEventMutation.mutateAsync({
         event: {
-          title: selectedEventTypeOption.label,
+          title:
+            giftEventName.trim() ||
+            selectedEventTypeOption.label ||
+            "Untitled event",
           eventTypeId: selectedEventTypeOption.value,
         },
       });
       const nextGiftingEventId = response.data.id;
       const nextEventId = response.data.eventId;
-      const nextFlowKey = buildGiftFlowSelectionKey(
-        "create",
-        nextGiftingEventId,
-        nextEventId,
-      );
 
-      setGiftFlowDraftFields(nextFlowKey, {
-        lastVisitedStep: "event-date",
-        selectedEventTypeId: selectedEventTypeOption.value,
-        eventDate: selectedGiftEventDate,
-        eventName: response.data.event.title || selectedEventTypeOption.label,
-      });
-
-      if (selectedParticipantContactIds.length) {
-        setSelectedParticipantContactIds(
-          nextFlowKey,
-          selectedParticipantContactIds,
-        );
-      }
-
-      if (selectedGiftIds.length) {
-        setStoredSelectedGiftIds(nextFlowKey, selectedGiftIds);
-      }
-
-      if (Object.keys(selectedGiftProductsById).length) {
-        setSelectedGiftProductsById(nextFlowKey, selectedGiftProductsById);
-      }
-
-      if (flowSelectionKey !== nextFlowKey) {
-        resetGiftFlowSelection(flowSelectionKey);
-      }
-
+      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "event-date");
       toast.success(response.message);
       setGiftFlowStep("event-date", "create", nextEventId, nextGiftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to create this gifting event right now.",
+          : "Unable to save this gifting event right now.",
       );
     }
   };
 
-  const handleGiftEventDateNext = async () => {
+  const handleGiftEventDateNext = () => {
     if (!selectedGiftEventDate) {
-      return;
-    }
-
-    if (!giftingEventId) {
-      toast.error("Unable to resolve this gifting event right now.");
-      return;
-    }
-
-    try {
-      await updateGiftingEventMutation.mutateAsync({
-        id: giftingEventId,
-        payload: {
-          event: {
-            eventDate: toIsoDate(selectedGiftEventDate),
-          },
-        },
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this gifting event right now.",
-      );
       return;
     }
 
     setGiftFlowStep("event-name", mode, eventId, giftingEventId);
   };
 
-  const handleSaveGiftEventDetails = async () => {
-    if (!giftingEventId) {
-      toast.error("Unable to resolve this gifting event right now.");
+  const handleGiftEventDateSaveAndContinue = async () => {
+    if (!selectedGiftEventTypeId || !selectedGiftEventDate) {
+      toast.error("Please complete all gifting event details.");
       return;
     }
 
+    try {
+      const resolvedTitle =
+        giftEventName.trim() ||
+        selectedEventTypeOption?.label ||
+        "Untitled event";
+
+      if (mode === "edit" && giftingEventId) {
+        const response = await updateGiftingEventMutation.mutateAsync({
+          id: giftingEventId,
+          payload: {
+            event: {
+              title: resolvedTitle,
+              eventTypeId: selectedGiftEventTypeId,
+              eventDate: toIsoDate(selectedGiftEventDate),
+            },
+          },
+        });
+
+        toast.success(response.message);
+        setGiftFlowDraftFields(flowSelectionKey, {
+          eventName: resolvedTitle,
+          eventDate: selectedGiftEventDate,
+        });
+        setGiftFlowStep("event-name", mode, eventId, giftingEventId);
+        return;
+      }
+
+      if (giftingEventId) {
+        const response = await updateGiftingEventMutation.mutateAsync({
+          id: giftingEventId,
+          payload: {
+            event: {
+              title: resolvedTitle,
+              eventTypeId: selectedGiftEventTypeId,
+              eventDate: toIsoDate(selectedGiftEventDate),
+            },
+          },
+        });
+
+        toast.success(response.message);
+        setGiftFlowDraftFields(flowSelectionKey, {
+          eventName: resolvedTitle,
+          eventDate: selectedGiftEventDate,
+        });
+        setGiftFlowStep("event-name", mode, eventId, giftingEventId);
+        return;
+      }
+
+      const response = await createGiftingEventMutation.mutateAsync({
+        event: {
+          title: resolvedTitle,
+          eventTypeId: selectedGiftEventTypeId,
+          eventDate: toIsoDate(selectedGiftEventDate),
+        },
+      });
+      const nextGiftingEventId = response.data.id;
+      const nextEventId = response.data.eventId;
+
+      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "event-name");
+      toast.success(response.message);
+      setGiftFlowStep("event-name", "create", nextEventId, nextGiftingEventId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save this gifting event right now.",
+      );
+    }
+  };
+
+  const handleSaveGiftEventDetails = async () => {
     if (!selectedGiftEventTypeId || !selectedGiftEventDate) {
       toast.error("Please complete all gifting event details.");
       return;
@@ -2161,27 +2237,71 @@ export default function DashboardGiftsScreen() {
       "Untitled event";
 
     try {
-      const response = await updateGiftingEventMutation.mutateAsync({
-        id: giftingEventId,
-        payload: {
-          event: {
-            title: resolvedTitle,
-            eventTypeId: selectedGiftEventTypeId,
-            eventDate: toIsoDate(selectedGiftEventDate),
+      if (mode === "edit") {
+        if (!giftingEventId) {
+          toast.error("Unable to resolve this gifting event right now.");
+          return;
+        }
+
+        const response = await updateGiftingEventMutation.mutateAsync({
+          id: giftingEventId,
+          payload: {
+            event: {
+              title: resolvedTitle,
+              eventTypeId: selectedGiftEventTypeId,
+              eventDate: toIsoDate(selectedGiftEventDate),
+            },
           },
+        });
+
+        toast.success(response.message);
+        setGiftFlowDraftFields(flowSelectionKey, {
+          eventName: resolvedTitle,
+          eventDate: selectedGiftEventDate,
+        });
+        setGiftFlowStep("source", mode, eventId, giftingEventId);
+        return;
+      }
+
+      if (giftingEventId) {
+        const response = await updateGiftingEventMutation.mutateAsync({
+          id: giftingEventId,
+          payload: {
+            event: {
+              title: resolvedTitle,
+              eventTypeId: selectedGiftEventTypeId,
+              eventDate: toIsoDate(selectedGiftEventDate),
+            },
+          },
+        });
+
+        toast.success(response.message);
+        setGiftFlowDraftFields(flowSelectionKey, {
+          eventName: resolvedTitle,
+          eventDate: selectedGiftEventDate,
+        });
+        setGiftFlowStep("source", mode, eventId, giftingEventId);
+        return;
+      }
+
+      const response = await createGiftingEventMutation.mutateAsync({
+        event: {
+          title: resolvedTitle,
+          eventTypeId: selectedGiftEventTypeId,
+          eventDate: toIsoDate(selectedGiftEventDate),
         },
       });
+      const nextGiftingEventId = response.data.id;
+      const nextEventId = response.data.eventId;
 
+      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "source");
       toast.success(response.message);
-      setGiftFlowDraftFields(flowSelectionKey, {
-        eventName: resolvedTitle,
-      });
-      setGiftFlowStep("source", mode, eventId, giftingEventId);
+      setGiftFlowStep("source", "create", nextEventId, nextGiftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to update this gifting event right now.",
+          : "Unable to save this gifting event right now.",
       );
     }
   };
@@ -2387,7 +2507,7 @@ export default function DashboardGiftsScreen() {
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
       await refetchContacts();
-      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+      setGiftFlowStep("record", mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2407,26 +2527,90 @@ export default function DashboardGiftsScreen() {
   };
 
   const handleGiftParticipantsNext = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this gifting event right now.");
-      return;
-    }
-
     if (!selectedParticipantContactIds.length) {
       toast.error("Please select at least one participant.");
       return;
     }
 
     try {
+      let resolvedEventId = eventId;
+      let resolvedGiftingEventId = giftingEventId;
+      const resolvedEventTypeId =
+        selectedGiftEventTypeId || selectedEventTypeOption?.value || "";
+      const resolvedTitle =
+        giftEventName.trim() ||
+        selectedEventTypeOption?.label ||
+        "Untitled event";
+      const resolvedEventDate =
+        selectedGiftEventDate && selectedGiftEventDate.trim()
+          ? toIsoDate(selectedGiftEventDate)
+          : undefined;
+
+      const eventPayload = {
+        title: resolvedTitle,
+        eventTypeId: resolvedEventTypeId,
+        ...(resolvedEventDate ? { eventDate: resolvedEventDate } : {}),
+      };
+
+      if (!resolvedEventId || !resolvedGiftingEventId) {
+        if (!resolvedEventTypeId) {
+          toast.error("Please select an event first.");
+          return;
+        }
+
+        const draftResponse = await createGiftingEventMutation.mutateAsync({
+          event: eventPayload,
+        });
+
+        resolvedEventId = draftResponse.data.eventId;
+        resolvedGiftingEventId = draftResponse.data.id;
+        promoteGiftFlowSelection(
+          resolvedEventId,
+          resolvedGiftingEventId,
+          "review-records",
+        );
+      }
+
+      if (!resolvedEventId || !resolvedGiftingEventId) {
+        toast.error("Unable to resolve this gifting event right now.");
+        return;
+      }
+
+      if (resolvedEventId === eventId && resolvedGiftingEventId === giftingEventId) {
+        await updateGiftingEventMutation.mutateAsync({
+          id: resolvedGiftingEventId,
+          payload: {
+            event: eventPayload,
+          },
+        });
+
+        setGiftFlowDraftFields(flowSelectionKey, {
+          selectedEventTypeId: resolvedEventTypeId,
+          eventName: resolvedTitle,
+          ...(selectedGiftEventDate ? { eventDate: selectedGiftEventDate } : {}),
+        });
+      } else {
+        setGiftFlowDraftFields(buildGiftFlowSelectionKey("create", resolvedGiftingEventId, resolvedEventId), {
+          selectedEventTypeId: resolvedEventTypeId,
+          eventName: resolvedTitle,
+          ...(selectedGiftEventDate ? { eventDate: selectedGiftEventDate } : {}),
+        });
+      }
+
       const response = await createParticipantsBulkMutation.mutateAsync({
-        eventId,
+        eventId: resolvedEventId,
         role: "participant",
         contactIds: selectedParticipantContactIds,
       });
 
       await refetchGiftingEvents();
       toast.success(response.message || "Participants saved successfully.");
-      setGiftFlowStep("gift-selection", mode, eventId, giftingEventId);
+      setGiftFlowStep(
+        "gift-selection",
+        mode,
+        resolvedEventId,
+        resolvedGiftingEventId,
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2609,36 +2793,42 @@ export default function DashboardGiftsScreen() {
   };
 
   const handleGiftInviteSendEmail = () => {
-    setIsSendGiftEmailConfirmationOpen(true);
+    setIsGiftInviteEmailComposeOpen(true);
   };
 
-  const handleConfirmSendGiftInviteEmails = async () => {
-    if (!giftingEventId) {
+  const handleConfirmSendGiftInviteEmails = async ({
+    title,
+    body,
+    emails,
+  }: {
+    title: string;
+    body: string;
+    emails: string[];
+  }) => {
+    const resolvedEventId = eventId?.trim() || currentEventRow?.eventId?.trim() || "";
+    const resolvedGiftingEventId = giftingEventId?.trim() || "";
+
+    if (!resolvedEventId || !resolvedGiftingEventId) {
       toast.error("Unable to resolve this gifting event right now.");
       return;
     }
 
-    const contactIds = currentEventRow?.participantContactIds?.length
-      ? currentEventRow.participantContactIds
-      : selectedParticipantContactIds;
-
-    if (!contactIds.length) {
+    if (!emails.length) {
       toast.error("No participants are available for invitation yet.");
       return;
     }
 
     try {
-      const response = await sendGiftingEventInvitationsMutation.mutateAsync({
-        giftingEventId,
-        payload: {
-          channel: "email",
-          contactIds,
-        },
+      const response = await sendEmailMutation.mutateAsync({
+        eventId: resolvedEventId,
+        title,
+        body,
+        redirectUrl: giftInviteShareUrl || `/dashboard/gifts/${resolvedGiftingEventId}`,
+        emails,
+        giftingId: resolvedGiftingEventId,
       });
       toast.success(response.message);
-      setIsSendGiftEmailConfirmationOpen(false);
-      setIsGiftInviteCopyListOpen(true);
-      await refetchGiftingEventInvitations();
+      setIsGiftInviteEmailComposeOpen(false);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2648,35 +2838,14 @@ export default function DashboardGiftsScreen() {
     }
   };
 
-  const handleGiftInviteToggleCopyList = () => {
-    setIsGiftInviteCopyListOpen((current) => {
-      const next = !current;
-
-      if (next && giftingEventId) {
-        void refetchGiftingEventInvitations();
-      }
-
-      return next;
-    });
-  };
-
-  const handleGiftInviteCopyLink = async (participantId: string) => {
-    const participant = giftInviteParticipants.find(
-      (item) => item.participantId === participantId,
-    );
-    const inviteUrl = participant
-      ? giftInviteUrlByContactId[participant.id] || participant.inviteUrl
-      : null;
-
-    if (!inviteUrl) {
-      toast.error(
-        "No invitation link is available for this participant yet. Send email invite first.",
-      );
+  const handleGiftInviteCopyLink = async () => {
+    if (!giftInviteShareUrl) {
+      toast.error("Unable to resolve this gifting invite right now.");
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(inviteUrl);
+      await navigator.clipboard.writeText(giftInviteShareUrl);
       toast.success("Invitation link copied.");
     } catch {
       toast.error("Unable to copy this invitation link right now.");
@@ -2835,23 +3004,6 @@ export default function DashboardGiftsScreen() {
 
   useEffect(() => {
     if (
-      isGiftFlowOpen &&
-      currentGiftFlowStep !== "event" &&
-      !giftingEventId &&
-      !isBrowseGiftsFlow
-    ) {
-      closeGiftFlowModal();
-    }
-  }, [
-    closeGiftFlowModal,
-    currentGiftFlowStep,
-    giftingEventId,
-    isBrowseGiftsFlow,
-    isGiftFlowOpen,
-  ]);
-
-  useEffect(() => {
-    if (
       !isGiftFlowOpen ||
       currentGiftFlowStep !== "gift-selection" ||
       isBrowseGiftsFlow ||
@@ -2894,7 +3046,7 @@ export default function DashboardGiftsScreen() {
         setStoredSelectedGiftIds(flowSelectionKey, ids)
       }
       onSelectedProductToggle={handleGiftFlowProductToggle}
-      onViewProduct={setViewingGiftProduct}
+      onViewProduct={handleViewBrowseGiftProduct}
       onBack={() =>
         isBrowseGiftsFlow
           ? router.push(
@@ -2935,7 +3087,12 @@ export default function DashboardGiftsScreen() {
       disableContentScroll={true}
       enableInfiniteScroll={true}
       hideSelectionControls={isBrowseGiftsFlow}
-      caughtMyEyeProductIds={cartGiftProductIds}
+      caughtMyEyeProductIds={caughtMyEyeGiftProductIds}
+      prioritizedProductIds={prioritizedGiftProductIds}
+      deferProductsUntilInitialSelectionResolved={
+        !isBrowseGiftsFlow &&
+        (isCartParticipantGiftIdsLoading || isCartParticipantGiftIdsFetching)
+      }
       emptyStateText={
         isBrowseGiftsFlow
           ? "No gifts matched your current filters."
@@ -2945,45 +3102,6 @@ export default function DashboardGiftsScreen() {
   );
 
   if (isGiftFlowOpen && currentGiftFlowStep === "gift-selection") {
-    if (viewingGiftProduct) {
-      return (
-        <div className="space-y-2">
-          <EventGiftDetailView
-            backHref={
-              shouldReturnToGiftFlow
-                ? giftSelectionReturnHref
-                : "/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
-            }
-            backLabel="Back "
-            onBack={() => setViewingGiftProduct(null)}
-            eventTitle="Browse Gifts"
-            createdBy="Yule marketplace"
-            createdAt="Available gifts"
-            showHeader={false}
-            status="Ongoing"
-            avatarInitials="GF"
-            summaryItems={[]}
-            showSummaryItems={false}
-            product={viewingGiftProduct}
-            hideDeleteAction
-            onDelete={() => undefined}
-            onAddToCart={handleBrowseGiftAddToCart}
-            addToCartLabel={
-              createContactGiftCartItemMutation.isPending
-                ? "Adding..."
-                : "Add to Caught My Eye"
-            }
-            addToCartDisabled={createContactGiftCartItemMutation.isPending}
-            onMessageVendor={() =>
-              toast("Vendor messaging is not available yet.")
-            }
-            onReportItem={() => toast("Thanks. We will review this item.")}
-            onShareProduct={() => toast.success("Product link copied.")}
-          />
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-6">
         {isBrowseGiftsFlow ? (
@@ -3037,41 +3155,6 @@ export default function DashboardGiftsScreen() {
           closeOnEscape={false}
         />
       </div>
-    );
-  }
-
-  if (viewingGiftRow) {
-    const sentPeople = viewingGiftRow.sentTo ?? [];
-    const receivedPeople = viewingGiftRow.receivedFrom ?? [];
-    const counterpartyPeople = sentPeople.length ? sentPeople : receivedPeople;
-    const counterpartyName =
-      counterpartyPeople
-        .map((person) => person.name)
-        .filter(Boolean)
-        .join(", ") || "Yule";
-    const createdBy = sentPeople.length
-      ? `Sent to ${counterpartyName}`
-      : `Received from ${counterpartyName}`;
-
-    return (
-      <EventGiftDetailView
-        backHref="/dashboard/gifts"
-        backLabel="Back to gifts"
-        onBack={() => setViewingGiftRow(null)}
-        eventTitle={viewingGiftRow.eventName}
-        createdBy={createdBy}
-        createdAt={viewingGiftRow.eventDate}
-        status={toGiftDetailStatus(viewingGiftRow.status)}
-        avatarInitials="GF"
-        summaryItems={[]}
-        showSummaryItems={false}
-        product={viewingGiftRow.product}
-        hideDeleteAction
-        onDelete={() => undefined}
-        onMessageVendor={() => toast("Vendor messaging is not available yet.")}
-        onReportItem={() => toast("Thanks. We will review this item.")}
-        onShareProduct={() => toast.success("Product link copied.")}
-      />
     );
   }
 
@@ -3167,7 +3250,7 @@ export default function DashboardGiftsScreen() {
                   : "border-transparent text-[#9A97A5]",
               )}
             >
-              Gifts Sent
+              Gifts Given
             </button>
             <button
               type="button"
@@ -3269,7 +3352,7 @@ export default function DashboardGiftsScreen() {
                           Created By
                         </th>
                         <th className="px-3 py-2 text-left text-[13px] font-medium text-[#9A97A5]">
-                          Participants
+                          Recipients
                         </th>
                         <th className="px-3 py-2 text-left text-[13px] font-medium text-[#9A97A5]">
                           Status
@@ -3393,6 +3476,11 @@ export default function DashboardGiftsScreen() {
                             <GiftRowActions
                               row={row}
                               onView={handleViewGiftRow}
+                              onToggleFulfillment={
+                                isReceivedTab
+                                  ? handleToggleReceivedGiftFulfillment
+                                  : undefined
+                              }
                             />
                           </td>
                         </tr>
@@ -3454,6 +3542,36 @@ export default function DashboardGiftsScreen() {
       />
 
       <ConfirmationModal
+        open={Boolean(pendingFulfillmentGiftRow)}
+        onClose={() => {
+          setPendingFulfillmentGiftRow(null);
+          setPendingFulfillmentTarget(null);
+        }}
+        onConfirm={handleConfirmToggleGiftFulfillment}
+        action="save"
+        title={
+          pendingFulfillmentTarget
+            ? "Mark Gift as Fulfilled"
+            : "Mark Gift as Not Fulfilled"
+        }
+        description={
+          pendingFulfillmentGiftRow
+            ? `Are you sure you want to ${
+                pendingFulfillmentTarget
+                  ? "mark this gift as fulfilled"
+                  : "mark this gift as not fulfilled"
+              }?`
+            : "Are you sure you want to update this gift?"
+        }
+        confirmText={
+          pendingFulfillmentTarget
+            ? "Mark as Fulfilled"
+            : "Mark as Not Fulfilled"
+        }
+        isLoading={updateGiftFulfillmentMutation.isPending}
+      />
+
+      <ConfirmationModal
         open={isCompleteGiftingEventConfirmationOpen}
         onClose={() => setIsCompleteGiftingEventConfirmationOpen(false)}
         onConfirm={handleConfirmCompleteGiftingEvent}
@@ -3465,19 +3583,6 @@ export default function DashboardGiftsScreen() {
           assignBulkGiftsMutation.isPending ||
           completeGiftingEventMutation.isPending
         }
-        closeOnOverlayClick={false}
-        closeOnEscape={false}
-      />
-
-      <ConfirmationModal
-        open={isSendGiftEmailConfirmationOpen}
-        onClose={() => setIsSendGiftEmailConfirmationOpen(false)}
-        onConfirm={handleConfirmSendGiftInviteEmails}
-        action="save"
-        title="Send Invitation Emails"
-        description="Are you sure you want to send invitation emails to all pending participants?"
-        confirmText="Send Emails"
-        isLoading={sendGiftingEventInvitationsMutation.isPending}
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
@@ -3532,25 +3637,24 @@ export default function DashboardGiftsScreen() {
                 gifting event.
               </>
             }
-            onShareFacebook={() => {}}
-            onShareWhatsApp={() => {}}
+            onShareFacebook={() =>
+              shareInvite({
+                platform: "facebook",
+                inviteUrl: giftInviteShareUrl,
+                message: giftInviteShareMessage,
+              })
+            }
+            onShareWhatsApp={() =>
+              shareInvite({
+                platform: "whatsapp",
+                inviteUrl: giftInviteShareUrl,
+                message: giftInviteShareMessage,
+              })
+            }
             onBack={handleGiftInviteBack}
-            participants={filteredGiftInviteParticipants}
-            isCopyListOpen={isGiftInviteCopyListOpen}
-            onToggleCopyList={handleGiftInviteToggleCopyList}
             onSendEmail={handleGiftInviteSendEmail}
             onCopyLink={handleGiftInviteCopyLink}
-            isSendingEmail={sendGiftingEventInvitationsMutation.isPending}
-            isLoadingLinks={
-              isGiftingEventInvitationsLoading ||
-              isGiftingEventInvitationsFetching
-            }
-            isLinksError={isGiftingEventInvitationsError}
-            onRetryLinks={() => {
-              void refetchGiftingEventInvitations();
-            }}
-            searchValue={giftInviteSearchValue}
-            onSearchValueChange={setGiftInviteSearchValue}
+            isSendingEmail={sendEmailMutation.isPending}
           />
         ) : currentGiftFlowStep === "event-date" ? (
           <EventDateStep
@@ -3565,6 +3669,11 @@ export default function DashboardGiftsScreen() {
               setGiftFlowStep("event", mode, eventId, giftingEventId)
             }
             onNext={handleGiftEventDateNext}
+            onSaveAndContinue={handleGiftEventDateSaveAndContinue}
+            isSaveAndContinuePending={
+              createGiftingEventMutation.isPending ||
+              updateGiftingEventMutation.isPending
+            }
             heading="What's the date?"
             headingAlign="left"
             showGoToEventNameLink={false}
@@ -3580,14 +3689,23 @@ export default function DashboardGiftsScreen() {
             onBack={() =>
               setGiftFlowStep("event-date", mode, eventId, giftingEventId)
             }
-            onNext={handleSaveGiftEventDetails}
+            onNext={() =>
+              setGiftFlowStep("source", mode, eventId, giftingEventId)
+            }
+            onSaveAndContinue={handleSaveGiftEventDetails}
             title="Below is a suggestion of a name for your event."
             description="Feel free to edit as you see fit."
             placeholder="Write event name"
-            nextLabel={
-              updateGiftingEventMutation.isPending ? "Saving..." : "Next"
+            nextLabel="Next"
+            saveAndContinueLabel="Save & Continue"
+            nextDisabled={
+              createGiftingEventMutation.isPending ||
+              updateGiftingEventMutation.isPending
             }
-            nextDisabled={updateGiftingEventMutation.isPending}
+            isSaveAndContinuePending={
+              createGiftingEventMutation.isPending ||
+              updateGiftingEventMutation.isPending
+            }
           />
         ) : currentGiftFlowStep === "add-record" ? (
           <AddColleagueForm
@@ -3634,7 +3752,7 @@ export default function DashboardGiftsScreen() {
                 onClick={handleOpenOnedaBusinessStep}
                 className="w-full"
               >
-                From Oneda
+                Import from Oneda
               </ModalButton>
             </div>
 
@@ -3808,11 +3926,11 @@ export default function DashboardGiftsScreen() {
             ) : null}
           </div>
         ) : currentGiftFlowStep === "review-records" ? (
-          <CustomColleagueReview
-            greetingName={greetingName}
-            items={selectedParticipantReviewItems}
-            prompt="Who would you like to gift?"
-            onAddNew={() => handleOpenAddNewColleague("review-records")}
+        <CustomColleagueReview
+          greetingName={greetingName}
+          items={selectedParticipantReviewItems}
+          prompt="Who would you like to gift?"
+          onAddNew={() => handleOpenAddNewColleague("review-records")}
             onBack={() =>
               setGiftFlowStep("source", mode, eventId, giftingEventId)
             }
@@ -3837,6 +3955,11 @@ export default function DashboardGiftsScreen() {
             nextDisabled={
               !selectedParticipantReviewItems.length ||
               createParticipantsBulkMutation.isPending
+            }
+            nextLabel={
+              createParticipantsBulkMutation.isPending
+                ? "Saving..."
+                : "Save & Continue"
             }
           />
         ) : currentGiftFlowStep === "record" ? (
@@ -3969,23 +4092,51 @@ export default function DashboardGiftsScreen() {
               </button>
             ) : null}
 
-            <ModalButton
-              type="button"
-              onClick={handleGiftFlowEventNext}
-              disabled={
-                !selectedGiftEventTypeId ||
-                createGiftingEventMutation.isPending ||
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <ModalButton
+                type="button"
+                onClick={handleGiftFlowEventNext}
+                disabled={
+                  !selectedGiftEventTypeId ||
+                  createGiftingEventMutation.isPending ||
+                  updateGiftingEventMutation.isPending
+                }
+                className="h-[38px] !w-fit min-w-[96px] px-6"
+              >
+                Next
+              </ModalButton>
+
+              <ModalButton
+                type="button"
+                onClick={handleGiftFlowEventSaveAndContinue}
+                disabled={
+                  !selectedGiftEventTypeId ||
+                  createGiftingEventMutation.isPending ||
+                  updateGiftingEventMutation.isPending
+                }
+                className="h-[38px] !w-fit min-w-[140px] px-6"
+              >
+                {createGiftingEventMutation.isPending ||
                 updateGiftingEventMutation.isPending
-              }
-            >
-              {createGiftingEventMutation.isPending ||
-              updateGiftingEventMutation.isPending
-                ? "Saving..."
-                : "Next"}
-            </ModalButton>
+                  ? "Saving..."
+                  : "Save & Continue"}
+              </ModalButton>
+            </div>
           </div>
         )}
       </ContentModal>
+
+      <EmailInviteComposeModal
+        open={isGiftInviteEmailComposeOpen}
+        onClose={() => setIsGiftInviteEmailComposeOpen(false)}
+        initialTitle={
+          currentEventRow?.eventName || giftEventName || "Gifting event"
+        }
+        initialBody={giftInviteShareMessage}
+        lockedEmails={giftInviteLockedEmails}
+        onSubmit={handleConfirmSendGiftInviteEmails}
+        isSubmitting={sendEmailMutation.isPending}
+      />
     </div>
   );
 }

@@ -72,6 +72,14 @@ export type ContactGiftCartCountResponse = {
   };
 };
 
+export type ContactGiftCartParticipantGiftIdsResponse = {
+  code: number;
+  message: string;
+  data: {
+    participantGiftIds: string[];
+  };
+};
+
 export type ContactGiftCartMutationResponse = {
   code: number;
   message: string;
@@ -108,6 +116,16 @@ export type CreateBulkGiftsResponse = {
 export type AssignBulkGiftsResponse = CreateBulkGiftsResponse;
 
 export type ClaimGiftResponse = {
+  code: number;
+  message: string;
+  data?: ParticipantGiftRow | null;
+};
+
+export type UpdateGiftFulfillmentPayload = {
+  isFulfilled: boolean;
+};
+
+export type UpdateGiftFulfillmentResponse = {
   code: number;
   message: string;
   data?: ParticipantGiftRow | null;
@@ -165,6 +183,34 @@ export type ParticipantGiftRow = {
   sellerId?: string;
   productSlug?: string;
   slug?: string;
+};
+
+export type GiftDetailParticipant = {
+  id?: string | null;
+  eventContactId?: string | null;
+};
+
+export type GiftDetailEvent = {
+  id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  eventTypeId?: string | null;
+  eventOption?: string | null;
+  eventDate?: string | null;
+  status?: string | null;
+};
+
+export type GiftDetailResponse = {
+  code: number;
+  message: string;
+  data: ParticipantGiftRow & {
+    isFulfilled?: boolean | null;
+    recipientParticipant?: GiftDetailParticipant | null;
+    giverParticipant?: GiftDetailParticipant | null;
+    event?: GiftDetailEvent | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  };
 };
 
 export type ParticipantGiftsParams = {
@@ -237,8 +283,14 @@ export type GivenGroupedGift = {
   locationCity?: string | null;
   sellerId?: string | null;
   productSlug?: string | null;
+  isFulfilled?: boolean | null;
   recipientCount?: number | null;
   people?: GivenGroupedGiftPerson[] | null;
+  giftStatuses?: {
+    id?: string | null;
+    recipientParticipantId?: string | null;
+    isFulfilled?: boolean | null;
+  }[] | null;
   event?: GivenGroupedGiftEvent | null;
 };
 
@@ -291,6 +343,7 @@ export type ReceivedGift = {
   recipientParticipantId?: string | null;
   giverParticipantId?: string | null;
   participantGiftId?: string | null;
+  isFulfilled?: boolean | null;
   title?: string | null;
   description?: string | null;
   amount?: number | string | null;

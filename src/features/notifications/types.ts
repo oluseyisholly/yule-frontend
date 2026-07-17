@@ -33,6 +33,12 @@ export type MarkNotificationsReadResponse = {
   data: NotificationRecord[];
 };
 
+export type MarkNotificationReadResponse = {
+  code: number;
+  message: string;
+  data: NotificationRecord;
+};
+
 export type UnreadNotificationCountResponse = {
   code: number;
   message: string;

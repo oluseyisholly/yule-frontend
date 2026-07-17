@@ -5,6 +5,8 @@ export const giftQueryKeys = {
   cartItems: (params: { page?: number; per_page?: number }) =>
     [...giftQueryKeys.cart(), "items", params] as const,
   cartCount: () => [...giftQueryKeys.cart(), "count"] as const,
+  cartParticipantGiftIds: () =>
+    [...giftQueryKeys.cart(), "participant-gift-ids"] as const,
   selections: () => [...giftQueryKeys.all, "selections"] as const,
   participantSelections: (participantId: string, eventId: string) =>
     [...giftQueryKeys.selections(), participantId, eventId] as const,
@@ -28,4 +30,6 @@ export const giftQueryKeys = {
     eventId: string,
     params: { page?: number; per_page?: number; searchQuery?: string },
   ) => [...giftQueryKeys.all, "event-given-grouped", eventId, params] as const,
+  eventGivenGroupedGift: (eventId: string, participantGiftId: string) =>
+    [...giftQueryKeys.all, "event-given-grouped-gift", eventId, participantGiftId] as const,
 };

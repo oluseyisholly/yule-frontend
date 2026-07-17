@@ -10,7 +10,6 @@ import {
   MenuIcon,
   SearchIcon,
   SettingsIcon,
-  ShoppingCartIcon,
   UserRoundPlusIcon,
   XIcon,
 } from "lucide-react";
@@ -29,9 +28,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import ThemeToggle from "@/components/ThemeToggle";
+import caughtMyEyeIcon from "@/components/icons/caught_my_eye.svg";
 import { getDashboardNavItemByPathname } from "@/components/dashboard/navigation";
 import { updateExternalProfile } from "@/features/auth/service";
 import { useContactGiftCartCountQuery } from "@/features/gifts/hooks/useContactGiftCartCountQuery";
+import { useMarkNotificationReadMutation } from "@/features/notifications/hooks/useMarkNotificationReadMutation";
 import { useMarkNotificationsReadMutation } from "@/features/notifications/hooks/useMarkNotificationsReadMutation";
 import { useNotificationsInfiniteQuery } from "@/features/notifications/hooks/useNotificationsInfiniteQuery";
 import { useUnreadNotificationCountQuery } from "@/features/notifications/hooks/useUnreadNotificationCountQuery";
@@ -233,12 +234,19 @@ function HeaderCartButton({ count }: { count: number }) {
   return (
     <Link
       href="/dashboard/cart"
-      aria-label={`Caught My Eye${count ? `, ${count} item${count === 1 ? "" : "s"}` : ""}`}
+      aria-label={`Caught My Eye item`}
       className="relative flex size-9 items-center justify-center rounded-full bg-white text-[#3300C9] transition-colors hover:bg-[#f8f5ff] lg:size-10"
     >
-      <ShoppingCartIcon className="size-4.5" strokeWidth={1.8} />
+      <Image
+        src={caughtMyEyeIcon}
+        alt=""
+        aria-hidden="true"
+        width={24}
+        height={24}
+        className="size-4.5"
+      />
       {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#FFFFFF] px-1  py-1 text-[10px] font-semibold leading-none text-[#3300C9] border-[0.5px] border-[#3300C9] border-solid shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
+        <span className="absolute -right-[1px] -top-[1px] flex min-w-5 items-center justify-center rounded-full border border-[#F6C8C8] bg-white px-1 py-1 text-[10px] font-semibold leading-none text-[#E04F4F] shadow-[0_6px_14px_rgba(224,79,79,0.18)]">
           {displayCount}
         </span>
       ) : null}
@@ -253,8 +261,6 @@ function HeaderNotificationButton({
   count: number;
   onClick: () => void;
 }) {
-  const displayCount = count > 99 ? "99+" : `${count}`;
-
   return (
     <button
       type="button"
@@ -264,9 +270,7 @@ function HeaderNotificationButton({
     >
       <BellIcon className="size-4" />
       {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#3300C9] px-1 py-1 text-[10px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(51,0,201,0.24)]">
-          {displayCount}
-        </span>
+        <span className="absolute right-2 top-2 size-2 rounded-full bg-[#E04F4F] shadow-[0_3px_8px_rgba(224,79,79,0.18)]" />
       ) : null}
     </button>
   );
@@ -515,6 +519,7 @@ export default function DashboardHeader({
     },
   );
   const markNotificationsReadMutation = useMarkNotificationsReadMutation();
+  const markNotificationReadMutation = useMarkNotificationReadMutation();
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] =
     useState(false);
   const notificationRecords = useMemo(
@@ -548,14 +553,25 @@ export default function DashboardHeader({
       );
     }
   };
+  const handleMarkNotificationRead = async (id: string) => {
+    try {
+      await markNotificationReadMutation.mutateAsync(id);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark this notification as read right now.",
+      );
+    }
+  };
   const activeItem = getDashboardNavItemByPathname(pathname);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const activeBusinessName = "Yule";
+  const activeBusinessName = "Festa";
   const activeBranchName = activeItem.label;
   const dashboardHeaderProfile = {
     name:
       [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
-      "Yule User",
+      "Festa User",
     email: user?.email?.trim() || "No email",
     photoUrl: user?.profile?.profilePhotoUrl?.trim() || null,
   };
@@ -588,7 +604,7 @@ export default function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle className="size-9" />
+            {/* <ThemeToggle className="size-9" /> */}
             <Button
               type="button"
               variant="ghost"
@@ -654,7 +670,7 @@ export default function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle className="size-10" />
+            {/* <ThemeToggle className="size-10" /> */}
             <HeaderCartButton count={cartItemCount} />
             <DashboardProfileMenu
               profileName={dashboardHeaderProfile.name}
@@ -721,7 +737,14 @@ export default function DashboardHeader({
           }
         }}
         onMarkAllRead={handleMarkNotificationsRead}
+        onMarkRead={handleMarkNotificationRead}
         isMarkingRead={markNotificationsReadMutation.isPending}
+        markingReadId={
+          typeof markNotificationReadMutation.variables === "string" &&
+          markNotificationReadMutation.isPending
+            ? markNotificationReadMutation.variables
+            : null
+        }
       />
     </header>
   );

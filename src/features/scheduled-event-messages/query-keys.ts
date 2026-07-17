@@ -2,6 +2,7 @@ import type { ScheduledEventMessagesParams } from "@/features/scheduled-event-me
 
 export const scheduledEventMessageQueryKeys = {
   all: ["scheduled-event-messages"] as const,
+  metrics: () => [...scheduledEventMessageQueryKeys.all, "metrics"] as const,
   lists: () => [...scheduledEventMessageQueryKeys.all, "list"] as const,
   list: (params: ScheduledEventMessagesParams = {}) =>
     [

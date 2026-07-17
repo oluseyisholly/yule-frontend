@@ -1,18 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ShoppingCartIcon, Trash2Icon } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Trash2Icon } from "lucide-react";
 import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import Button from "@/components/Button";
-import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import Pagination from "@/components/Pagination";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import { GiftGridLoadingSkeleton } from "@/components/ui/context-skeletons";
+import caughtMyEyeIcon from "@/components/icons/caught_my_eye.svg";
 import { useDeleteContactGiftCartItemMutation } from "@/features/gifts/hooks/useDeleteContactGiftCartItemMutation";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import type { ContactGiftCartItem } from "@/features/gifts/types";
-import type { MarketplaceProduct } from "@/features/marketplace/types";
 
 const PAGE_SIZE = 25;
 
@@ -45,25 +46,6 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   }).format(date);
-}
-
-function toMarketplaceProduct(item: ContactGiftCartItem): MarketplaceProduct {
-  return {
-    _id: item.participantGiftId || item.id,
-    title: item.title || "Selected gift",
-    description: item.description ?? "",
-    amount: Number(item.amount ?? 0),
-    images: item.imageUrl ? [item.imageUrl] : [],
-    categorySlug: item.categorySlug ?? undefined,
-    subCategorySlug: item.subCategorySlug ?? undefined,
-    condition: item.condition as MarketplaceProduct["condition"],
-    location: {
-      state: item.locationState ?? undefined,
-      city: item.locationCity ?? undefined,
-    },
-    sellerId: item.sellerId ?? undefined,
-    slug: item.productSlug ?? undefined,
-  };
 }
 
 function CartItemCard({
@@ -129,10 +111,8 @@ function CartItemCard({
 }
 
 export default function ContactGiftCartScreen() {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedItem, setSelectedItem] = useState<ContactGiftCartItem | null>(
-    null,
-  );
   const [pendingDeleteItem, setPendingDeleteItem] =
     useState<ContactGiftCartItem | null>(null);
   const { data, isLoading, isFetching, isError, refetch } =
@@ -145,10 +125,6 @@ export default function ContactGiftCartScreen() {
 
   const cartItems = data?.data.data ?? [];
   const totalPages = Math.max(data?.data.totalPages ?? 1, 1);
-  const selectedProduct = useMemo(
-    () => (selectedItem ? toMarketplaceProduct(selectedItem) : null),
-    [selectedItem],
-  );
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteItem) {
@@ -159,10 +135,6 @@ export default function ContactGiftCartScreen() {
       const response = await deleteContactGiftCartItemMutation.mutateAsync(
         pendingDeleteItem.id,
       );
-
-      if (selectedItem?.id === pendingDeleteItem.id) {
-        setSelectedItem(null);
-      }
 
       setPendingDeleteItem(null);
       toast.success(
@@ -178,49 +150,22 @@ export default function ContactGiftCartScreen() {
     }
   };
 
-  if (selectedItem && selectedProduct) {
-    const contactName = [
-      selectedItem.contact?.firstName,
-      selectedItem.contact?.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-    return (
-      <EventGiftDetailView
-        backHref="/dashboard/cart"
-        backLabel="Back to Caught My Eye"
-        onBack={() => setSelectedItem(null)}
-        eventTitle="Caught My Eye"
-        createdBy={contactName || "You"}
-        createdAt={formatDate(selectedItem.createdAt)}
-        status="Ongoing"
-        avatarInitials="CT"
-        summaryItems={[]}
-        showHeader={false}
-        showSummaryItems={false}
-        product={selectedProduct}
-        hideDeleteAction
-        showInlineDeleteAction
-        inlineDeleteActionLabel="Delete"
-        onDelete={() => setPendingDeleteItem(selectedItem)}
-        onMessageVendor={() => toast("Vendor messaging is not available yet.")}
-        onReportItem={() => toast("Thanks. We will review this item.")}
-        onShareProduct={() => toast.success("Product link copied.")}
-      />
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <BackLink href="/dashboard/gifts" label="Caught My Eye" />
+      <BackLink href="/dashboard/gifts" label="Back" />
 
       <div className="flex flex-col gap-4 rounded-[24px] border border-[#F1EDF9] bg-white p-5 shadow-[0_12px_40px_rgba(29,18,68,0.05)] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex size-12 items-center justify-center rounded-[16px] bg-[#F4F0FF] text-[#3300C9]">
-              <ShoppingCartIcon className="size-5" />
+              <Image
+                src={caughtMyEyeIcon}
+                alt=""
+                aria-hidden="true"
+                width={24}
+                height={24}
+                className="size-5"
+              />
             </div>
             <h1 className="mt-3 text-[26px] font-semibold text-[#1E1E1E]">
               Caught My Eye
@@ -230,7 +175,10 @@ export default function ContactGiftCartScreen() {
             </p>
           </div>
 
-          <Button href="/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true">
+          <Button
+            href="/dashboard/gifts/flow/gift-selection?mode=create&tab=events&browse=true"
+            variant="outlined"
+          >
             Browse Gifts
           </Button>
         </div>
@@ -257,7 +205,11 @@ export default function ContactGiftCartScreen() {
                 <CartItemCard
                   key={item.id}
                   item={item}
-                  onView={() => setSelectedItem(item)}
+                  onView={() =>
+                    router.push(
+                      `/dashboard/cart/${encodeURIComponent(item.id)}?productId=${encodeURIComponent(item.participantGiftId || item.id)}`,
+                    )
+                  }
                   onDelete={() => setPendingDeleteItem(item)}
                 />
               ))}
@@ -278,7 +230,14 @@ export default function ContactGiftCartScreen() {
           </>
         ) : (
           <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[18px] border border-dashed border-[#E5DFF4] bg-[#FAF8FF] px-6 text-center">
-            <ShoppingCartIcon className="size-10 text-[#3300C9]" />
+            <Image
+              src={caughtMyEyeIcon}
+              alt=""
+              aria-hidden="true"
+              width={24}
+              height={24}
+              className="size-10"
+            />
             <h2 className="mt-4 text-[20px] font-semibold text-[#343039]">
               Nothing has caught your eye yet
             </h2>

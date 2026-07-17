@@ -94,6 +94,7 @@ export type GetMarketplaceProductsParams = {
   limit?: number;
   page?: number;
   search?: string;
+  productIds?: string[];
   categorySlug?: string;
   subCategorySlug?: string;
   minPrice?: number;

@@ -623,8 +623,8 @@ export default function WishListDetailsScreen({
         accessor: "categoryLabel",
       },
       {
-        id: "assignedTo",
-        header: "Assigned to",
+        id: "sponsor",
+        header: "Sponsor",
         headerClassName: "min-w-[170px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
         render: (row) => (
@@ -667,14 +667,8 @@ export default function WishListDetailsScreen({
             >
               <DropdownMenuItem
                 onSelect={() => {
-                  const query = row.participantGiftId?.trim()
-                    ? `?productId=${encodeURIComponent(row.participantGiftId.trim())}`
-                    : "";
-
                   router.push(
-                    `/dashboard/wish-list/${wishlistEventId}/gift/${encodeURIComponent(
-                      row.id,
-                    )}${query}`,
+                    `/dashboard/gifts/item/${encodeURIComponent(row.id)}?tab=received`,
                   );
                 }}
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#434343] focus:bg-[#F6F2FF] focus:text-[#3300C9]"

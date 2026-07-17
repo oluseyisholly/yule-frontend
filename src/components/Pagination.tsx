@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BackIcon } from "@/components/BackLink";
 import Button from "@/components/Button";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,7 @@ type PaginationProps = {
   initialPage?: number;
   onPageChange?: (page: number) => void;
   className?: string;
-  previousLabel?: string;
+  previousLabel?: React.ReactNode;
   nextLabel?: string;
 };
 
@@ -18,7 +19,12 @@ export default function Pagination({
   initialPage = 1,
   onPageChange,
   className,
-  previousLabel = "← Previous",
+  previousLabel = (
+    <span className="inline-flex items-center gap-2">
+      <BackIcon className="size-4" />
+      <span>Previous</span>
+    </span>
+  ),
   nextLabel = "Next →",
 }: PaginationProps) {
   const [current, setCurrent] = useState(initialPage);

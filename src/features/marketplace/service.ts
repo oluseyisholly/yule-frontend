@@ -19,8 +19,16 @@ export async function getMarketplaceCategories() {
 export async function getMarketplaceProducts(
   params: GetMarketplaceProductsParams,
 ) {
+  const normalizedParams = {
+    ...params,
+    productIds:
+      params.productIds && params.productIds.length > 0
+        ? params.productIds.join(",")
+        : undefined,
+  };
+
   return getApi<MarketplaceProductsResponse>(MARKETPLACE_PRODUCTS_URL, {
-    params,
+    params: normalizedParams,
     skipAuthLogout: true,
   });
 }

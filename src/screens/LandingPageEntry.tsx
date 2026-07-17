@@ -205,7 +205,7 @@ export default function LandingPageEntry() {
 
         await syncContact({
           gender: "male",
-          firstName: resolvedSession.firstName || "Yule",
+          firstName: resolvedSession.firstName || "Festa",
           lastName: resolvedSession.lastName || "User",
           phoneNumber: resolvedSession.phoneNumber || "",
           email: resolvedSession.email,

@@ -141,6 +141,7 @@ export function buildHangoutFlowHref(
   step: HangoutModalStep,
   mode: HangoutFlowMode,
   eventId?: string | null,
+  hangoutEventId?: string | null,
 ) {
   const nextParams = new URLSearchParams();
 
@@ -148,6 +149,10 @@ export function buildHangoutFlowHref(
 
   if (eventId?.trim()) {
     nextParams.set("eventId", eventId.trim());
+  }
+
+  if (hangoutEventId?.trim()) {
+    nextParams.set("hangoutEventId", hangoutEventId.trim());
   }
 
   return `/dashboard/hangouts/flow/${step}?${nextParams.toString()}`;

@@ -1,6 +1,7 @@
 import Image, { type StaticImageData } from "next/image";
 
 import Button from "@/components/Button";
+import { MotionReveal } from "@/components/LandingMotion";
 import { cn } from "@/lib/utils";
 
 import chatHero from "@/assets/images/chatHero.svg";
@@ -39,7 +40,7 @@ const features: FeatureCardData[] = [
     id: "celebratory-messaging",
     title: "Automated & Instant Celebratory Messaging",
     description:
-      "Never miss another special day. Set it once, and let Yule remember for you. Automatically send birthday wishes or event messages to friends, family, or customers at the perfect time even when life gets busy.",
+      "Never miss another special day. Set it once, and let Festa remember for you. Automatically send birthday wishes or event messages to friends, family, or customers at the perfect time even when life gets busy.",
     buttonText: "Create a message",
     image: chatHero,
     imageAlt: "Automated & Instant Celebratory Messaging",
@@ -63,13 +64,16 @@ const features: FeatureCardData[] = [
     imageAlt: "Create a personal wishlist",
     imagePosition: "right",
 
-    cardClassName: "mt-[-12px] items-center bg-[#FCB900] pb-6 sm:pb-8 px-5  sm:px-6 ",
+    cardClassName:
+      "items-stretch bg-[#FCB900] px-5 sm:px-6 flex-col-reverse",
 
-    imageWrapperClassName: "rounded-[8px] mt-[-25px] w-full",
+    imageWrapperClassName:
+      "rounded-[8px] mt-[-28px] w-full min-h-full sm:min-h-full  md:min-h-full md:self-stretch",
 
-    imageClassName: "w-full object-contain",
+    imageClassName:
+      "w-full object-contain sm:min-h-[200px] md:h-full md:min-h-full ",
 
-    contentClassName: "items-start text-left",
+    contentClassName: "items-start text-left py-5 sm:py-8",
   },
   {
     id: "draw-names",
@@ -247,14 +251,15 @@ export default function FeaturesSection() {
     <section
       className={cn(
         "mt-10 rounded-[16px] bg-[#F4F4F4]",
-        "px-4 py-8 mb-10",
-        "sm:px-6 sm:py-10",
-        "md:px-12 md:py-12",
-        "lg:py-15",
+        "px-4 pt-8 mb-10",
+        "sm:px-6 sm:pt-10",
+        "md:px-12 md:pt-12",
+        "lg:pt-15",
       )}
     >
       <div className="mx-auto">
-        <header
+        <MotionReveal
+          amount={0.35}
           className={cn(
             "mb-1 flex flex-col items-center justify-center text-center",
             "sm:mb-4",
@@ -268,7 +273,7 @@ export default function FeaturesSection() {
               "sm:text-[28px]",
               "md:text-[32px]",
               "lg:text-[40px]",
-              "font-poppins"
+              "font-poppins",
             )}
           >
             One Celebration. Endless Moments.
@@ -278,11 +283,18 @@ export default function FeaturesSection() {
             Experience curated gifting, vibrant hangouts, and live name draws
             designed to bring everyone together.
           </p>
-        </header>
+        </MotionReveal>
 
         <div>
-          {features.map((feature) => (
-            <FeatureCard key={feature.id} {...feature} />
+          {features.map((feature, index) => (
+            <MotionReveal
+              key={feature.id}
+              amount={0.18}
+              delay={Math.min(index * 0.04, 0.16)}
+              direction={feature.imagePosition === "left" ? "right" : "left"}
+            >
+              <FeatureCard {...feature} />
+            </MotionReveal>
           ))}
         </div>
       </div>

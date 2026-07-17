@@ -1,7 +1,7 @@
 "use client";
 
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import BackButton from "@/components/BackButton";
+import FlowActionButtons from "@/components/FlowActionButtons";
 
 export type CustomColleagueReviewItem = {
   id: string;
@@ -17,10 +17,13 @@ type CustomColleagueReviewProps = {
   onAddNew: () => void;
   onBack: () => void;
   onNext: () => void;
+  onSaveAndContinue?: () => void;
   onEdit?: (id: string) => void;
   onDelete: (id: string) => void;
   nextDisabled?: boolean;
   nextLabel?: string;
+  saveAndContinueLabel?: string;
+  isSaveAndContinuePending?: boolean;
 };
 
 function ReviewItem({
@@ -83,10 +86,13 @@ export default function CustomColleagueReview({
   onAddNew,
   onBack,
   onNext,
+  onSaveAndContinue,
   onEdit,
   onDelete,
   nextDisabled = false,
   nextLabel = "Next",
+  saveAndContinueLabel = "Save & Continue",
+  isSaveAndContinuePending = false,
 }: CustomColleagueReviewProps) {
   return (
     <div className="space-y-5 pt-1">
@@ -119,22 +125,15 @@ export default function CustomColleagueReview({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-        <BackButton
-          onClick={onBack}
-          className="flex h-[40px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[22px]"
-        />
-
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={nextDisabled}
-          className="flex h-[40px] min-w-[108px] items-center justify-center rounded-[14px] bg-[#3300C9] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#2D00B4] disabled:cursor-not-allowed disabled:bg-[#BEB3EE]"
-        >
-          {nextLabel}
-        </button>
-      </div>
+      <FlowActionButtons
+        onBack={onBack}
+        onNext={onNext}
+        onSaveAndContinue={onSaveAndContinue}
+        nextLabel={nextLabel}
+        saveAndContinueLabel={saveAndContinueLabel}
+        nextDisabled={nextDisabled}
+        isSaveAndContinuePending={isSaveAndContinuePending}
+      />
     </div>
   );
 }

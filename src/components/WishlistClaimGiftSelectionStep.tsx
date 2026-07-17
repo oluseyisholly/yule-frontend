@@ -352,7 +352,7 @@ export default function WishlistClaimGiftSelectionStep({
             type="button"
             onClick={onClaim}
             disabled={claimDisabled}
-            className="w-full max-w-[420px] !h-[40px] rounded-[18px]"
+            className="w-full max-w-[420px] !h-[38px] rounded-[18px]"
           >
             {claimLabel}
           </ModalButton>

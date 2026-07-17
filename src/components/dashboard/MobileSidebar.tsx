@@ -57,7 +57,7 @@ export default function MobileSidebar({
             <YuleWordmarkIcon
               className="h-auto w-[66px]"
               role="img"
-              aria-label="Yule logo"
+              aria-label="Festa logo"
             />
           </Link>
 

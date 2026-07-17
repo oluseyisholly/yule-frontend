@@ -44,6 +44,7 @@ export type HangoutEventRecord = {
   imageUrl: string | null;
   maxAttendees: number | null;
   allowPlusOne: boolean | null;
+  isFulfilled?: boolean | null;
   event: HangoutEventCore;
 };
 
@@ -68,7 +69,21 @@ export type HangoutEventCreatePayload = {
 export type HangoutEventPatchPayload = Partial<
   Omit<HangoutEventCreatePayload, "event">
 > & {
-  event?: Partial<HangoutEventCreatePayload["event"]>;
+  event?: Partial<HangoutEventCreatePayload["event"]> & {
+    status?: HangoutEventStatus;
+  };
+};
+
+export type HangoutEventDetailsPayload = {
+  location?: string;
+  eventCenterName?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  numberOfGuests?: number;
+  amount?: number;
+  imageUrl?: string;
+  maxAttendees?: number;
+  allowPlusOne?: boolean;
 };
 
 export type HangoutEventCompletePayload = {
@@ -77,11 +92,17 @@ export type HangoutEventCompletePayload = {
   };
 };
 
+export type HangoutEventFulfillmentPayload = {
+  isFulfilled: boolean;
+};
+
 export type HangoutEventMutationResponse = {
   code: number;
   message: string;
   data: HangoutEventRecord;
 };
+
+export type HangoutEventDetailsResponse = HangoutEventMutationResponse;
 
 export type HangoutEventDeleteResponse = {
   code: number;

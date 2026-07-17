@@ -132,23 +132,58 @@ function toInitials(name: string) {
   return `${first}${second}`.toUpperCase() || "SM";
 }
 
+function getRecipientList(record: ScheduledEventMessageRecord) {
+  const participants = record.participants ?? [];
+
+  return participants
+    .map((participant) => {
+      const contact = participant.eventContact;
+      const firstName = contact?.firstName?.trim() || "";
+      const lastName = contact?.lastName?.trim() || "";
+      const name =
+        `${firstName} ${lastName}`.trim() ||
+        contact?.email?.trim() ||
+        "Recipient";
+
+      return {
+        id: participant.id,
+        name,
+        firstName,
+        lastName,
+        email: contact?.email?.trim() || "-",
+        profileUrl: contact?.profileUrl?.trim() || null,
+        role: participant?.role || "participant",
+      };
+    })
+    .filter((recipient) => recipient.name.trim());
+}
+
 function getRecipientDetails(record: ScheduledEventMessageRecord) {
   const participant = record.participant ?? record.participants?.[0] ?? null;
   const contact = participant?.eventContact;
+  const recipientList = getRecipientList(record);
+  const primaryRecipient = recipientList[0];
   const contactName =
     `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
   const name =
     record.recipientName?.trim() ||
+    primaryRecipient?.name ||
     contactName ||
     record.recipientEmail?.trim() ||
     "Recipient";
 
   return {
     name,
-    email: record.recipientEmail?.trim() || contact?.email?.trim() || "-",
-    profileUrl: contact?.profileUrl?.trim() || null,
+    email:
+      primaryRecipient?.email ||
+      record.recipientEmail?.trim() ||
+      contact?.email?.trim() ||
+      "-",
+    profileUrl:
+      primaryRecipient?.profileUrl || contact?.profileUrl?.trim() || null,
     initials: toInitials(name),
     role: participant?.role || "participant",
+    recipients: recipientList,
   };
 }
 
@@ -330,6 +365,21 @@ export default function ScheduledEventMessageDetailsScreen({
     () => (record ? getRecipientDetails(record) : null),
     [record],
   );
+  const recipientSummary = useMemo(() => {
+    const recipients = recipient?.recipients ?? [];
+
+    if (!recipients.length) {
+      return recipient?.name ?? "Recipient";
+    }
+
+    if (recipients.length === 1) {
+      return recipients[0]?.name ?? recipient?.name ?? "Recipient";
+    }
+
+    return `${recipients[0]?.name ?? recipient?.name ?? "Recipient"} +${
+      recipients.length - 1
+    }`;
+  }, [recipient]);
   const canManageRecord = record ? !isEventCompleted(record) : false;
 
   const handleEdit = () => {
@@ -402,7 +452,7 @@ export default function ScheduledEventMessageDetailsScreen({
         <div className="flex flex-col gap-5 pb-5 sm:pb-6">
           <DetailHeader
             title={record.event?.title || record.subject || "Scheduled Message"}
-            subtitle={`Message to ${recipient.name}`}
+            subtitle={`Message to ${recipientSummary}`}
             meta={
               <>
                 <span className="inline-flex items-center gap-2 text-xs text-[#7D7D7D]">
@@ -475,11 +525,41 @@ export default function ScheduledEventMessageDetailsScreen({
             <SummaryStat
               icon={<UserRoundIcon className="size-4" />}
               label="Recipient"
-              value={recipient.name}
+              value={
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center -space-x-2">
+                    {(recipient.recipients ?? [])
+                      .slice(0, 3)
+                      .map((item, index) => (
+                        <UserAvatar
+                          key={`${item.id}-${index}`}
+                          name={item.name}
+                          initials={toInitials(
+                            `${item.firstName} ${item.lastName}`.trim() ||
+                              item.name,
+                          )}
+                          imageUrl={item.profileUrl}
+                          bgColor="#EFE6FD"
+                          textColor="#3300C9"
+                          className="size-8 border border-white text-[9px] font-semibold"
+                          title={item.name}
+                        />
+                      ))}
+                    {(recipient.recipients?.length ?? 0) > 3 ? (
+                      <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
+                        +{(recipient.recipients?.length ?? 0) - 3}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-[14px] font-medium text-[#1E1E1E]">
+                    {recipientSummary}
+                  </span>
+                </div>
+              }
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="rounded-[20px] border border-[#EEEAF7] bg-white p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -550,35 +630,67 @@ export default function ScheduledEventMessageDetailsScreen({
                 Recipient Details
               </h2>
 
-              <div className="mt-5 flex items-center gap-3 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] p-4">
-                <UserAvatar
-                  name={recipient.name}
-                  initials={recipient.initials}
-                  imageUrl={recipient.profileUrl}
-                  bgColor="#EFE6FD"
-                  textColor="#3300C9"
-                  className="size-14 text-base font-semibold"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-semibold text-[#1E1E1E]">
-                    {recipient.name}
-                  </p>
-                  <p className="truncate text-[12px] text-[#7D7D7D]">
-                    {recipient.email}
-                  </p>
-                  <span className="mt-2 inline-flex rounded-full bg-[#F4F0FF] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
-                    {formatStatus(recipient.role)}
-                  </span>
+              <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] p-4">
+                <div className="flex items-center gap-3">
+                  <UserAvatar
+                    name={recipient.name}
+                    initials={recipient.initials}
+                    imageUrl={recipient.profileUrl}
+                    bgColor="#EFE6FD"
+                    textColor="#3300C9"
+                    className="size-14 text-base font-semibold"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-[#1E1E1E]">
+                      {recipientSummary}
+                    </p>
+                    <p className="truncate text-[12px] text-[#7D7D7D]">
+                      {(recipient.recipients ?? []).length > 1
+                        ? `${recipient.recipients?.length ?? 0} recipients`
+                        : recipient.email}
+                    </p>
+                    <span className="mt-2 inline-flex rounded-full bg-[#F4F0FF] px-3 py-1 text-[11px] font-medium text-[#3300C9]">
+                      {formatStatus(recipient.role)}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 space-y-3">
-                <DetailLine label="Recipient Email" value={recipient.email} />
-                {/* <DetailLine
-                  label="Participant ID"
-                  value={record.participantId || "-"}
-                />
-                <DetailLine label="Event ID" value={record.eventId || "-"} /> */}
+                <div className="mt-4 max-h-[260px] overflow-y-auto pr-1">
+                  <div className="space-y-3">
+                    {(recipient.recipients ?? []).map((item, index) => (
+                      <div
+                        key={`${item.id}-${index}`}
+                        className="flex items-center gap-3 rounded-[14px] border border-[#F0EEFF] bg-white px-3 py-3"
+                      >
+                        <UserAvatar
+                          name={item.name}
+                          initials={toInitials(
+                            `${item.firstName} ${item.lastName}`.trim() ||
+                              item.name,
+                          )}
+                          imageUrl={item.profileUrl}
+                          bgColor="#EFE6FD"
+                          textColor="#3300C9"
+                          className="size-10 text-[10px] font-semibold"
+                          title={item.name}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-[14px] font-medium text-[#1E1E1E]">
+                            {item.name}
+                          </p>
+                          <p className="truncate text-[12px] text-[#7D7D7D]">
+                            {item.email}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {!recipient.recipients?.length ? (
+                      <div className="rounded-[14px] border border-dashed border-[#E8E2FF] bg-white px-3 py-4 text-center text-sm text-[#7D7D7D]">
+                        No additional recipients found.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </aside>
           </div>

@@ -52,6 +52,7 @@ import { useMyParticipantQuery } from "@/features/participants/hooks/useMyPartic
 import { useParticipantExclusionsQuery } from "@/features/participants/hooks/useParticipantExclusionsQuery";
 import { useUpdateMyParticipantNotificationMutation } from "@/features/participants/hooks/useUpdateMyParticipantNotificationMutation";
 import { useCreateBulkGiftsMutation } from "@/features/gifts/hooks/useCreateBulkGiftsMutation";
+import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
 import { useParticipantGiftSelectionsQuery } from "@/features/gifts/hooks/useParticipantGiftSelectionsQuery";
 import type { ParticipantGiftSelection } from "@/features/gifts/types";
 import type {
@@ -974,6 +975,48 @@ export default function DrawNameStartModal({
       ),
     [participantGiftSelectionsResponse],
   );
+  const {
+    data: caughtMyEyeParticipantGiftIdsResponse,
+    isLoading: isCaughtMyEyeParticipantGiftIdsLoading,
+    isFetching: isCaughtMyEyeParticipantGiftIdsFetching,
+  } = useContactGiftCartParticipantGiftIdsQuery({
+    enabled: open && currentStep === "wishlist-gifts",
+  });
+  const caughtMyEyeParticipantGiftIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (
+            caughtMyEyeParticipantGiftIdsResponse?.data.participantGiftIds ?? []
+          ).filter(Boolean),
+        ),
+      ),
+    [caughtMyEyeParticipantGiftIdsResponse],
+  );
+  const participantSelectedWishlistGiftIds = useMemo(
+    () =>
+      participantGiftSelections
+        .map((selection) =>
+          selection.participantGiftId?.trim() || selection.id?.trim() || "",
+        )
+        .filter(Boolean),
+    [participantGiftSelections],
+  );
+  const prioritizedWishlistGiftIds = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...participantSelectedWishlistGiftIds,
+          ...selectedWishlistGiftIds,
+          ...caughtMyEyeParticipantGiftIds,
+        ]),
+      ),
+    [
+      caughtMyEyeParticipantGiftIds,
+      participantSelectedWishlistGiftIds,
+      selectedWishlistGiftIds,
+    ],
+  );
   const drawInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
     () =>
       (eventParticipantsResponse?.data.data ?? []).map((participant) => {
@@ -1143,13 +1186,13 @@ export default function DrawNameStartModal({
     "Draw Name Invitation";
   const defaultInviteEmailBody = `Hi,
 
-You have been invited to join ${resolvedInviteEmailTitle} on Yule.
+You have been invited to join ${resolvedInviteEmailTitle} on Festa.
 
 Please sign in with the link below to view the event and participate:
 ${drawNameSignInInviteUrl}
 
 Thank you.`;
-  const drawNameInviteShareMessage = `You have been invited to join ${resolvedInviteEmailTitle} on Yule.\n\nSign in with the link below to view the event and participate:\n${drawNameSignInInviteUrl}`;
+  const drawNameInviteShareMessage = `You have been invited to join ${resolvedInviteEmailTitle} on Festa.\n\nSign in with the link below to view the event and participate:\n${drawNameSignInInviteUrl}`;
   const resolvedDrawResultName =
     getGiftRecipientDisplayName(giftRecipientResponse?.data ?? null) ||
     drawResultName ||
@@ -1250,6 +1293,23 @@ Thank you.`;
     selectedWishlistGiftIds,
     selectedWishlistGiftProductsById,
   ]);
+
+  useEffect(() => {
+    if (currentStep !== "wishlist-gifts" || !caughtMyEyeParticipantGiftIds.length) {
+      return;
+    }
+
+    setSelectedWishlistGiftIds((current) => {
+      const next = Array.from(
+        new Set([...current, ...caughtMyEyeParticipantGiftIds]),
+      );
+
+      return next.length === current.length &&
+        next.every((giftId, index) => giftId === current[index])
+        ? current
+        : next;
+    });
+  }, [caughtMyEyeParticipantGiftIds, currentStep]);
 
   const allRecordsSelected =
     recordOptions.length > 0 &&
@@ -3665,7 +3725,9 @@ Thank you.`;
         onWishlistNext={handleWishlistGiftsNext}
         isInitialSelectionLoading={
           isParticipantGiftSelectionsLoading ||
-          isParticipantGiftSelectionsFetching
+          isParticipantGiftSelectionsFetching ||
+          isCaughtMyEyeParticipantGiftIdsLoading ||
+          isCaughtMyEyeParticipantGiftIdsFetching
         }
         isInitialSelectionError={isParticipantGiftSelectionsError}
         onRetryInitialSelection={() => {
@@ -3681,6 +3743,8 @@ Thank you.`;
         isWishlistNotificationPending={
           updateMyParticipantNotificationMutation.isPending
         }
+        caughtMyEyeProductIds={caughtMyEyeParticipantGiftIds}
+        prioritizedWishlistGiftIds={prioritizedWishlistGiftIds}
         readyEventName={resolvedReadyStepEventName}
         onReadyBack={() => onStepChange("wishlist-notification")}
         onDrawName={handleDrawNameReadyNext}

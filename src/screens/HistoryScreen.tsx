@@ -498,7 +498,7 @@ export default function HistoryScreen() {
     <div className="space-y-6">
       <PageHeader
         title="My History"
-        description="See all your activities on Yule"
+        description="See all your activities on Festa"
         actions={
           <>
             <HeaderActionIconButton label="History actions">
@@ -554,7 +554,6 @@ export default function HistoryScreen() {
             total={totalPages}
             initialPage={currentPage}
             onPageChange={setCurrentPage}
-            previousLabel="← Previous"
             nextLabel="Next →"
           />
         </div>

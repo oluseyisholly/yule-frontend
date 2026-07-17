@@ -23,7 +23,9 @@ type NotificationDrawerProps = {
   hasMore?: boolean;
   onLoadMore?: () => void;
   onMarkAllRead?: () => void;
+  onMarkRead?: (id: string) => void;
   isMarkingRead?: boolean;
+  markingReadId?: string | null;
 };
 
 function formatNotificationTime(value?: string | null) {
@@ -72,7 +74,9 @@ export default function NotificationDrawer({
   hasMore = false,
   onLoadMore,
   onMarkAllRead,
+  onMarkRead,
   isMarkingRead = false,
+  markingReadId = null,
 }: NotificationDrawerProps) {
   const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -170,8 +174,8 @@ export default function NotificationDrawer({
                     <div className="flex items-start gap-3">
                       <span
                         className={cn(
-                          "mt-1 size-2.5 shrink-0 rounded-full",
-                          notification.isRead ? "bg-[#D8D5DE]" : "bg-[#3300C9]",
+                          "mt-1.5 size-2 shrink-0 rounded-full",
+                          notification.isRead ? "bg-[#D8D5DE]" : "bg-[#E04F4F]",
                         )}
                       />
                       <div className="min-w-0 flex-1">
@@ -179,11 +183,24 @@ export default function NotificationDrawer({
                           <h3 className="text-[14px] font-semibold leading-5 text-[#2F2F33]">
                             {notification.title}
                           </h3>
-                          {notification.createdAt ? (
-                            <time className="shrink-0 text-[11px] text-[#9A97A5]">
-                              {formatNotificationTime(notification.createdAt)}
-                            </time>
-                          ) : null}
+                          <div className="flex shrink-0 items-center gap-2">
+                            {notification.createdAt ? (
+                              <time className="text-[11px] text-[#9A97A5]">
+                                {formatNotificationTime(notification.createdAt)}
+                              </time>
+                            ) : null}
+                            {!notification.isRead && onMarkRead ? (
+                              <button
+                                type="button"
+                                onClick={() => onMarkRead(notification.id)}
+                                disabled={markingReadId === notification.id}
+                                className="inline-flex size-7 items-center justify-center rounded-full border border-[#F1EAFD] bg-white text-[#7D7888] transition-colors hover:border-[#3300C9] hover:text-[#3300C9] disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label={`Mark ${notification.title} as read`}
+                              >
+                                <CheckCheckIcon className="size-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <p className="mt-1 text-[13px] leading-5 text-[#6F6A7B]">
                           {notification.body}

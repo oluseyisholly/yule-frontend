@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import Button from "@/components/Button";
-import ThemeToggle from "@/components/ThemeToggle";
 import UserAvatar from "@/components/UserAvatar";
 import Image from "next/image";
 import Logo from "@/assets/images/logoblue.svg";
@@ -14,8 +14,8 @@ import { Spinner } from "@/components/ui/spinner";
 import AuthCtaButton from "@/components/AuthCtaButton";
 
 const navLinks = [
-  { label: "Find Gifts", href: "/gifts" },
-  { label: "Find Hangouts", href: "/hangouts" },
+  { label: "find gifts", href: "/gifts" },
+  { label: "find hangouts", href: "/hangouts" },
 ];
 
 function getInitials(firstName?: string | null, lastName?: string | null) {
@@ -95,6 +95,7 @@ function SigningInUserCard({ className = "" }: { className?: string }) {
 
 export default function Header() {
   const pathname = usePathname();
+  const shouldReduceHeaderMotion = useReducedMotion();
   const [isOpen, setIsOpen] = useState(false);
   const [hasPendingAccessToken, setHasPendingAccessToken] = useState(false);
   const authUser = useAuthStore((state) => state.user);
@@ -104,7 +105,7 @@ export default function Header() {
 
   const fullName =
     `${authUser?.firstName?.trim() ?? ""} ${authUser?.lastName?.trim() ?? ""}`.trim() ||
-    "Yule User";
+    "Festa User";
   const email = authUser?.email?.trim() || "No email address";
   const initials = getInitials(authUser?.firstName, authUser?.lastName);
   const profileImageUrl = authUser?.profile?.profilePhotoUrl?.trim() || null;
@@ -124,37 +125,42 @@ export default function Header() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 px-5 sm:px-6 md:px-10 lg:px-20 xl:px-28 backdrop-blur">
+    <motion.header
+      initial={shouldReduceHeaderMotion ? false : { opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/95 px-5 sm:px-6 md:px-10 lg:px-20 xl:px-28 backdrop-blur"
+    >
       <div className="mx-auto flex  items-center justify-between gap-4 py-4  sm:py-5 lg:gap-10 ">
         {/* Logo */}
         <Link href="/" onClick={closeMenu} className="shrink-0">
           <Image
             src={Logo}
-            alt="Yule logo"
-            className="h-[30px] w-[66px] sm:h-[45px] sm:w-[65.5px]"
+            alt="Festa logo"
+            className="h-[30px] w-[66px] sm:h-[60px] sm:w-[70.5px]"
             priority
           />
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden items-center gap-8 lg:flex xl:gap-10">
-          {navLinks.map(({ label, href }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`text-[16px] font-semibold transition-colors ${
-                pathname === href
-                  ? "text-primary"
-                  : "text-dark hover:text-primary"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
 
         {/* Desktop CTAs */}
         <div className="hidden shrink-0 items-center gap-4 lg:flex xl:gap-6">
+          <nav className="hidden items-center gap-8 lg:flex xl:gap-10">
+            {navLinks.map(({ label, href }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`text-[16px] font-semibold transition-colors ${
+                  pathname === href
+                    ? "text-primary"
+                    : "text-dark hover:text-primary"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
           {shouldShowSigningInLoader ? (
             <SigningInUserCard className="max-w-[280px]" />
           ) : shouldShowSignedInCard ? (
@@ -171,19 +177,8 @@ export default function Header() {
                 signUpHref={YULE_SIGN_UP_URL}
                 signInHref={YULE_SIGN_IN_URL}
               />
-              {/* <Button
-                label="Create your first celebration"
-                href={YULE_SIGN_UP_URL}
-                variant="outlined"
-              />
-              <Button
-                label="Start Celebrating"
-                href={YULE_SIGN_IN_URL}
-                variant="filled"
-              /> */}
             </>
           )}
-          <ThemeToggle />
         </div>
 
         {/* Mobile toggle + hamburger */}
@@ -200,22 +195,11 @@ export default function Header() {
               className="w-full"
             />
           ) : (
-            <div className="flex flex-col gap-3">
-              <ThemeToggle />
-
-              <Button
-                label="Create your first celebration"
-                href={YULE_SIGN_UP_URL}
-                variant="outlined"
-                className="w-full"
-              />
-              <Button
-                label="Start Celebrating"
-                href={YULE_SIGN_IN_URL}
-                variant="filled"
-                className="w-full"
-              />
-            </div>
+            <AuthCtaButton
+              signUpHref={YULE_SIGN_UP_URL}
+              signInHref={YULE_SIGN_IN_URL}
+              size="compact"
+            />
           )}
           <Button
             type="button"
@@ -267,6 +251,6 @@ export default function Header() {
           </nav>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

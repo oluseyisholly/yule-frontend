@@ -1,7 +1,6 @@
 "use client";
 
-import BackButton from "@/components/BackButton";
-import ModalButton from "@/components/ModalButtons";
+import FlowActionButtons from "@/components/FlowActionButtons";
 import { Input } from "@/components/ui/input";
 
 type HangoutGuestCountStepProps = {
@@ -9,8 +8,11 @@ type HangoutGuestCountStepProps = {
   onChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  onSaveAndContinue?: () => void;
   nextDisabled?: boolean;
   nextLabel?: string;
+  saveAndContinueLabel?: string;
+  isSaveAndContinuePending?: boolean;
 };
 
 export default function HangoutGuestCountStep({
@@ -18,8 +20,11 @@ export default function HangoutGuestCountStep({
   onChange,
   onBack,
   onNext,
+  onSaveAndContinue,
   nextDisabled = false,
   nextLabel = "Next",
+  saveAndContinueLabel = "Save & Continue",
+  isSaveAndContinuePending = false,
 }: HangoutGuestCountStepProps) {
   return (
     <div className="space-y-8 pt-1 sm:space-y-10">
@@ -47,22 +52,15 @@ export default function HangoutGuestCountStep({
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
-        <BackButton
-          onClick={onBack}
-          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[24px]"
-        />
-
-        <ModalButton
-          type="button"
-          onClick={onNext}
-          disabled={nextDisabled}
-          className="max-w-[152px] !h-[38px]"
-        >
-          {nextLabel}
-        </ModalButton>
-      </div>
+      <FlowActionButtons
+        onBack={onBack}
+        onNext={onNext}
+        onSaveAndContinue={onSaveAndContinue}
+        nextLabel={nextLabel}
+        saveAndContinueLabel={saveAndContinueLabel}
+        nextDisabled={nextDisabled}
+        isSaveAndContinuePending={isSaveAndContinuePending}
+      />
     </div>
   );
 }

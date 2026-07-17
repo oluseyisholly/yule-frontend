@@ -15,6 +15,7 @@ export function useMarketplaceProductsQuery(
     limit: params.limit ?? 8,
     page: params.page ?? 1,
     search: params.search ?? "",
+    productIds: params.productIds ?? [],
     categorySlug: params.categorySlug ?? "",
     subCategorySlug: params.subCategorySlug ?? "",
     minPrice: params.minPrice,
@@ -42,6 +43,7 @@ export function useMarketplaceProductsInfiniteQuery(
   const normalizedParams = {
     limit: params.limit ?? 8,
     search: params.search ?? "",
+    productIds: params.productIds ?? [],
     categorySlug: params.categorySlug ?? "",
     subCategorySlug: params.subCategorySlug ?? "",
     minPrice: params.minPrice,

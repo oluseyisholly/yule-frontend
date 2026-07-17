@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightIcon, CalendarDaysIcon } from "lucide-react";
-import BackButton from "@/components/BackButton";
-import ModalButton from "@/components/ModalButtons";
+import FlowActionButtons from "@/components/FlowActionButtons";
 import { Calendar } from "@/components/ui/calender";
 import {
   Popover,
@@ -30,6 +29,8 @@ type EventDateStepProps = {
   nextLabel?: string;
   saveAndContinueLabel?: string;
   isSaveAndContinuePending?: boolean;
+  showBack?: boolean;
+  showActions?: boolean;
 };
 
 function formatDate(value: string) {
@@ -64,6 +65,8 @@ export default function EventDateStep({
   nextLabel = "Next",
   saveAndContinueLabel = "Save & Continue",
   isSaveAndContinuePending = false,
+  showBack = true,
+  showActions = true,
 }: EventDateStepProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const today = useMemo(() => {
@@ -188,36 +191,18 @@ export default function EventDateStep({
           ) : null}
         </div>
       </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
-          <BackButton
-            onClick={onBack}
-            className="flex min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-            iconClassName="size-[24px]"
-          />
-
-          <ModalButton
-            type="button"
-            onClick={onNext}
-            disabled={!value || isSaveAndContinuePending}
-            className="!h-[38px] max-w-[170px] rounded-[18px]"
-          >
-            {nextLabel}
-          </ModalButton>
-        </div>
-        {/* <div>
-          {onSaveAndContinue ? (
-            <ModalButton
-              type="button"
-              onClick={onSaveAndContinue}
-              disabled={!value || isSaveAndContinuePending}
-              className="!h-[38px] max rounded-[18px] w-fit"
-            >
-              {isSaveAndContinuePending ? "Saving..." : saveAndContinueLabel}
-            </ModalButton>
-          ) : null}
-        </div> */}
-      </div>
+      {showActions ? (
+        <FlowActionButtons
+          onBack={onBack}
+          onNext={onNext}
+          onSaveAndContinue={onSaveAndContinue}
+          nextLabel={nextLabel}
+          saveAndContinueLabel={saveAndContinueLabel}
+          nextDisabled={!value}
+          isSaveAndContinuePending={isSaveAndContinuePending}
+          showBack={showBack}
+        />
+      ) : null}
     </div>
   );
 }

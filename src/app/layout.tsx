@@ -45,7 +45,7 @@ const oambe = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Yule",
+  title: "Festa",
   description: "Celebrate Life's Moments without Missing a Beat",
 };
 

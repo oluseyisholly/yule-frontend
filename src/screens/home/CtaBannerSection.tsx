@@ -17,12 +17,12 @@ export default function CtaBannerSection() {
             Turn Every Moment Into a Celebration.
           </p>
           <p className="mb-5 max-w-[720px] text-[14px] text-white sm:mb-6 sm:text-[16px] md:text-[20px] lg:mb-6 lg:text-[24px]">
-            Celebrate better, Remember more. Make every moment count with Yule
+            Celebrate better, Remember more. Make every moment count with Festa
           </p>
 
           <div className="flex w-full max-w-[460px] flex-col justify-center gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:gap-6 md:gap-8 lg:gap-12">
             <Button
-              label="Start Using Yule Today"
+              label="Start Using Festa Today"
               variant="filled"
               className="w-full px-6 py-3 sm:min-w-[200px] sm:w-auto sm:px-8 sm:py-3.5 lg:min-w-[220px] lg:px-10"
             />

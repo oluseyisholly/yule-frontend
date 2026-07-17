@@ -23,6 +23,7 @@ type ScheduleMessageFlowDraftFields = {
   selectedEventTypeId: string;
   selectedEventId: string;
   selectedRecipientParticipantId: string;
+  selectedRecipientParticipantIds: string[];
   selectedOnedaBusinessIds: string[];
   selectedOnedaContactIds: string[];
   form: ScheduleMessageFlowForm;
@@ -76,6 +77,7 @@ export const EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION: ScheduleMessageFlowSelection
     selectedEventTypeId: "",
     selectedEventId: "",
     selectedRecipientParticipantId: "",
+    selectedRecipientParticipantIds: [],
     selectedOnedaBusinessIds: [],
     selectedOnedaContactIds: [],
     form: EMPTY_SCHEDULE_MESSAGE_FLOW_FORM,
@@ -102,6 +104,11 @@ function normalizeScheduleMessageFlowSelection(
     selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
       ? selection.selectedOnedaContactIds
       : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.selectedOnedaContactIds,
+    selectedRecipientParticipantIds: Array.isArray(
+      selection?.selectedRecipientParticipantIds,
+    )
+      ? selection.selectedRecipientParticipantIds
+      : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.selectedRecipientParticipantIds,
     selectedParticipantIds: Array.isArray(selection?.selectedParticipantIds)
       ? selection.selectedParticipantIds
       : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.selectedParticipantIds,

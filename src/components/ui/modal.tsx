@@ -224,7 +224,7 @@ export default function ContentModal({
         <div
           className={cn(
             bodyScrollable
-              ? "no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 md:px-8"
+              ? "no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 md:px-8 bg-white"
               : "min-h-0 flex-1 overflow-hidden px-4 py-5 sm:px-6 md:px-8",
             bodyClassName,
           )}

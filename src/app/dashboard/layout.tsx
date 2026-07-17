@@ -66,7 +66,7 @@ export default function DashboardLayout({
           <YuleWordmarkIcon
             className="h-auto w-[72px]"
             role="img"
-            aria-label="Yule logo"
+            aria-label="Festa logo"
           />
         </Link>
 

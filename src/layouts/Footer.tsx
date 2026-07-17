@@ -1,6 +1,5 @@
 import Link from "next/link";
-import Button from "@/components/Button";
-import { Input } from "@/components/ui/input";
+import { MotionReveal } from "@/components/LandingMotion";
 import Image from "next/image";
 import Logo from "@/assets/images/logo.svg";
 import fackbook from "@/assets/icons/facebook.svg";
@@ -47,14 +46,14 @@ const socials = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[#1A1A1A] px-5 sm:px-6 md:px-10 lg:px-20 xl:px-28 py-8 text-white ">
-      <div className="mx-auto ">
-        <div className="flex justify-between gap-8 flex-col sm:flex-row sm:items-start">
+    <footer className="bg-[#1A1A1A] px-5 py-8 text-white sm:px-6 md:px-10 lg:px-20 xl:px-28">
+      <MotionReveal amount={0.12} className="mx-auto">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-start">
           {/* Left: Brand + Newsletter + Social */}
           <div className="flex flex-col gap-6">
             {/* Logo */}
             <Link href="/" className="w-fit">
-              <Image src={Logo} alt="Yule" width={150} height={150} />
+              <Image src={Logo} alt="Festa" width={150} height={150} />
             </Link>
 
             {/* Newsletter */}
@@ -80,14 +79,13 @@ export default function Footer() {
             </div> */}
           </div>
 
-          <div className="flex gap-4">
-            {" "}
-            <div className="flex flex-col gap-2 max-w-[300px] ">
-              <h1 className="font-semibold text-[20px] text-white ">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between lg:gap-10">
+            <div className="flex max-w-[300px] flex-col gap-2">
+              <h1 className="text-[20px] font-semibold text-white">
                 Gift Shops & Hospitality Business
               </h1>
-              <p className="font-[400] text-[18px] text-white">
-                <Link href={'/discover'} className="underline text-[#3300C9]">
+              <p className="text-[16px] font-[400] leading-7 text-white sm:text-[18px]">
+                <Link href="/discover" className="text-[#3300C9] underline">
                   {" "}
                   Get Discovered
                 </Link>{" "}
@@ -95,10 +93,10 @@ export default function Footer() {
               </p>
             </div>
             {/* Right: Link columns */}
-            <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 sm:gap-8">
+            <div className="grid grid-cols-1 gap-6 min-[420px]:grid-cols-2 sm:gap-8">
               {linkColumns.map((column) => (
                 <div key={column.title} className="flex flex-col gap-4">
-                  <h4 className="font-bold text-white text-[16px]">
+                  <h4 className="text-[16px] font-bold text-white">
                     {column.title}
                   </h4>
                   <ul className="flex flex-col gap-3">
@@ -106,7 +104,7 @@ export default function Footer() {
                       <li key={link.href}>
                         <Link
                           href={link.href}
-                          className="text-sm text-white hover:text-white transition-colors"
+                          className="whitespace-nowrap text-sm text-white transition-colors hover:text-white"
                         >
                           {link.label}
                         </Link>
@@ -120,7 +118,7 @@ export default function Footer() {
         </div>
 
         {/* Copyright */}
-        <div className="flex justify-between items-center border-t border-[#D9D9D9] pt-4 mt-4">
+        <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-[#D9D9D9] pt-4 sm:flex-row">
           {/* Social */}
           <div className="flex gap-4">
             {socials.map((social) => (
@@ -128,21 +126,21 @@ export default function Footer() {
                 key={social.label}
                 href={social.href}
                 aria-label={social.label}
-                className="w-8 h-8 flex items-center justify-center"
+                className="flex h-8 w-8 items-center justify-center"
               >
                 <Image
                   src={social.icon}
                   alt={social.label}
-                  className="w-full h-full"
+                  className="h-full w-full"
                 />
               </a>
             ))}
           </div>
-          <div className="text-center text-[12px] text-white">
+          <div className="text-center text-[12px] text-white sm:text-right">
             Copyright © Vktri All Right Reserved
           </div>
         </div>
-      </div>
+      </MotionReveal>
     </footer>
   );
 }

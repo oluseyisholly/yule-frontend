@@ -14,6 +14,7 @@ import {
 const BASE_HANGOUTS_PATH = "/dashboard/hangouts";
 const FLOW_PATH_PREFIX = `${BASE_HANGOUTS_PATH}/flow`;
 const EVENT_ID_PARAM = "eventId";
+const HANGOUT_EVENT_ID_PARAM = "hangoutEventId";
 const MODE_PARAM = "mode";
 const LEGACY_EVENT_TYPE_ID_PARAM = "eventTypeId";
 
@@ -61,6 +62,10 @@ export function useHangoutModalRouteState() {
     () => resolvedSearchParams.get(EVENT_ID_PARAM),
     [resolvedSearchParams],
   );
+  const hangoutEventId = useMemo(
+    () => resolvedSearchParams.get(HANGOUT_EVENT_ID_PARAM),
+    [resolvedSearchParams],
+  );
   const legacyEventTypeId = useMemo(
     () => resolvedSearchParams.get(LEGACY_EVENT_TYPE_ID_PARAM),
     [resolvedSearchParams],
@@ -75,12 +80,17 @@ export function useHangoutModalRouteState() {
       step: HangoutModalStep | null,
       nextMode?: HangoutFlowMode,
       nextEventId?: string | null,
+      nextHangoutEventId?: string | null,
       method: ModalNavigationMethod = "replace",
     ) => {
       const nextParams = new URLSearchParams();
       const resolvedMode = nextMode ?? mode;
       const resolvedEventId =
         nextEventId === undefined ? eventId : nextEventId?.trim() || null;
+      const resolvedHangoutEventId =
+        nextHangoutEventId === undefined
+          ? hangoutEventId
+          : nextHangoutEventId?.trim() || null;
 
       if (step) {
         nextParams.set(MODE_PARAM, resolvedMode);
@@ -90,12 +100,16 @@ export function useHangoutModalRouteState() {
         nextParams.set(EVENT_ID_PARAM, resolvedEventId);
       }
 
+      if (resolvedHangoutEventId) {
+        nextParams.set(HANGOUT_EVENT_ID_PARAM, resolvedHangoutEventId);
+      }
+
       const nextQuery = nextParams.toString();
       const nextPath = step ? `${FLOW_PATH_PREFIX}/${step}` : BASE_HANGOUTS_PATH;
       const nextHref = nextQuery ? `${nextPath}?${nextQuery}` : nextPath;
       router[method](nextHref, { scroll: false });
     },
-    [eventId, mode, router],
+    [eventId, hangoutEventId, mode, router],
   );
 
   const openModal = useCallback(
@@ -103,10 +117,17 @@ export function useHangoutModalRouteState() {
       step?: HangoutModalStep,
       nextMode: HangoutFlowMode = "create",
       nextEventId?: string | null,
+      nextHangoutEventId?: string | null,
     ) => {
       const nextStep = isHangoutModalStep(step ?? null) ? step ?? "event" : "event";
 
-      navigateModalStep(nextStep, nextMode, nextEventId ?? null, "push");
+      navigateModalStep(
+        nextStep,
+        nextMode,
+        nextEventId ?? null,
+        nextHangoutEventId ?? null,
+        "push",
+      );
     },
     [navigateModalStep],
   );
@@ -116,8 +137,15 @@ export function useHangoutModalRouteState() {
       step: HangoutModalStep,
       nextMode?: HangoutFlowMode,
       nextEventId?: string | null,
+      nextHangoutEventId?: string | null,
     ) => {
-      navigateModalStep(step, nextMode, nextEventId, "push");
+      navigateModalStep(
+        step,
+        nextMode,
+        nextEventId,
+        nextHangoutEventId,
+        "push",
+      );
     },
     [navigateModalStep],
   );
@@ -127,8 +155,15 @@ export function useHangoutModalRouteState() {
       step: HangoutModalStep,
       nextMode?: HangoutFlowMode,
       nextEventId?: string | null,
+      nextHangoutEventId?: string | null,
     ) => {
-      navigateModalStep(step, nextMode, nextEventId, "replace");
+      navigateModalStep(
+        step,
+        nextMode,
+        nextEventId,
+        nextHangoutEventId,
+        "replace",
+      );
     },
     [navigateModalStep],
   );
@@ -142,6 +177,7 @@ export function useHangoutModalRouteState() {
     currentStep: modalStep ?? "event",
     mode,
     eventId,
+    hangoutEventId,
     legacyEventTypeId,
     openModal,
     setCurrentStep,

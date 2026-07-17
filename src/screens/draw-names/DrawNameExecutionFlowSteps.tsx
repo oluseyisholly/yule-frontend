@@ -30,6 +30,8 @@ type DrawNameExecutionFlowStepsProps = {
   onWishlistNotificationNo: () => void;
   onWishlistNotificationBack: () => void;
   isWishlistNotificationPending: boolean;
+  caughtMyEyeProductIds?: string[];
+  prioritizedWishlistGiftIds?: string[];
   readyEventName: string;
   onReadyBack: () => void;
   onDrawName: () => void;
@@ -68,6 +70,8 @@ export default function DrawNameExecutionFlowSteps({
   onWishlistNotificationNo,
   onWishlistNotificationBack,
   isWishlistNotificationPending,
+  caughtMyEyeProductIds = [],
+  prioritizedWishlistGiftIds = [],
   readyEventName,
   onReadyBack,
   onDrawName,
@@ -104,6 +108,9 @@ export default function DrawNameExecutionFlowSteps({
           isWishlistNextPending || !selectedWishlistGiftIds.length
         }
         nextLabel={isWishlistNextPending ? "Saving..." : "Next"}
+        caughtMyEyeProductIds={caughtMyEyeProductIds}
+        prioritizedProductIds={prioritizedWishlistGiftIds}
+        deferProductsUntilInitialSelectionResolved
       />
     );
   }

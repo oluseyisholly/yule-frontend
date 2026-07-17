@@ -96,3 +96,33 @@ export type CompleteScheduledEventMessageSetupResponse = {
     status: string;
   };
 };
+
+export type ScheduledEventMessageMetricValue = {
+  value: number;
+};
+
+export type ScheduledEventMessageMetricValueWithChange =
+  ScheduledEventMessageMetricValue & {
+    percentageChangeThisMonth: number;
+    currentMonth: number;
+    previousMonth: number;
+    currentWeek: number;
+  };
+
+export type ScheduledEventMessageMetricValueWithWeeklyChange =
+  ScheduledEventMessageMetricValue & {
+    newThisWeek: number;
+  };
+
+export type ScheduledEventMessageMetricsData = {
+  totalEvents: ScheduledEventMessageMetricValueWithChange;
+  totalRecipients: ScheduledEventMessageMetricValue;
+  totalEventsThisMonth: ScheduledEventMessageMetricValueWithWeeklyChange;
+  amountSpent: ScheduledEventMessageMetricValueWithChange;
+};
+
+export type ScheduledEventMessageMetricsResponse = {
+  code: number;
+  message: string;
+  data: ScheduledEventMessageMetricsData;
+};

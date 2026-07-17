@@ -3,7 +3,7 @@ import { Button as ShadcnButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ButtonProps = {
-  label?: string;
+  label?: React.ReactNode;
   href?: string;
   variant?: "filled" | "outlined" | "ghost";
 } & React.ComponentProps<"button">;

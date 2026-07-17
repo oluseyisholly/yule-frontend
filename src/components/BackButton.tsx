@@ -27,10 +27,7 @@ export default function BackButton({
       onClick={onClick}
       aria-label={ariaLabel}
       disabled={disabled}
-      className={cn(
-        "inline-flex items-center justify-center !h-[38px]",
-        className,
-      )}
+      className={cn("inline-flex items-center justify-center h-[38px]", className)}
     >
       <BackIcon className={iconClassName} />
     </button>

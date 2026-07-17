@@ -1,20 +1,22 @@
 "use client";
 
-import BackButton from "@/components/BackButton";
-import ModalButton from "@/components/ModalButtons";
 import { Input } from "@/components/ui/input";
+import FlowActionButtons from "@/components/FlowActionButtons";
 
 type GroupNameStepProps = {
   value: string;
   onChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  onSaveAndContinue?: () => void;
   onGoToEventName?: () => void;
   title?: string;
   description?: string;
   placeholder?: string;
   nextLabel?: string;
+  saveAndContinueLabel?: string;
   nextDisabled?: boolean;
+  isSaveAndContinuePending?: boolean;
 };
 
 export default function GroupNameStep({
@@ -22,12 +24,15 @@ export default function GroupNameStep({
   onChange,
   onBack,
   onNext,
+  onSaveAndContinue,
   onGoToEventName,
   title = "Your group is almost set up.",
   description = "We thought to suggest the name below for your group. Feel free to edit as you see fit.",
   placeholder = "Write group name",
   nextLabel = "Next",
+  saveAndContinueLabel = "Save & Continue",
   nextDisabled = false,
+  isSaveAndContinuePending = false,
 }: GroupNameStepProps) {
   return (
     <div className="space-y-8 pt-1 sm:space-y-10">
@@ -70,22 +75,15 @@ export default function GroupNameStep({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:flex-nowrap">
-        <BackButton
-          onClick={onBack}
-          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[24px]"
-        />
-
-        <ModalButton
-          type="button"
-          onClick={onNext}
-          disabled={nextDisabled}
-          className="max-w-[152px] !h-[38px] "
-        >
-          {nextLabel}
-        </ModalButton>
-      </div>
+      <FlowActionButtons
+        onBack={onBack}
+        onNext={onNext}
+        onSaveAndContinue={onSaveAndContinue}
+        nextLabel={nextLabel}
+        saveAndContinueLabel={saveAndContinueLabel}
+        nextDisabled={nextDisabled}
+        isSaveAndContinuePending={isSaveAndContinuePending}
+      />
     </div>
   );
 }

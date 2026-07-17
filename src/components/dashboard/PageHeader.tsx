@@ -55,7 +55,9 @@ export default function DashboardPageHeader({
       </div>
 
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">{actions}</div>
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto sm:gap-3">
+          {actions}
+        </div>
       ) : actionLabel ? (
         actionHref ? (
           <Button

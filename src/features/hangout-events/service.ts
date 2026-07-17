@@ -1,8 +1,11 @@
 import { deleteApi, getApi, patchApi, postApi } from "@/lib/api";
 import type {
   HangoutEventCompletePayload,
+  HangoutEventDetailsPayload,
+  HangoutEventDetailsResponse,
   HangoutEventCreatePayload,
   HangoutEventDeleteResponse,
+  HangoutEventFulfillmentPayload,
   HangoutEventMutationResponse,
   HangoutEventPatchPayload,
   HangoutEventResponse,
@@ -56,6 +59,16 @@ export async function updateHangoutEvent(
   );
 }
 
+export async function updateHangoutEventDetails(
+  eventId: string,
+  payload: HangoutEventDetailsPayload,
+) {
+  return patchApi<HangoutEventDetailsResponse, HangoutEventDetailsPayload>(
+    `${HANGOUT_EVENTS_ENDPOINT}/event/${eventId}/details`,
+    payload,
+  );
+}
+
 export async function completeHangoutEvent(eventId: string) {
   return patchApi<HangoutEventMutationResponse, HangoutEventCompletePayload>(
     `${HANGOUT_EVENTS_ENDPOINT}/${eventId}/complete`,
@@ -65,6 +78,16 @@ export async function completeHangoutEvent(eventId: string) {
       },
     },
   );
+}
+
+export async function updateHangoutEventFulfillment(
+  eventId: string,
+  payload: HangoutEventFulfillmentPayload,
+) {
+  return patchApi<
+    HangoutEventMutationResponse,
+    HangoutEventFulfillmentPayload
+  >(`${HANGOUT_EVENTS_ENDPOINT}/${eventId}/fulfillment`, payload);
 }
 
 export async function deleteHangoutEvent(eventId: string) {

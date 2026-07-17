@@ -4,6 +4,7 @@ import type {
   ScheduledEventMessageDeleteResponse,
   ScheduledEventMessagePayload,
   ScheduledEventMessageResponse,
+  ScheduledEventMessageMetricsResponse,
   ScheduledEventMessagesParams,
   ScheduledEventMessagesResponse,
 } from "@/features/scheduled-event-messages/types";
@@ -25,6 +26,12 @@ export async function getCreatedScheduledEventMessages(
         ...(resolvedSearchQuery ? { searchQuery: resolvedSearchQuery } : {}),
       },
     },
+  );
+}
+
+export async function getScheduledEventMessageMetrics() {
+  return getApi<ScheduledEventMessageMetricsResponse>(
+    "/dashboard/scheduled-event-message-metrics",
   );
 }
 

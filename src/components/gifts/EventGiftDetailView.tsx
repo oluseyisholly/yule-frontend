@@ -1,9 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { Trash2Icon } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock3,
+  Trash2Icon,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import BackLink from "@/components/BackLink";
+import BackLink, { BackIcon } from "@/components/BackLink";
 import Button from "@/components/Button";
 import DetailHeader from "@/components/DetailHeader";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
@@ -12,7 +16,14 @@ import verifiedIcon from "@/assets/icons/verified.svg";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import { cn } from "@/lib/utils";
 
-type EventGiftDetailStatus = "Completed" | "Draft" | "Ongoing" | "In Progress";
+type EventGiftDetailStatus =
+  | "Completed"
+  | "Draft"
+  | "Ongoing"
+  | "In Progress"
+  | "Pending"
+  | "Fulfilled"
+  | "Not Fulfilled";
 
 type EventGiftDetailSummaryItem = {
   label: string;
@@ -38,6 +49,9 @@ type EventGiftDetailViewProps = {
   onAddToCart?: () => void;
   addToCartLabel?: string;
   addToCartDisabled?: boolean;
+  onStatusAction?: () => void;
+  statusActionLabel?: string;
+  statusActionDisabled?: boolean;
   onMessageVendor: () => void;
   onReportItem: () => void;
   onShareProduct: () => void;
@@ -190,8 +204,11 @@ export default function EventGiftDetailView({
   showInlineDeleteAction = false,
   inlineDeleteActionLabel = "Delete",
   onAddToCart,
-  addToCartLabel = "Add to Caught My Eye",
+  addToCartLabel = "Add to Favourites",
   addToCartDisabled = false,
+  onStatusAction,
+  statusActionLabel = "Mark as Fulfilled",
+  statusActionDisabled = false,
   onMessageVendor,
   onReportItem,
   onShareProduct,
@@ -218,8 +235,8 @@ export default function EventGiftDetailView({
           onClick={onBack}
           className="inline-flex items-center gap-2 text-[15px] font-medium text-[#3300C9] transition-colors hover:text-[#25009A]"
         >
-          <span className="inline-flex h-9 w-12 items-center justify-center rounded-full bg-[#F4F0F8] text-[26px] leading-none">
-            ←
+          <span className="inline-flex h-9 w-12 items-center justify-center rounded-full bg-[#F4F0F8]">
+            <BackIcon className="size-5" />
           </span>
           {backLabel}
         </button>
@@ -243,7 +260,11 @@ export default function EventGiftDetailView({
                     className={cn(
                       "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium",
                       status === "Completed" && "bg-[#E6F7EC] text-[#1FAB54]",
+                      status === "Fulfilled" && "bg-[#E6F7EC] text-[#1FAB54]",
                       status === "Draft" && "bg-[#FFF1DD] text-[#C28A00]",
+                      status === "Pending" && "bg-[#FFF1DD] text-[#C28A00]",
+                      status === "Not Fulfilled" &&
+                        "bg-[#FFF1DD] text-[#C28A00]",
                       status === "Ongoing" && "bg-[#EFE6FD] text-[#3300C9]",
                       status === "In Progress" && "bg-[#EFE6FD] text-[#3300C9]",
                     )}
@@ -258,17 +279,41 @@ export default function EventGiftDetailView({
                 bg: "#EFE6FD",
               }}
               actions={
-                hideDeleteAction ? null : (
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    className="border-[#F6C8C8] bg-white px-5 text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F]"
-                    onClick={onDelete}
-                  >
-                    <Trash2Icon className="size-4" />
-                    Delete
-                  </Button>
-                )
+                <div className="flex flex-wrap items-center gap-3">
+                  {onStatusAction ? (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      className={cn(
+                        "border-[#D9D0F7] bg-white px-5 text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]",
+                        statusActionDisabled && "opacity-70",
+                      )}
+                      onClick={onStatusAction}
+                      disabled={statusActionDisabled}
+                    >
+                      {statusActionLabel
+                        ?.toLowerCase()
+                        .includes("not fulfilled") ? (
+                        <Clock3 className="size-4" />
+                      ) : (
+                        <CheckCircle2 className="size-4" />
+                      )}
+                      {statusActionLabel}
+                    </Button>
+                  ) : null}
+
+                  {hideDeleteAction ? null : (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      className="border-[#F6C8C8] bg-white px-5 text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F]"
+                      onClick={onDelete}
+                    >
+                      <Trash2Icon className="size-4" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
               }
             />
           )}

@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import Button from "@/components/Button";
 import FilterDrawer from "@/components/FilterDrawer";
-import ModalButton from "@/components/ModalButtons";
+import FlowActionButtons from "@/components/FlowActionButtons";
 import filterIcon from "@/assets/icons/filter.svg";
 import verifiedIcon from "@/assets/icons/verified.svg";
 import locationIcon from "@/assets/icons/location.svg";
@@ -35,6 +35,7 @@ import type {
   MarketplaceCondition,
   MarketplaceProduct,
 } from "@/features/marketplace/types";
+import { BackIcon } from "./BackLink";
 
 type WishlistGiftSelectionStepProps = {
   selectedIds: string[];
@@ -47,8 +48,11 @@ type WishlistGiftSelectionStepProps = {
   maximumSpend?: number;
   onBack?: () => void;
   onNext: () => void;
+  onSaveAndContinue?: () => void;
   nextDisabled?: boolean;
   nextLabel?: string;
+  saveAndContinueLabel?: string;
+  isSaveAndContinuePending?: boolean;
   isInitialSelectionLoading?: boolean;
   isInitialSelectionError?: boolean;
   onRetryInitialSelection?: () => void;
@@ -69,6 +73,10 @@ type WishlistGiftSelectionStepProps = {
   onRetryExternalProducts?: () => void;
   hideSelectionControls?: boolean;
   caughtMyEyeProductIds?: string[];
+  prioritizedProductIds?: string[];
+  deferProductsUntilInitialSelectionResolved?: boolean;
+  nextClassName?: string;
+  backClassName?: string;
 };
 
 type FilterOption = {
@@ -136,6 +144,24 @@ function formatLocation(product: MarketplaceProduct) {
 
 function formatPrice(amount: number) {
   return new Intl.NumberFormat("en-NG").format(amount);
+}
+
+function CaughtMyEyeLoveIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 5.57355L11.452 6.08555C11.5222 6.16065 11.607 6.22052 11.7013 6.26145C11.7956 6.30238 11.8972 6.3235 12 6.3235C12.1028 6.3235 12.2044 6.30238 12.2987 6.26145C12.393 6.22052 12.4778 6.16065 12.548 6.08555L12 5.57355ZM2.652 13.6816C2.70148 13.7687 2.76793 13.8451 2.84743 13.9062C2.92693 13.9672 3.01787 14.0117 3.11486 14.0371C3.21186 14.0624 3.31294 14.068 3.41215 14.0536C3.51135 14.0392 3.60665 14.005 3.69243 13.9531C3.7782 13.9012 3.85271 13.8327 3.91154 13.7515C3.97037 13.6704 4.01233 13.5782 4.03495 13.4806C4.05756 13.3829 4.06037 13.2817 4.0432 13.1829C4.02603 13.0842 3.98924 12.9899 3.935 12.9056L2.652 13.6816ZM6.537 16.1706C6.46924 16.0963 6.38722 16.0364 6.29584 15.9944C6.20445 15.9524 6.10557 15.9293 6.00505 15.9263C5.90454 15.9233 5.80446 15.9406 5.71075 15.9771C5.61705 16.0136 5.53164 16.0685 5.4596 16.1387C5.38756 16.2088 5.33037 16.2928 5.29142 16.3855C5.25248 16.4782 5.23257 16.5778 5.23288 16.6783C5.2332 16.7789 5.25374 16.8784 5.29327 16.9708C5.3328 17.0633 5.39052 17.1468 5.463 17.2166L6.537 16.1706ZM2.75 9.31755C2.75 6.41255 4.018 4.61755 5.586 4.00255C7.151 3.38955 9.34 3.82755 11.452 6.08555L12.548 5.06155C10.16 2.50755 7.349 1.70155 5.039 2.60555C2.732 3.50955 1.25 5.99155 1.25 9.31755H2.75ZM15.51 19.9596C17.003 18.7486 18.791 17.1256 20.213 15.3126C21.62 13.5186 22.75 11.4336 22.75 9.31555H21.25C21.25 10.9276 20.37 12.6796 19.032 14.3866C17.708 16.0756 16.016 17.6186 14.566 18.7946L15.51 19.9596ZM22.75 9.31555C22.75 5.99055 21.268 3.50855 18.96 2.60555C16.65 1.70055 13.84 2.50555 11.452 5.06055L12.548 6.08555C14.66 3.82755 16.849 3.38855 18.414 4.00155C19.982 4.61555 21.25 6.41155 21.25 9.31555H22.75ZM8.49 19.9606C9.76 20.9926 10.642 21.7496 12 21.7496V20.2496C11.277 20.2496 10.827 19.9256 9.434 18.7956L8.49 19.9606ZM14.566 18.7946C13.173 19.9246 12.723 20.2496 12 20.2496V21.7496C13.358 21.7496 14.241 20.9926 15.511 19.9606L14.566 18.7946ZM3.936 12.9056C3.187 11.6696 2.75 10.4546 2.75 9.31755H1.25C1.25 10.8296 1.826 12.3176 2.652 13.6816L3.936 12.9056ZM9.434 18.7956C8.41879 17.9768 7.45152 17.1004 6.537 16.1706L5.463 17.2166C6.41739 18.1894 7.42877 19.1056 8.49 19.9606L9.434 18.7956Z"
+        fill="#E04F4F"
+      />
+    </svg>
+  );
 }
 
 function parsePriceFilterValue(value: string) {
@@ -343,11 +369,7 @@ function GiftCard({
           <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-1.5 py-0.5 text-[8px] font-medium text-[#FF6600] sm:px-2 sm:text-[9px] lg:text-[10px]">
             {formatConditionLabel(product.condition)}
           </span>
-          {isCaughtMyEye ? (
-            <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#3300C9]/20 bg-[#F4F0FF] px-1.5 py-0.5 text-[8px] font-semibold text-[#3300C9] sm:px-2 sm:text-[9px] lg:text-[10px]">
-              Caught My Eye
-            </span>
-          ) : null}
+          {isCaughtMyEye ? <CaughtMyEyeLoveIcon /> : null}
         </div>
 
         <p className="line-clamp-1 text-[8px] leading-snug text-neutral sm:line-clamp-2 sm:text-[9px]">
@@ -401,8 +423,11 @@ export default function WishlistGiftSelectionStep({
   maximumSpend,
   onBack,
   onNext,
+  onSaveAndContinue,
   nextDisabled = false,
   nextLabel = "Next",
+  saveAndContinueLabel = "Save & Continue",
+  isSaveAndContinuePending = false,
   isInitialSelectionLoading = false,
   isInitialSelectionError = false,
   onRetryInitialSelection,
@@ -423,6 +448,8 @@ export default function WishlistGiftSelectionStep({
   onRetryExternalProducts,
   hideSelectionControls = false,
   caughtMyEyeProductIds = [],
+  prioritizedProductIds = [],
+  deferProductsUntilInitialSelectionResolved = false,
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -471,6 +498,14 @@ export default function WishlistGiftSelectionStep({
     () => parsePriceFilterValue(maximumPrice),
     [maximumPrice],
   );
+  const prioritizedProductIdsForQuery = useMemo(
+    () => Array.from(new Set(prioritizedProductIds.filter(Boolean))),
+    [prioritizedProductIds],
+  );
+  const prioritizedProductIdSet = useMemo(
+    () => new Set(prioritizedProductIdsForQuery),
+    [prioritizedProductIdsForQuery],
+  );
 
   const {
     data: productsResponse,
@@ -483,6 +518,7 @@ export default function WishlistGiftSelectionStep({
       limit: PAGE_SIZE,
       page: currentPage,
       search: deferredQuery.trim() || undefined,
+      productIds: prioritizedProductIdsForQuery,
       categorySlug: selectedCategorySlug || undefined,
       subCategorySlug: selectedSubCategorySlug || undefined,
       minPrice: resolvedMinimumPrice,
@@ -493,7 +529,11 @@ export default function WishlistGiftSelectionStep({
       status: "active",
     },
     {
-      enabled: !enableInfiniteScroll && !isExternalProductSource,
+      enabled:
+        !enableInfiniteScroll &&
+        !isExternalProductSource &&
+        (!deferProductsUntilInitialSelectionResolved ||
+          !isInitialSelectionLoading),
     },
   );
 
@@ -509,6 +549,7 @@ export default function WishlistGiftSelectionStep({
     {
       limit: PAGE_SIZE,
       search: deferredQuery.trim() || undefined,
+      productIds: prioritizedProductIdsForQuery,
       categorySlug: selectedCategorySlug || undefined,
       subCategorySlug: selectedSubCategorySlug || undefined,
       minPrice: resolvedMinimumPrice,
@@ -519,7 +560,11 @@ export default function WishlistGiftSelectionStep({
       status: "active",
     },
     {
-      enabled: enableInfiniteScroll && !isExternalProductSource,
+      enabled:
+        enableInfiniteScroll &&
+        !isExternalProductSource &&
+        (!deferProductsUntilInitialSelectionResolved ||
+          !isInitialSelectionLoading),
     },
   );
 
@@ -556,15 +601,41 @@ export default function WishlistGiftSelectionStep({
       return haystack.includes(normalizedQuery);
     });
   }, [deferredQuery, externalProducts, isExternalProductSource]);
-  const products = isExternalProductSource
+  const rawProducts = isExternalProductSource
     ? filteredExternalProducts
     : enableInfiniteScroll
       ? infiniteProducts
-      : productsResponse?.data ?? [];
+      : (productsResponse?.data ?? []);
+  const products = useMemo(() => {
+    if (!prioritizedProductIdsForQuery.length) {
+      return rawProducts;
+    }
+
+    const prioritizedProducts: MarketplaceProduct[] = [];
+    const remainingProducts: MarketplaceProduct[] = [];
+
+    rawProducts.forEach((product) => {
+      if (prioritizedProductIdSet.has(product._id)) {
+        prioritizedProducts.push(product);
+        return;
+      }
+
+      remainingProducts.push(product);
+    });
+
+    prioritizedProducts.sort(
+      (left, right) =>
+        prioritizedProductIdsForQuery.indexOf(left._id) -
+        prioritizedProductIdsForQuery.indexOf(right._id),
+    );
+
+    return [...prioritizedProducts, ...remainingProducts];
+  }, [prioritizedProductIdSet, prioritizedProductIdsForQuery, rawProducts]);
   const totalPages = Math.max(productsResponse?.totalPages ?? 1, 1);
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pages = buildPages(safeCurrentPage, totalPages);
   const infiniteScrollSentinelRef = useRef<HTMLDivElement | null>(null);
+  const hydratedSelectedProductIdsRef = useRef<Set<string>>(new Set());
   const caughtMyEyeProductIdSet = useMemo(
     () => new Set(caughtMyEyeProductIds.filter(Boolean)),
     [caughtMyEyeProductIds],
@@ -575,8 +646,14 @@ export default function WishlistGiftSelectionStep({
       return;
     }
 
+    const selectedIdSet = new Set(selectedIds);
+
     products.forEach((product) => {
-      if (selectedIds.includes(product._id)) {
+      if (
+        selectedIdSet.has(product._id) &&
+        !hydratedSelectedProductIdsRef.current.has(product._id)
+      ) {
+        hydratedSelectedProductIdsRef.current.add(product._id);
         onSelectedProductToggleRef.current(product, true);
       }
     });
@@ -603,11 +680,7 @@ export default function WishlistGiftSelectionStep({
       (entries) => {
         const firstEntry = entries[0];
 
-        if (
-          firstEntry?.isIntersecting &&
-          hasNextPage &&
-          !isFetchingNextPage
-        ) {
+        if (firstEntry?.isIntersecting && hasNextPage && !isFetchingNextPage) {
           void fetchNextPage();
         }
       },
@@ -617,12 +690,7 @@ export default function WishlistGiftSelectionStep({
     observer.observe(sentinel);
 
     return () => observer.disconnect();
-  }, [
-    enableInfiniteScroll,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  ]);
+  }, [enableInfiniteScroll, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   useEffect(() => {
     if (!isFilterDrawerOpen) {
@@ -903,87 +971,81 @@ export default function WishlistGiftSelectionStep({
       }
       footer={
         enableInfiniteScroll && hideFooterActions ? null : (
-        <div className="space-y-4 border-t border-[#F1EDF9] pt-5">
-          {enableInfiniteScroll || isExternalProductSource ? null : (
-            <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
-              <Button
-                type="button"
-                variant="outlined"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={safeCurrentPage === 1}
-                className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ← Previous
-              </Button>
-
-              <div className="flex items-center gap-1.5">
-                {pages.map((page, index) =>
-                  page === "..." ? (
-                    <span
-                      key={`gap-${index}`}
-                      className="px-2 text-[13px] text-muted"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      type="button"
-                      onClick={() => setCurrentPage(page)}
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition-colors",
-                        safeCurrentPage === page
-                          ? "bg-gray-100 text-dark"
-                          : "text-muted hover:bg-gray-50",
-                      )}
-                    >
-                      {page}
-                    </button>
-                  ),
-                )}
-              </div>
-
-              <Button
-                type="button"
-                variant="outlined"
-                onClick={() =>
-                  setCurrentPage((page) => Math.min(totalPages, page + 1))
-                }
-                disabled={safeCurrentPage === totalPages}
-                className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next →
-              </Button>
-            </div>
-          )}
-
-          {hideFooterActions ? null : (
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              {onBack ? (
-                <ModalButton
+          <div className="space-y-4 border-t border-[#F1EDF9] pt-5">
+            {enableInfiniteScroll || isExternalProductSource ? null : (
+              <div className="flex flex-row items-center justify-between gap-4  sm:gap-6">
+                <Button
                   type="button"
-                  variant="secondary"
-                  onClick={onBack}
-                  className="max-w-[126px] !h-[38px] rounded-[16px]"
+                  variant="outlined"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.max(1, page - 1))
+                  }
+                  disabled={safeCurrentPage === 1}
+                  className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Back
-                </ModalButton>
-              ) : null}
+                  <span className="inline-flex items-center gap-2">
+                    <BackIcon className="size-4" />
+                    <span>Previous</span>
+                  </span>
+                </Button>
 
-              <ModalButton
-                type="button"
-                onClick={onNext}
-                disabled={nextDisabled}
-                className={cn(
-                  "!h-[38px] rounded-[16px]",
-                  onBack ? "max-w-[126px]" : "w-full max-w-[420px]",
-                )}
-              >
-                {nextLabel}
-              </ModalButton>
-            </div>
-          )}
-        </div>
+                <div className="flex items-center gap-1.5">
+                  {pages.map((page, index) =>
+                    page === "..." ? (
+                      <span
+                        key={`gap-${index}`}
+                        className="px-2 text-[13px] text-muted"
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition-colors",
+                          safeCurrentPage === page
+                            ? "bg-gray-100 text-dark"
+                            : "text-muted hover:bg-gray-50",
+                        )}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(totalPages, page + 1))
+                  }
+                  disabled={safeCurrentPage === totalPages}
+                  className="rounded-lg border-gray-200 px-4 py-2 text-[13px] text-dark hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next →
+                </Button>
+              </div>
+            )}
+
+            {hideFooterActions ? null : (
+              <FlowActionButtons
+                showBack={Boolean(onBack)}
+                onBack={onBack}
+                onNext={onNext}
+                onSaveAndContinue={onSaveAndContinue}
+                nextDisabled={nextDisabled}
+                nextLabel={nextLabel}
+                saveAndContinueLabel={saveAndContinueLabel}
+                isSaveAndContinuePending={isSaveAndContinuePending}
+                className="pt-0"
+                backClassName="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                nextClassName="!w-fit min-w-[96px] px-6"
+              />
+            )}
+          </div>
         )
       }
       contentClassName={cn(
@@ -1005,8 +1067,10 @@ export default function WishlistGiftSelectionStep({
       )}
 
       {showLoading ? (
-        <div className="rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:p-5">
-          <GiftGridLoadingSkeleton count={8} />
+        <div className="flex min-h-[480px] flex-col rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] p-4 sm:min-h-[540px] sm:p-5">
+          <div className="flex-1">
+            <GiftGridLoadingSkeleton count={8} />
+          </div>
         </div>
       ) : products.length === 0 ? (
         <div className="flex min-h-[320px] items-center justify-center rounded-[16px] border border-dashed border-[#E6E0F7] bg-[#FAF8FF] px-6 text-center text-[14px] text-[#7D7D7D]">

@@ -3,10 +3,13 @@ import type {
   AssignBulkGiftsPayload,
   AssignBulkGiftsResponse,
   ClaimGiftResponse,
+  UpdateGiftFulfillmentPayload,
+  UpdateGiftFulfillmentResponse,
   ContactGiftCartDeleteResponse,
   ClaimedGiftsParams,
   ClaimedGiftsResponse,
   ContactGiftCartCountResponse,
+  ContactGiftCartParticipantGiftIdsResponse,
   ContactGiftCartItemsParams,
   ContactGiftCartItemsResponse,
   ContactGiftCartMutationResponse,
@@ -16,7 +19,9 @@ import type {
   EventSelectedGiftsParams,
   EventSelectedGiftsResponse,
   GiftMetricsResponse,
+  GiftDetailResponse,
   GivenGroupedGiftsParams,
+  GivenGroupedGift,
   GivenGroupedGiftsResponse,
   ParticipantGiftsParams,
   ParticipantGiftsResponse,
@@ -75,6 +80,12 @@ export async function getContactGiftCartCount() {
   );
 }
 
+export async function getContactGiftCartParticipantGiftIds() {
+  return getApi<ContactGiftCartParticipantGiftIdsResponse>(
+    `${CONTACT_GIFT_CART_ENDPOINT}/participant-gift-ids`,
+  );
+}
+
 export async function deleteContactGiftCartItem(id: string) {
   return deleteApi<ContactGiftCartDeleteResponse>(
     `${CONTACT_GIFT_CART_ENDPOINT}/${id}`,
@@ -128,6 +139,20 @@ export async function claimGift(giftId: string) {
   return patchApi<ClaimGiftResponse>(`${GIFTS_ENDPOINT}/${giftId}/claim`);
 }
 
+export async function updateGiftFulfillment(
+  giftId: string,
+  payload: UpdateGiftFulfillmentPayload,
+) {
+  return patchApi<UpdateGiftFulfillmentResponse, UpdateGiftFulfillmentPayload>(
+    `${GIFTS_ENDPOINT}/${giftId}/fulfillment`,
+    payload,
+  );
+}
+
+export async function getGiftById(giftId: string) {
+  return getApi<GiftDetailResponse>(`${GIFTS_ENDPOINT}/${giftId}`);
+}
+
 export async function getClaimedGifts(
   eventId: string,
   params: ClaimedGiftsParams = {},
@@ -179,5 +204,14 @@ export async function getEventGivenGroupedGifts(
         searchQuery: params.searchQuery ?? "",
       },
     },
+  );
+}
+
+export async function getEventGivenGroupedGift(
+  eventId: string,
+  participantGiftId: string,
+) {
+  return getApi<{ code: number; message: string; data: GivenGroupedGift }>(
+    `${GIFTS_ENDPOINT}/event/${eventId}/given/grouped/${participantGiftId}`,
   );
 }

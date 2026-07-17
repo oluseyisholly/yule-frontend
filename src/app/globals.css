@@ -392,7 +392,7 @@ html.dark .yule-theme-toggle:hover {
 }
 
 /* Make the blue landing logo readable on dark sticky header */
-html.dark header img[alt="Yule logo"] {
+html.dark header img[alt="Festa logo"] {
   filter: brightness(0) invert(1);
 }
 

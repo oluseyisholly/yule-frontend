@@ -8,6 +8,7 @@ type AuthCtaButtonProps = {
   signUpHref: string;
   signInHref: string;
   activeOption?: "sign-up" | "sign-in";
+  size?: "default" | "compact";
   className?: string;
 };
 
@@ -15,15 +16,21 @@ export default function AuthCtaButton({
   signUpHref,
   signInHref,
   activeOption = "sign-up",
+  size = "default",
   className,
 }: AuthCtaButtonProps) {
   const optionClassName =
-    "flex min-h-[35px] w-auto shrink-0 items-center justify-center whitespace-nowrap rounded-[22px] px-4 text-center text-[11px] font-medium transition-colors sm:min-h-[42px] sm:rounded-[25px] sm:px-5 sm:text-[14px]";
+    size === "compact"
+      ? "flex min-h-[30px] w-auto shrink-0 items-center justify-center whitespace-nowrap rounded-[18px] px-2.5 text-center text-[10px] font-medium transition-colors min-[380px]:min-h-[34px] min-[380px]:px-3 min-[380px]:text-[11px]"
+      : "flex min-h-[35px] w-auto shrink-0 items-center justify-center whitespace-nowrap rounded-[22px] px-4 text-center text-[11px] font-medium transition-colors sm:min-h-[42px] sm:rounded-[25px] sm:px-5 sm:text-[14px]";
 
   return (
     <div
       className={cn(
-        "inline-flex w-fit items-center rounded-[28px] border border-[#3F10E8] bg-white  sm:rounded-[31px] p-1",
+        "inline-flex w-fit items-center border border-[#3F10E8] bg-white p-1",
+        size === "compact"
+          ? "rounded-[22px]"
+          : "rounded-[28px] sm:rounded-[31px]",
         className,
       )}
     >

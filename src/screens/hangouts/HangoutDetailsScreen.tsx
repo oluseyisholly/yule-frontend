@@ -5,13 +5,16 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   CalendarDaysIcon,
+  CheckCircle2Icon,
   ChevronDownIcon,
+  Clock3Icon,
   Link2Icon,
   MapPinIcon,
   UsersIcon,
 } from "lucide-react";
 import Button from "@/components/Button";
 import { BackIcon } from "@/components/BackLink";
+import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import UserAvatar from "@/components/UserAvatar";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { Calendar } from "@/components/ui/calender";
@@ -23,6 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { canManageHangoutEvent } from "@/features/hangout-events/access";
 import { useHangoutEventQuery } from "@/features/hangout-events/hooks/useHangoutEventQuery";
+import { useUpdateHangoutEventFulfillmentMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventFulfillmentMutation";
 import { useUpdateHangoutEventMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventMutation";
 import { useMarketplaceProductQuery } from "@/features/marketplace/hooks/useMarketplaceProductQuery";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
@@ -508,11 +512,16 @@ export default function HangoutDetailsScreen({
     refetch,
   } = useHangoutEventQuery(hangoutId);
   const updateHangoutEventMutation = useUpdateHangoutEventMutation();
+  const updateHangoutFulfillmentMutation =
+    useUpdateHangoutEventFulfillmentMutation();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [editableCheckInDate, setEditableCheckInDate] = useState("");
   const [editableCheckOutDate, setEditableCheckOutDate] = useState("");
   const [isCheckInCalendarOpen, setIsCheckInCalendarOpen] = useState(false);
   const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
+  const [pendingFulfillmentState, setPendingFulfillmentState] = useState<
+    boolean | null
+  >(null);
   const marketplaceProductId = hangout?.hangoutEventId?.trim() || null;
   const { data: marketplaceProduct } = useMarketplaceProductQuery(
     marketplaceProductId,
@@ -657,6 +666,13 @@ export default function HangoutDetailsScreen({
   const hasBookingChanges =
     editableCheckInDate !== originalCheckInDate ||
     editableCheckOutDate !== originalCheckOutDate;
+  const isHangoutFulfilled =
+    typeof hangout?.isFulfilled === "boolean"
+      ? hangout.isFulfilled
+      : hangout?.event.status?.trim().toLowerCase() === "completed";
+  const fulfillmentActionLabel = isHangoutFulfilled
+    ? "Mark as not fulfilled"
+    : "Mark as fulfilled";
 
   useEffect(() => {
     if (activeImageIndex >= gallery.length && gallery.length > 0) {
@@ -699,6 +715,32 @@ export default function HangoutDetailsScreen({
         error instanceof Error
           ? error.message
           : "Unable to update hangout details right now.";
+      toast.error(message);
+    }
+  };
+
+  const handleConfirmToggleHangoutFulfillment = async () => {
+    if (!hangout || pendingFulfillmentState === null) {
+      return;
+    }
+
+    try {
+      await updateHangoutFulfillmentMutation.mutateAsync({
+        eventId: hangout.eventId,
+        isFulfilled: pendingFulfillmentState,
+      });
+
+      toast.success(
+        pendingFulfillmentState
+          ? "Hangout marked as fulfilled."
+          : "Hangout marked as not fulfilled.",
+      );
+      setPendingFulfillmentState(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to update hangout fulfillment right now.";
       toast.error(message);
     }
   };
@@ -756,16 +798,35 @@ export default function HangoutDetailsScreen({
             {pageTitle}
           </h1>
 
-          <button
-            type="button"
-            onClick={() =>
-              toast("Sharing hangout details will be connected next.")
-            }
-            className="inline-flex items-center gap-2 self-start rounded-full border border-[#ECE8F7] px-3 py-2 text-sm text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
-          >
-            <span>Share</span>
-            <Link2Icon className="size-3.5" strokeWidth={1.8} />
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start sm:justify-end">
+            {canManage ? (
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() => setPendingFulfillmentState(!isHangoutFulfilled)}
+                disabled={updateHangoutFulfillmentMutation.isPending}
+                className="h-[40px] border-[#D9D0F7] bg-white px-5 text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]"
+              >
+                {isHangoutFulfilled ? (
+                  <Clock3Icon className="size-4" strokeWidth={1.8} />
+                ) : (
+                  <CheckCircle2Icon className="size-4" strokeWidth={1.8} />
+                )}
+                {fulfillmentActionLabel}
+              </Button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() =>
+                toast("Sharing hangout details will be connected next.")
+              }
+              className="inline-flex h-[40px] items-center gap-2 rounded-full border border-[#ECE8F7] bg-white px-4 text-sm text-[#7D7D7D] transition-colors hover:bg-[#F6F2FF] hover:text-[#3300C9]"
+            >
+              <span>Share</span>
+              <Link2Icon className="size-3.5" strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 space-y-5">
@@ -940,6 +1001,7 @@ export default function HangoutDetailsScreen({
               >
                 Message Vendor
               </Button>
+
             </div>
           </div>
         </div>
@@ -972,6 +1034,29 @@ export default function HangoutDetailsScreen({
           )}
         </div>
       </section>
+
+      <ConfirmationModal
+        open={pendingFulfillmentState !== null}
+        onClose={() => setPendingFulfillmentState(null)}
+        onConfirm={handleConfirmToggleHangoutFulfillment}
+        action="save"
+        title={
+          pendingFulfillmentState
+            ? "Mark Hangout as Fulfilled"
+            : "Mark Hangout as Not Fulfilled"
+        }
+        description={
+          pendingFulfillmentState
+            ? "Are you sure you want to mark this hangout as fulfilled?"
+            : "Are you sure you want to mark this hangout as not fulfilled?"
+        }
+        confirmText={
+          pendingFulfillmentState
+            ? "Mark as Fulfilled"
+            : "Mark as Not Fulfilled"
+        }
+        isLoading={updateHangoutFulfillmentMutation.isPending}
+      />
     </div>
   );
 }

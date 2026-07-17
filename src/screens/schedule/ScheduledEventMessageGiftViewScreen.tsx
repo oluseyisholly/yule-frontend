@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import toast from "react-hot-toast";
 import BackLink from "@/components/BackLink";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
-import { EventGiftDetailSkeleton } from "@/components/ui/context-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEventGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useEventGivenGroupedGiftsQuery";
 import type { GivenGroupedGift } from "@/features/gifts/types";
 import { useMarketplaceProductQuery } from "@/features/marketplace/hooks/useMarketplaceProductQuery";
@@ -72,7 +72,7 @@ function formatCreatedBy(record?: {
     null;
   const fullName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim();
 
-  return fullName || contact?.email?.trim() || "Yule";
+  return fullName || contact?.email?.trim() || "Festa";
 }
 
 function toPersonName(person?: {
@@ -138,6 +138,59 @@ function buildProductFromGift(gift: GivenGroupedGift): MarketplaceProduct {
     condition: gift.condition?.trim() as MarketplaceProduct["condition"],
     slug: gift.productSlug?.trim() || undefined,
   };
+}
+
+function GiftProductDetailLoadingState({
+  backHref,
+  backLabel,
+}: {
+  backHref: string;
+  backLabel: string;
+}) {
+  return (
+    <div className="space-y-5">
+      <BackLink href={backHref} label={backLabel} />
+
+      <section className="rounded-[20px] bg-[#F6F7FB] sm:rounded-[24px]">
+        <div className="p-4 sm:p-5">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.95fr)] lg:gap-10">
+            <div className="rounded-[16px] bg-white p-4 sm:p-6 lg:p-10">
+              <Skeleton className="h-[240px] w-full rounded-[16px] sm:h-[320px]" />
+              <div className="mt-4 grid grid-cols-4 gap-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton
+                    key={`scheduled-gift-skeleton-${index}`}
+                    className="aspect-square w-full rounded-[12px]"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[16px] bg-white p-4 sm:p-6 lg:p-8">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <Skeleton className="h-7 w-40" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-8 w-28" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-[92%]" />
+                  <Skeleton className="h-4 w-[84%]" />
+                </div>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Skeleton className="h-10 w-32 rounded-full" />
+                  <Skeleton className="h-10 w-32 rounded-full" />
+                  <Skeleton className="h-10 w-32 rounded-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export default function ScheduledEventMessageGiftViewScreen({
@@ -234,7 +287,12 @@ export default function ScheduledEventMessageGiftViewScreen({
   const backHref = `/dashboard/schedule/${scheduledEventMessageId}`;
 
   if (isScheduledMessageLoading || isEventGiftsLoading) {
-    return <EventGiftDetailSkeleton backHref={backHref} backLabel="View Gift" />;
+    return (
+      <GiftProductDetailLoadingState
+        backHref={backHref}
+        backLabel="View Gift"
+      />
+    );
   }
 
   if (isScheduledMessageError || !record) {
@@ -274,7 +332,12 @@ export default function ScheduledEventMessageGiftViewScreen({
   }
 
   if (isMarketplaceProductLoading && !selectedGiftDetailProduct) {
-    return <EventGiftDetailSkeleton backHref={backHref} backLabel="View Gift" />;
+    return (
+      <GiftProductDetailLoadingState
+        backHref={backHref}
+        backLabel="View Gift"
+      />
+    );
   }
 
   if (!selectedGiftDetailProduct) {
@@ -292,19 +355,8 @@ export default function ScheduledEventMessageGiftViewScreen({
     <EventGiftDetailView
       backHref={backHref}
       backLabel="View Gift"
-      eventTitle={record.event?.title || record.subject || "Scheduled Message"}
-      createdBy={formatCreatedBy(record)}
-      createdAt={formatDate(record.createdAt)}
-      status={formatStatus(record.event?.status)}
-      avatarInitials={(record.event?.title || record.subject || "SM")
-        .slice(0, 2)
-        .toUpperCase()}
-      summaryItems={[
-        { label: "Event Date", value: formatDate(record.event?.eventDate) },
-        { label: "Scheduled Date", value: formatDate(record.scheduledAt) },
-        { label: "Assigned To", value: formatAssignedPeople(giftRow) },
-        { label: "Message Status", value: formatStatus(record.status) },
-      ]}
+      showHeader={false}
+      showSummaryItems={false}
       product={selectedGiftDetailProduct}
       onDelete={() => {
         toast("Deleting selected gifts is not available yet.");

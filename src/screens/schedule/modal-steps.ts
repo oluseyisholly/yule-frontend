@@ -5,6 +5,7 @@ export const scheduleMessageFlowSteps = [
   "oneda-business",
   "oneda-contact",
   "record",
+  "add-record",
   "review-records",
   "compose",
   "gift-selection",

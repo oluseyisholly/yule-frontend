@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import RichTextComposer from "@/components/RichTextComposer";
 import ContentModal from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 type EmailInviteComposeModalProps = {
   open: boolean;
@@ -41,6 +41,22 @@ function uniqueEmails(emails: string[]) {
       seen.add(normalizedEmail);
       return true;
     });
+}
+
+function getPlainTextFromHtml(value?: string | null) {
+  if (!value) return "";
+
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .trim();
 }
 
 export default function EmailInviteComposeModal({
@@ -115,7 +131,7 @@ export default function EmailInviteComposeModal({
 
   const handleSubmit = async () => {
     const trimmedTitle = title.trim();
-    const trimmedBody = body.trim();
+    const trimmedBody = getPlainTextFromHtml(body);
 
     if (!trimmedTitle) {
       setErrorMessage("Please provide an email title.");
@@ -135,7 +151,7 @@ export default function EmailInviteComposeModal({
     setErrorMessage("");
     await onSubmit({
       title: trimmedTitle,
-      body: trimmedBody,
+      body,
       emails: allEmails,
     });
   };
@@ -147,8 +163,9 @@ export default function EmailInviteComposeModal({
       showHeader={false}
       closeOnOverlayClick={false}
       closeOnEscape={!isSubmitting}
+      bodyScrollable={false}
       dialogClassName="w-[calc(100%-24px)] max-w-[720px] overflow-hidden bg-white"
-      bodyClassName="p-0"
+      bodyClassName="!p-0"
     >
       <div className="flex max-h-[calc(100dvh-32px)] min-h-0 flex-col overflow-hidden">
         {/* Header */}
@@ -256,25 +273,22 @@ export default function EmailInviteComposeModal({
               </div>
             </div>
 
-            <label className="block space-y-2">
+            <div className="space-y-2">
               <span className="text-[13px] font-medium text-[#4B4B55]">
                 Body
               </span>
 
-              <textarea
+              <RichTextComposer
                 value={body}
-                onChange={(event) => {
-                  setBody(event.target.value);
+                onChange={(message) => {
+                  setBody(message);
                   setErrorMessage("");
                 }}
+                readOnly={isSubmitting}
                 placeholder="Write your invitation message..."
-                disabled={isSubmitting}
-                className={cn(
-                  "min-h-[180px] w-full resize-none rounded-[18px] border border-[#ECE8F7] bg-white px-4 py-4 text-[14px] leading-relaxed text-[#292929] outline-none transition-[border-color,box-shadow]",
-                  "placeholder:text-[#A3A0AB] focus:border-[#3300C9] focus:shadow-[0_0_0_3px_rgba(51,0,201,0.08)] disabled:cursor-not-allowed disabled:opacity-60",
-                )}
+                className="shadow-none"
               />
-            </label>
+            </div>
 
             {errorMessage ? (
               <p className="rounded-[12px] bg-[#FFF1F1] px-4 py-3 text-[13px] font-medium text-[#D22F2F]">
@@ -291,7 +305,7 @@ export default function EmailInviteComposeModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="inline-flex h-[46px] w-full items-center justify-center rounded-[16px] border border-[#3300C9] px-6 text-[15px] font-medium text-[#3300C9] transition-colors hover:bg-[#F6F2FF] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex h-[38px] w-full items-center justify-center rounded-[16px] border border-[#3300C9] px-6 text-[15px] font-medium text-[#3300C9] transition-colors hover:bg-[#F6F2FF] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Cancel
             </button>
@@ -300,7 +314,7 @@ export default function EmailInviteComposeModal({
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="inline-flex h-[46px] w-full items-center justify-center rounded-[16px] bg-[#3300C9] px-7 text-[15px] font-medium text-white transition-colors hover:bg-[#2D00B4] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex h-[38px] w-full items-center justify-center rounded-[16px] bg-[#3300C9] px-7 text-[15px] font-medium text-white transition-colors hover:bg-[#2D00B4] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSubmitting ? "Sending..." : "Send email"}
             </button>

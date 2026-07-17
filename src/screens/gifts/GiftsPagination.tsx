@@ -1,5 +1,6 @@
 "use client";
 
+import { BackIcon } from "@/components/BackLink";
 import Button from "@/components/Button";
 import { useState } from "react";
 
@@ -13,12 +14,16 @@ export default function GiftsPagination() {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
       <Button
-        label="← Previous"
         variant="outlined"
         onClick={() => setCurrent((p) => Math.max(1, p - 1))}
         disabled={current === 1}
         className="rounded-lg px-4 py-2 text-[13px] border-gray-200 text-dark hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-      />
+      >
+        <span className="inline-flex items-center gap-2">
+          <BackIcon className="size-4" />
+          <span>Previous</span>
+        </span>
+      </Button>
 
       <div className="flex items-center gap-1.5">
         {pages.map((page, i) =>

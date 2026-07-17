@@ -23,11 +23,14 @@ import AddColleagueForm, {
 import BackButton from "@/components/BackButton";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Checkbox";
+import FlowActionButtons from "@/components/FlowActionButtons";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomColleagueReview from "@/components/CustomColleagueReview";
+import EmailInviteComposeModal from "@/components/EmailInviteComposeModal";
 import DrawNameInviteStep, {
   type DrawNameInviteParticipant,
 } from "@/components/DrawNameInviteStep";
+import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import PageHeader from "@/components/dashboard/PageHeader";
 import EventDateStep from "@/components/EventDateStep";
 import GroupNameStep from "@/components/GroupNameStep";
@@ -90,10 +93,21 @@ import type {
   HangoutEventParticipant,
   HangoutEventRecord,
 } from "@/features/hangout-events/types";
+import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
+import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
+import type { ContactGiftCartItem } from "@/features/gifts/types";
 import { useMarketplaceProductQuery } from "@/features/marketplace/hooks/useMarketplaceProductQuery";
-import type { MarketplaceProduct } from "@/features/marketplace/types";
+import type {
+  MarketplaceCondition,
+  MarketplaceProduct,
+} from "@/features/marketplace/types";
 import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
-import { cn } from "@/lib/utils";
+import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
+import { cn, shareInvite } from "@/lib/utils";
+import {
+  buildInviteShareMessage,
+  buildSignedInInviteUrl,
+} from "@/lib/invite-links";
 import {
   isHangoutModalStep,
   type HangoutModalStep,
@@ -110,6 +124,9 @@ import {
 type ViewMode = "list" | "grid";
 type HangoutStatusLabel = "Past" | "Upcoming";
 type HangoutActivityTab = "organizer" | "participant";
+
+const FLOW_BACK_TRIGGER_CLASS =
+  "flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]";
 
 type HangoutMetric = {
   value: string;
@@ -685,6 +702,36 @@ function mapHangoutParticipantToRecordItem(
   };
 }
 
+function mapContactGiftCartItemToMarketplaceProduct(
+  item: ContactGiftCartItem,
+): MarketplaceProduct | null {
+  const productId = item.participantGiftId?.trim() || item.id?.trim() || "";
+
+  if (!productId) {
+    return null;
+  }
+
+  const amount =
+    typeof item.amount === "number" ? item.amount : Number(item.amount ?? 0);
+
+  return {
+    _id: productId,
+    title: item.title?.trim() || "Selected gift",
+    description: item.description ?? "",
+    amount: Number.isFinite(amount) ? amount : 0,
+    images: item.imageUrl?.trim() ? [item.imageUrl.trim()] : [],
+    categorySlug: item.categorySlug || undefined,
+    subCategorySlug: item.subCategorySlug || undefined,
+    condition: (item.condition as MarketplaceCondition | undefined) || undefined,
+    location: {
+      state: item.locationState || undefined,
+      city: item.locationCity || undefined,
+    },
+    sellerId: item.sellerId || undefined,
+    slug: item.productSlug || undefined,
+  };
+}
+
 function getExternalBusinessRootId(business: ExternalBusinessRecord) {
   return business.id?.trim() || business._id?.trim() || "";
 }
@@ -944,13 +991,14 @@ export default function DashboardHangoutsScreen() {
   const { data: hangoutMetricsData } = useHangoutMetricsQuery();
   const [pendingDeleteHangoutRow, setPendingDeleteHangoutRow] =
     useState<HangoutRow | null>(null);
+  const [viewingHangoutProduct, setViewingHangoutProduct] =
+    useState<MarketplaceProduct | null>(null);
   const [
     isCompleteHangoutEventConfirmationOpen,
     setIsCompleteHangoutEventConfirmationOpen,
   ] = useState(false);
-  const [isHangoutInviteCopyListOpen, setIsHangoutInviteCopyListOpen] =
+  const [isHangoutInviteEmailComposeOpen, setIsHangoutInviteEmailComposeOpen] =
     useState(false);
-  const [hangoutInviteSearchValue, setHangoutInviteSearchValue] = useState("");
   const [ensuredCurrentContactId, setEnsuredCurrentContactId] = useState<
     string | null
   >(null);
@@ -981,6 +1029,7 @@ export default function DashboardHangoutsScreen() {
     currentStep: currentHangoutFlowStep,
     mode,
     eventId,
+    hangoutEventId,
     legacyEventTypeId,
     openModal: openHangoutFlowModal,
     setCurrentStep: setHangoutFlowStep,
@@ -1075,8 +1124,38 @@ export default function DashboardHangoutsScreen() {
     data: currentHangoutEventRecord,
     refetch: refetchCurrentHangoutEvent,
   } = useHangoutEventQuery(isHangoutFlowOpen && eventId ? eventId : null);
-  const selectedMarketplaceListingId =
+  const currentHangoutEventId =
     currentHangoutEventRecord?.hangoutEventId?.trim() || null;
+  const selectedMarketplaceListingId =
+    currentHangoutEventId;
+  
+  useEffect(() => {
+    if (
+      !isHangoutFlowOpen ||
+      mode !== "edit" ||
+      !eventId ||
+      !currentHangoutEventId ||
+      hangoutEventId === currentHangoutEventId
+    ) {
+      return;
+    }
+
+    replaceHangoutFlowStep(
+      currentHangoutFlowStep,
+      mode,
+      eventId,
+      currentHangoutEventId,
+    );
+  }, [
+    currentHangoutEventId,
+    currentHangoutFlowStep,
+    eventId,
+    hangoutEventId,
+    isHangoutFlowOpen,
+    mode,
+    replaceHangoutFlowStep,
+  ]);
+
   const {
     data: onedaBusinesses = [],
     isLoading: isOnedaBusinessesLoading,
@@ -1135,6 +1214,78 @@ export default function DashboardHangoutsScreen() {
         Boolean(selectedMarketplaceListingId),
     },
   );
+  const {
+    data: caughtMyEyeHangoutGiftIdsResponse,
+    isLoading: isCaughtMyEyeHangoutGiftIdsLoading,
+    isFetching: isCaughtMyEyeHangoutGiftIdsFetching,
+  } = useContactGiftCartParticipantGiftIdsQuery({
+    enabled:
+      isHangoutFlowOpen && currentHangoutFlowStep === "hangout-selection",
+  });
+  const {
+    data: caughtMyEyeHangoutCartItemsResponse,
+    isLoading: isCaughtMyEyeHangoutCartItemsLoading,
+    isFetching: isCaughtMyEyeHangoutCartItemsFetching,
+  } = useContactGiftCartItemsQuery(
+    {
+      page: 1,
+      per_page: 250,
+    },
+    {
+      enabled:
+        isHangoutFlowOpen && currentHangoutFlowStep === "hangout-selection",
+    },
+  );
+  const caughtMyEyeHangoutGiftIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...(caughtMyEyeHangoutGiftIdsResponse?.data.participantGiftIds ?? []),
+            ...(
+              caughtMyEyeHangoutCartItemsResponse?.data.data?.map(
+                (item) => item.participantGiftId,
+              ) ?? []
+            ),
+          ].filter((giftId): giftId is string => Boolean(giftId?.trim())),
+        ),
+      ),
+    [
+      caughtMyEyeHangoutCartItemsResponse,
+      caughtMyEyeHangoutGiftIdsResponse,
+    ],
+  );
+  const caughtMyEyeHangoutProducts = useMemo(
+    () =>
+      (
+        caughtMyEyeHangoutCartItemsResponse?.data.data ?? []
+      )
+        .map((item) => mapContactGiftCartItemToMarketplaceProduct(item))
+        .filter((product): product is MarketplaceProduct => Boolean(product)),
+    [caughtMyEyeHangoutCartItemsResponse],
+  );
+  const prioritizedHangoutListingIds = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...caughtMyEyeHangoutGiftIds,
+          ...selectedListingIds,
+          ...(selectedMarketplaceListingId ? [selectedMarketplaceListingId] : []),
+        ]),
+      ),
+    [
+      caughtMyEyeHangoutGiftIds,
+      selectedListingIds,
+      selectedMarketplaceListingId,
+      ],
+  );
+  const hasMissingCaughtMyEyeHangoutIds = useMemo(
+    () =>
+      caughtMyEyeHangoutGiftIds.some(
+        (giftId) => !selectedListingIds.includes(giftId),
+      ),
+    [caughtMyEyeHangoutGiftIds, selectedListingIds],
+  );
   const createHangoutEventMutation = useCreateHangoutEventMutation();
   const updateHangoutEventMutation = useUpdateHangoutEventMutation();
   const completeHangoutEventMutation = useCompleteHangoutEventMutation();
@@ -1148,6 +1299,7 @@ export default function DashboardHangoutsScreen() {
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
+  const sendEmailMutation = useSendEmailMutation();
   const shouldEnableContactsQuery =
     isHangoutFlowOpen &&
     (currentHangoutFlowStep === "record" ||
@@ -1195,6 +1347,11 @@ export default function DashboardHangoutsScreen() {
         (eventType) => eventType.value === selectedHangoutEventTypeId,
       ) ?? null,
     [eventTypeOptions, selectedHangoutEventTypeId],
+  );
+  const hangoutInviteShareUrl = useMemo(
+    () =>
+      eventId ? buildSignedInInviteUrl(`/dashboard/hangouts/${eventId}`) : "",
+    [eventId],
   );
   const eventRows = useMemo<HangoutRow[]>(
     () =>
@@ -1334,7 +1491,11 @@ export default function DashboardHangoutsScreen() {
             initials: initials || "CT",
             avatarBg: avatarBg || "#EFE6FD",
             avatarColor: avatarColor || "#3300C9",
-            inviteUrl: null,
+            email: contact.email?.trim() || null,
+            profileUrl: contact.profileUrl?.trim() || null,
+            inviteUrl:
+              hangoutInviteShareUrl ||
+              (eventId ? `/dashboard/hangouts/${eventId}` : null),
           } satisfies DrawNameInviteParticipant;
         })
         .filter(Boolean) as DrawNameInviteParticipant[];
@@ -1358,15 +1519,47 @@ export default function DashboardHangoutsScreen() {
           initials: record.initials || "CT",
           avatarBg: record.avatarBg || "#EFE6FD",
           avatarColor: record.avatarColor || "#3300C9",
-          inviteUrl: null,
+          email: record.email || null,
+          profileUrl: record.profileUrl || null,
+          inviteUrl:
+            hangoutInviteShareUrl ||
+            (eventId ? `/dashboard/hangouts/${eventId}` : null),
         } satisfies DrawNameInviteParticipant;
       })
       .filter(Boolean) as DrawNameInviteParticipant[];
   }, [
     contactRecordOptions,
     currentHangoutEventRecord?.event.participants,
+    eventId,
     selectedParticipantContactIds,
+    hangoutInviteShareUrl,
   ]);
+  const hangoutInviteLockedEmails = useMemo(
+    () =>
+      hangoutInviteParticipants
+        .filter((participant) => participant.role.toLowerCase() !== "creator")
+        .map((participant) => participant.email?.trim() || "")
+        .filter(Boolean),
+    [hangoutInviteParticipants],
+  );
+  const hangoutInviteShareMessage = useMemo(
+    () =>
+      buildInviteShareMessage(
+        currentHangoutEventRecord?.event.title?.trim() ||
+          hangoutEventName?.trim() ||
+          selectedEventTypeOption?.label ||
+          "this hangout",
+        hangoutInviteShareUrl ||
+          (eventId ? `/dashboard/hangouts/${eventId}` : ""),
+      ),
+    [
+      currentHangoutEventRecord?.event.title,
+      eventId,
+      hangoutEventName,
+      selectedEventTypeOption?.label,
+      hangoutInviteShareUrl,
+    ],
+  );
   const hangoutMetrics = useMemo<HangoutMetric[]>(
     () => [
       {
@@ -1422,18 +1615,6 @@ export default function DashboardHangoutsScreen() {
     ],
     [hangoutMetricsData],
   );
-  const filteredHangoutInviteParticipants = useMemo(() => {
-    const normalizedSearch = hangoutInviteSearchValue.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return hangoutInviteParticipants;
-    }
-
-    return hangoutInviteParticipants.filter((participant) =>
-      participant.name.toLowerCase().includes(normalizedSearch),
-    );
-  }, [hangoutInviteParticipants, hangoutInviteSearchValue]);
-
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedRecordSearchValue(recordSearchValue.trim());
@@ -1670,6 +1851,66 @@ export default function DashboardHangoutsScreen() {
   ]);
 
   useEffect(() => {
+    if (
+      !isHangoutFlowOpen ||
+      currentHangoutFlowStep !== "hangout-selection" ||
+      !caughtMyEyeHangoutGiftIds.length ||
+      !hasMissingCaughtMyEyeHangoutIds
+    ) {
+      return;
+    }
+
+    const nextSelectedListingIds = Array.from(
+      new Set([...caughtMyEyeHangoutGiftIds, ...selectedListingIds]),
+    );
+
+    if (nextSelectedListingIds.length === selectedListingIds.length) {
+      return;
+    }
+
+    setStoredSelectedListingIds(flowSelectionKey, nextSelectedListingIds);
+  }, [
+    caughtMyEyeHangoutGiftIds,
+    currentHangoutFlowStep,
+    flowSelectionKey,
+    hasMissingCaughtMyEyeHangoutIds,
+    isHangoutFlowOpen,
+    selectedListingIds,
+    setStoredSelectedListingIds,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isHangoutFlowOpen ||
+      currentHangoutFlowStep !== "hangout-selection" ||
+      !caughtMyEyeHangoutProducts.length
+    ) {
+      return;
+    }
+
+    const nextListingsById = { ...selectedListingsById };
+    let hasChanges = false;
+
+    caughtMyEyeHangoutProducts.forEach((product) => {
+      if (!nextListingsById[product._id]) {
+        nextListingsById[product._id] = product;
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      setSelectedListingsById(flowSelectionKey, nextListingsById);
+    }
+  }, [
+    caughtMyEyeHangoutProducts,
+    currentHangoutFlowStep,
+    flowSelectionKey,
+    isHangoutFlowOpen,
+    selectedListingsById,
+    setSelectedListingsById,
+  ]);
+
+  useEffect(() => {
     if (!isHangoutFlowOpen) {
       return;
     }
@@ -1727,9 +1968,29 @@ export default function DashboardHangoutsScreen() {
   ]);
 
   useEffect(() => {
-    if (isHangoutFlowOpen && currentHangoutFlowStep !== "event" && !eventId) {
-      closeHangoutFlowModal();
+    if (!isHangoutFlowOpen || eventId) {
+      return;
     }
+
+    const localOnlySteps: HangoutModalStep[] = [
+      "event",
+      "event-date",
+      "event-name",
+      "check-in-date",
+      "check-out-date",
+      "source",
+      "oneda-business",
+      "oneda-contact",
+      "record",
+      "add-record",
+      "review-records",
+    ];
+
+    if (localOnlySteps.includes(currentHangoutFlowStep)) {
+      return;
+    }
+
+    closeHangoutFlowModal();
   }, [
     closeHangoutFlowModal,
     currentHangoutFlowStep,
@@ -1822,7 +2083,12 @@ export default function DashboardHangoutsScreen() {
         existingCreateSelection.selectedListingsById,
       );
     }
-    openHangoutFlowModal(nextStep, "edit", row.eventId);
+    openHangoutFlowModal(
+      nextStep,
+      "edit",
+      row.eventId,
+      row.hangoutEventId?.trim() || null,
+    );
   };
 
   const handleViewHangout = (row: HangoutRow) => {
@@ -1913,7 +2179,21 @@ export default function DashboardHangoutsScreen() {
     toast.success(response.message);
   };
 
-  const handleHangoutFlowEventNext = async () => {
+  const handleHangoutFlowEventNext = () => {
+    if (!selectedEventTypeOption) {
+      toast.error("Please select an event first.");
+      return;
+    }
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      selectedEventTypeId: selectedEventTypeOption.value,
+      eventName:
+        selectedEventTypeOption.label || "Untitled hangout",
+    });
+    setHangoutFlowStep("event-name", mode, eventId);
+  };
+
+  const handleHangoutFlowEventSaveAndContinue = async () => {
     if (!selectedEventTypeOption) {
       toast.error("Please select an event first.");
       return;
@@ -1943,6 +2223,11 @@ export default function DashboardHangoutsScreen() {
         return;
       }
 
+      setHangoutFlowDraftFields(flowSelectionKey, {
+        selectedEventTypeId: selectedEventTypeOption.value,
+        eventName:
+          selectedEventTypeOption.label || "Untitled hangout",
+      });
       setHangoutFlowStep("event-name", mode, eventId);
       return;
     }
@@ -1955,6 +2240,7 @@ export default function DashboardHangoutsScreen() {
         },
       });
       const nextEventId = response.data.eventId;
+      const nextHangoutEventId = response.data.hangoutEventId?.trim() || null;
       const nextFlowKey = buildHangoutFlowSelectionKey("create", nextEventId);
 
       setHangoutFlowDraftFields(nextFlowKey, {
@@ -1975,7 +2261,12 @@ export default function DashboardHangoutsScreen() {
       }
 
       toast.success(response.message);
-      setHangoutFlowStep("event-name", "create", nextEventId);
+      setHangoutFlowStep(
+        "event-name",
+        "create",
+        nextEventId,
+        nextHangoutEventId,
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2026,7 +2317,37 @@ export default function DashboardHangoutsScreen() {
     }
   };
 
-  const handleHangoutCheckInDateNext = async () => {
+  const handleHangoutEventNameNext = () => {
+    if (!selectedHangoutEventTypeId) {
+      toast.error("Please complete all hangout details.");
+      return;
+    }
+
+    const resolvedTitle =
+      hangoutEventName.trim() ||
+      selectedEventTypeOption?.label ||
+      "Untitled hangout";
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      eventName: resolvedTitle,
+      selectedEventTypeId: selectedHangoutEventTypeId,
+    });
+    setHangoutFlowStep("check-in-date", mode, eventId);
+  };
+
+  const handleHangoutCheckInDateNext = () => {
+    if (!selectedHangoutCheckInDate) {
+      toast.error("Please select a check-in date.");
+      return;
+    }
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      checkInDate: selectedHangoutCheckInDate,
+    });
+    setHangoutFlowStep("check-out-date", mode, eventId);
+  };
+
+  const handleHangoutCheckInDateSaveAndContinue = async () => {
     if (!selectedHangoutCheckInDate) {
       toast.error("Please select a check-in date.");
       return;
@@ -2054,7 +2375,19 @@ export default function DashboardHangoutsScreen() {
     }
   };
 
-  const handleHangoutCheckOutDateNext = async () => {
+  const handleHangoutCheckOutDateNext = () => {
+    if (!selectedHangoutCheckOutDate) {
+      toast.error("Please select a check-out date.");
+      return;
+    }
+
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      checkOutDate: selectedHangoutCheckOutDate,
+    });
+    setHangoutFlowStep("source", mode, eventId);
+  };
+
+  const handleHangoutCheckOutDateSaveAndContinue = async () => {
     if (!selectedHangoutCheckOutDate) {
       toast.error("Please select a check-out date.");
       return;
@@ -2105,6 +2438,9 @@ export default function DashboardHangoutsScreen() {
 
   const handleOnedaBusinessNext = () => {
     if (!selectedOnedaBusinessId) return;
+    setHangoutFlowDraftFields(flowSelectionKey, {
+      selectedOnedaBusinessIds: [selectedOnedaBusinessId],
+    });
     setHangoutFlowStep("oneda-contact", mode, eventId);
   };
 
@@ -2260,9 +2596,142 @@ export default function DashboardHangoutsScreen() {
     setSelectedListingsById(flowSelectionKey, nextListingsById);
   };
 
-  const saveHangoutParticipants = async (contactIds: string[]) => {
-    if (!eventId) {
+  const ensureHangoutDraftEvent = async () => {
+    const resolvedEventTypeId = selectedHangoutEventTypeId?.trim() || "";
+    const resolvedTitle =
+      hangoutEventName.trim() ||
+      selectedEventTypeOption?.label ||
+      "Untitled hangout";
+    const resolvedCheckInDate = selectedHangoutCheckInDate
+      ? toIsoDate(selectedHangoutCheckInDate)
+      : undefined;
+    const resolvedCheckOutDate = selectedHangoutCheckOutDate
+      ? toIsoDate(selectedHangoutCheckOutDate)
+      : undefined;
+    const resolvedGuestCount =
+      Number.parseInt(selectedHangoutGuestCount, 10) ||
+      selectedParticipantContactIds.length;
+
+    if (eventId?.trim()) {
+      try {
+        await updateHangoutEventMutation.mutateAsync({
+          eventId: eventId.trim(),
+          payload: {
+            event: {
+              ...(resolvedTitle ? { title: resolvedTitle } : {}),
+              ...(resolvedEventTypeId
+                ? { eventTypeId: resolvedEventTypeId }
+                : {}),
+              ...(resolvedCheckInDate ? { eventDate: resolvedCheckInDate } : {}),
+            },
+            ...(resolvedCheckInDate ? { checkInDate: resolvedCheckInDate } : {}),
+            ...(resolvedCheckOutDate
+              ? { checkOutDate: resolvedCheckOutDate }
+              : {}),
+            ...(resolvedGuestCount > 0
+              ? { numberOfGuests: resolvedGuestCount }
+              : {}),
+          },
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to update this hangout right now.",
+        );
+        return null;
+      }
+
+      return {
+        eventId: eventId.trim(),
+        hangoutEventId: hangoutEventId?.trim() || currentHangoutEventId || null,
+      };
+    }
+
+    if (mode !== "create") {
       toast.error("Unable to resolve this hangout right now.");
+      return null;
+    }
+
+    if (!resolvedEventTypeId) {
+      toast.error("Please select an event first.");
+      return null;
+    }
+
+    try {
+      const response = await createHangoutEventMutation.mutateAsync({
+        event: {
+          title: resolvedTitle,
+          eventTypeId: resolvedEventTypeId,
+          ...(resolvedCheckInDate ? { eventDate: resolvedCheckInDate } : {}),
+        },
+        ...(resolvedCheckInDate ? { checkInDate: resolvedCheckInDate } : {}),
+        ...(resolvedCheckOutDate ? { checkOutDate: resolvedCheckOutDate } : {}),
+        ...(resolvedGuestCount > 0
+          ? { numberOfGuests: resolvedGuestCount }
+          : {}),
+      });
+
+      const nextEventId = response.data.eventId;
+      const nextHangoutEventId = response.data.hangoutEventId?.trim() || null;
+      const nextFlowKey = buildHangoutFlowSelectionKey("create", nextEventId);
+
+      setHangoutFlowDraftFields(nextFlowKey, {
+        lastVisitedStep: "review-records",
+        selectedEventTypeId: resolvedEventTypeId,
+        eventName: response.data.event.title || resolvedTitle,
+        checkInDate: selectedHangoutCheckInDate,
+        checkOutDate: selectedHangoutCheckOutDate,
+        guestCount:
+          selectedHangoutGuestCount || String(selectedParticipantContactIds.length),
+        selectedOnedaBusinessIds,
+        selectedOnedaContactIds,
+      });
+
+      if (selectedParticipantContactIds.length) {
+        setSelectedParticipantContactIds(
+          nextFlowKey,
+          selectedParticipantContactIds,
+        );
+      }
+
+      if (selectedListingIds.length) {
+        setStoredSelectedListingIds(nextFlowKey, selectedListingIds);
+      }
+
+      if (Object.keys(selectedListingsById).length) {
+        setSelectedListingsById(nextFlowKey, selectedListingsById);
+      }
+
+      if (flowSelectionKey !== nextFlowKey) {
+        resetHangoutFlowSelection(flowSelectionKey);
+      }
+
+      setHangoutFlowStep(
+        "review-records",
+        "create",
+        nextEventId,
+        nextHangoutEventId,
+      );
+
+      return {
+        eventId: nextEventId,
+        hangoutEventId: nextHangoutEventId,
+      };
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to create this hangout right now.",
+      );
+      return null;
+    }
+  };
+
+  const saveHangoutParticipants = async (contactIds: string[]) => {
+    const resolvedHangout = await ensureHangoutDraftEvent();
+
+    if (!resolvedHangout?.eventId) {
       return false;
     }
 
@@ -2273,25 +2742,33 @@ export default function DashboardHangoutsScreen() {
 
     try {
       const response = await createParticipantsBulkMutation.mutateAsync({
-        eventId,
+        eventId: resolvedHangout.eventId,
         role: "participant",
         contactIds,
       });
 
       await updateHangoutEventMutation.mutateAsync({
-        eventId,
+        eventId: resolvedHangout.eventId,
         payload: {
           numberOfGuests: contactIds.length,
         },
       });
 
-      setHangoutFlowDraftFields(flowSelectionKey, {
-        guestCount: String(contactIds.length),
-      });
+      setHangoutFlowDraftFields(
+        buildHangoutFlowSelectionKey(mode, resolvedHangout.eventId),
+        {
+          guestCount: String(contactIds.length),
+        },
+      );
 
       await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
       toast.success(response.message || "Participants saved successfully.");
-      setHangoutFlowStep("hangout-selection", mode, eventId);
+      setHangoutFlowStep(
+        "hangout-selection",
+        mode,
+        resolvedHangout.eventId,
+        resolvedHangout.hangoutEventId,
+      );
       return true;
     } catch (error) {
       toast.error(
@@ -2312,7 +2789,7 @@ export default function DashboardHangoutsScreen() {
     setHangoutFlowStep("review-records", mode, eventId);
   };
 
-  const handleOnedaContactNext = async () => {
+  const handleOnedaContactSaveAndContinue = async () => {
     if (!selectedOnedaContactIds.length) {
       toast.error("Please select at least one contact to continue.");
       return;
@@ -2364,7 +2841,15 @@ export default function DashboardHangoutsScreen() {
     }
   };
 
-  const handleHangoutReviewNext = async () => {
+  const handleHangoutReviewNext = () => {
+    if (!selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant.");
+      return;
+    }
+    setHangoutFlowStep("hangout-selection", mode, eventId);
+  };
+
+  const handleHangoutReviewSaveAndContinue = async () => {
     await saveHangoutParticipants(selectedParticipantContactIds);
   };
 
@@ -2375,14 +2860,21 @@ export default function DashboardHangoutsScreen() {
     );
   };
 
-  const handleHangoutSelectionNext = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
+  const handleHangoutSelectionNext = () => {
     if (!selectedListingIds.length) {
       toast.error("Please select a hangout option before continuing.");
+      return;
+    }
+    setIsCompleteHangoutEventConfirmationOpen(true);
+  };
+
+  const handleViewHangoutProduct = (product: MarketplaceProduct) => {
+    setViewingHangoutProduct(product);
+  };
+
+  const handleConfirmCompleteHangoutEvent = async () => {
+    if (!eventId) {
+      toast.error("Unable to resolve this hangout right now.");
       return;
     }
 
@@ -2400,7 +2892,7 @@ export default function DashboardHangoutsScreen() {
     try {
       const selectedProductDescription = selectedProduct.description?.trim();
 
-      const response = await updateHangoutEventMutation.mutateAsync({
+      const saveResponse = await updateHangoutEventMutation.mutateAsync({
         eventId,
         payload: {
           hangoutEventId: selectedProduct._id,
@@ -2415,33 +2907,15 @@ export default function DashboardHangoutsScreen() {
       });
 
       await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
-      toast.success(response.message || "Hangout details saved successfully.");
-      setIsCompleteHangoutEventConfirmationOpen(true);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save this hangout option right now.",
-      );
-    }
-  };
+      toast.success(saveResponse.message || "Hangout details saved successfully.");
 
-  const handleConfirmCompleteHangoutEvent = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
-    try {
       const completeResponse =
         await completeHangoutEventMutation.mutateAsync(eventId);
 
       await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
       toast.success(completeResponse.message);
       setIsCompleteHangoutEventConfirmationOpen(false);
-      setIsHangoutInviteCopyListOpen(false);
-      setHangoutInviteSearchValue("");
-      setHangoutFlowStep("invite", mode, eventId);
+      setHangoutFlowStep("invite", mode, eventId, selectedProduct._id);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2452,19 +2926,69 @@ export default function DashboardHangoutsScreen() {
   };
 
   const handleHangoutInviteBack = () => {
-    setHangoutFlowStep("hangout-selection", mode, eventId);
-  };
-
-  const handleHangoutInviteToggleCopyList = () => {
-    setIsHangoutInviteCopyListOpen((current) => !current);
+    setHangoutFlowStep(
+      "hangout-selection",
+      mode,
+      eventId,
+      hangoutEventId?.trim() || currentHangoutEventId || null,
+    );
   };
 
   const handleHangoutInviteSendEmail = () => {
-    toast("Hangout invitation email will be connected once the API is ready.");
+    setIsHangoutInviteEmailComposeOpen(true);
   };
 
-  const handleHangoutInviteCopyLink = () => {
-    toast("Hangout invitation links will be available once the API is ready.");
+  const handleHangoutInviteCopyLink = async () => {
+    const inviteUrl =
+      hangoutInviteShareUrl || (eventId ? `/dashboard/hangouts/${eventId}` : "");
+
+    if (!inviteUrl) {
+      toast.error("No invitation link is available right now.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success("Invitation link copied.");
+    } catch {
+      toast.error("Unable to copy this invitation link right now.");
+    }
+  };
+
+  const handleConfirmSendHangoutInviteEmails = async (payload: {
+    title: string;
+    body: string;
+    emails: string[];
+  }) => {
+    const resolvedHangoutId =
+      hangoutEventId?.trim() || currentHangoutEventId || null;
+    const redirectUrl =
+      hangoutInviteShareUrl || (eventId ? `/dashboard/hangouts/${eventId}` : "");
+
+    if (!eventId || !resolvedHangoutId || !redirectUrl) {
+      toast.error("Unable to resolve this hangout invite right now.");
+      return;
+    }
+
+    try {
+      const response = await sendEmailMutation.mutateAsync({
+        eventId,
+        title: payload.title,
+        body: payload.body,
+        redirectUrl,
+        emails: payload.emails,
+        hangoutId: resolvedHangoutId,
+      });
+
+      toast.success(response.message);
+      setIsHangoutInviteEmailComposeOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send invitation emails right now.",
+      );
+    }
   };
 
   const tableData: TableData<HangoutRow> = {
@@ -2584,39 +3108,70 @@ export default function DashboardHangoutsScreen() {
   };
 
   const hangoutSelectionStep = (
-    <WishlistGiftSelectionStep
-      selectedIds={selectedListingIds}
-      onSelectedIdsChange={handleHangoutListingIdsChange}
-      onSelectedProductToggle={handleHangoutListingToggle}
-      onBack={() => setHangoutFlowStep("review-records", mode, eventId)}
-      onNext={handleHangoutSelectionNext}
-      nextDisabled={
-        !selectedListingIds.length ||
-        updateHangoutEventMutation.isPending ||
-        completeHangoutEventMutation.isPending
-      }
-      nextLabel={
-        updateHangoutEventMutation.isPending ||
-        completeHangoutEventMutation.isPending
-          ? "Saving..."
-          : "Next"
-      }
-      selectionMode="single"
-      title="Pick a place for your hangout."
-      description="Choose one option to represent this hangout. We'll save the selected image and listing reference to your event."
-      searchPlaceholder="Search for hangout"
-      emptyStateText="No hangout options matched your current filters."
+      <WishlistGiftSelectionStep
+        selectedIds={selectedListingIds}
+        onSelectedIdsChange={handleHangoutListingIdsChange}
+        onSelectedProductToggle={handleHangoutListingToggle}
+        onViewProduct={handleViewHangoutProduct}
+        onBack={() => setHangoutFlowStep("review-records", mode, eventId)}
+        onNext={handleHangoutSelectionNext}
+        enableInfiniteScroll
+        disableContentScroll
+        nextDisabled={!selectedListingIds.length}
+        nextLabel="Next"
+        nextClassName="h-[44px] !w-fit min-w-[96px] px-6"
+        selectionMode="single"
+        title="Pick a place for your hangout."
+        description="Choose one option to represent this hangout. We'll save the selected image and listing reference to your event."
+        searchPlaceholder="Search for hangout"
+        emptyStateText="No hangout options matched your current filters."
+        caughtMyEyeProductIds={caughtMyEyeHangoutGiftIds}
+        prioritizedProductIds={prioritizedHangoutListingIds}
+        deferProductsUntilInitialSelectionResolved={
+          isCaughtMyEyeHangoutGiftIdsLoading ||
+          isCaughtMyEyeHangoutGiftIdsFetching ||
+          isCaughtMyEyeHangoutCartItemsLoading ||
+          isCaughtMyEyeHangoutCartItemsFetching
+        }
     />
   );
 
   const isInlineHangoutSelectionStep =
     isHangoutFlowOpen && effectiveHangoutFlowStep === "hangout-selection";
 
+  if (viewingHangoutProduct) {
+    return (
+      <div className="space-y-2">
+        <EventGiftDetailView
+          backHref="/dashboard/hangouts"
+          backLabel="Back to hangouts"
+          onBack={() => setViewingHangoutProduct(null)}
+          eventTitle="Hangout Options"
+          createdBy="Festa marketplace"
+          createdAt="Available hangout options"
+          showHeader={false}
+          status="Ongoing"
+          avatarInitials="HG"
+          summaryItems={[]}
+          showSummaryItems={false}
+          product={viewingHangoutProduct}
+          hideDeleteAction
+          onDelete={() => undefined}
+          onMessageVendor={() =>
+            toast("Vendor messaging is not available yet.")
+          }
+          onReportItem={() => toast("Thanks. We will review this option.")}
+          onShareProduct={() => toast.success("Link copied.")}
+        />
+      </div>
+    );
+  }
+
   if (isInlineHangoutSelectionStep) {
     return (
       <div className="space-y-6">
-        <div className="mx-auto min-h-[560px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
-          <div className="h-full min-h-0">{hangoutSelectionStep}</div>
+        <div className="mx-auto w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8">
+          <div className="min-h-0">{hangoutSelectionStep}</div>
         </div>
 
         <ConfirmationModal
@@ -2827,7 +3382,6 @@ export default function DashboardHangoutsScreen() {
             total={totalPages}
             initialPage={currentPage}
             onPageChange={setCurrentPage}
-            previousLabel="← Previous"
             nextLabel="Next →"
           />
         </div>
@@ -2900,7 +3454,8 @@ export default function DashboardHangoutsScreen() {
               })
             }
             onBack={() => setHangoutFlowStep("event", mode, eventId)}
-            onNext={handleSaveHangoutEventDetails}
+            onNext={handleHangoutEventNameNext}
+            onSaveAndContinue={handleSaveHangoutEventDetails}
             title="Below is a suggestion of a name for your event."
             description="Feel free to edit as you see fit."
             placeholder="Write event name"
@@ -2920,6 +3475,7 @@ export default function DashboardHangoutsScreen() {
             }
             onBack={() => setHangoutFlowStep("event-name", mode, eventId)}
             onNext={handleHangoutCheckInDateNext}
+            onSaveAndContinue={handleHangoutCheckInDateSaveAndContinue}
             heading="When is check-in?"
             headingAlign="left"
             showGoToEventNameLink={false}
@@ -2935,6 +3491,7 @@ export default function DashboardHangoutsScreen() {
             }
             onBack={() => setHangoutFlowStep("check-in-date", mode, eventId)}
             onNext={handleHangoutCheckOutDateNext}
+            onSaveAndContinue={handleHangoutCheckOutDateSaveAndContinue}
             heading="When is check-out?"
             headingAlign="left"
             showGoToEventNameLink={false}
@@ -2962,7 +3519,7 @@ export default function DashboardHangoutsScreen() {
                 onClick={handleOpenOnedaBusinessStep}
                 className="w-full"
               >
-                From Oneda
+                Import from Oneda
               </ModalButton>
             </div>
 
@@ -2971,7 +3528,8 @@ export default function DashboardHangoutsScreen() {
                 onClick={() =>
                   setHangoutFlowStep("check-out-date", mode, eventId)
                 }
-                className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                className={FLOW_BACK_TRIGGER_CLASS}
+                iconClassName="size-[24px]"
               />
             </div>
           </div>
@@ -3005,27 +3563,16 @@ export default function DashboardHangoutsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() => setHangoutFlowStep("source", mode, eventId)}
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
                   />
                 }
                 footer={
-                  <div className="flex flex-wrap items-center justify-center gap-3">
-                    <BackButton
-                      onClick={() =>
-                        setHangoutFlowStep("source", mode, eventId)
-                      }
-                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                      iconClassName="size-[24px]"
-                    />
-
-                    <ModalButton
-                      onClick={handleOnedaBusinessNext}
-                      disabled={!selectedOnedaBusinessId}
-                    >
-                      Next
-                    </ModalButton>
-                  </div>
+                  <FlowActionButtons
+                    showBack={false}
+                    onNext={handleOnedaBusinessNext}
+                    nextDisabled={!selectedOnedaBusinessId}
+                  />
                 }
                 triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
               />
@@ -3080,34 +3627,26 @@ export default function DashboardHangoutsScreen() {
                     onClick={() =>
                       setHangoutFlowStep("oneda-business", mode, eventId)
                     }
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
                   />
                 }
                 footer={
-                  <div className="flex flex-wrap items-center justify-center gap-3">
-                    <BackButton
-                      onClick={() =>
-                        setHangoutFlowStep("oneda-business", mode, eventId)
-                      }
-                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                      iconClassName="size-[24px]"
-                    />
-
-                    <ModalButton
-                      onClick={handleOnedaContactNext}
-                      disabled={
-                        !selectedOnedaContactIds.length ||
-                        createBulkContactsMutation.isPending ||
-                        createParticipantsBulkMutation.isPending
-                      }
-                    >
-                      {createBulkContactsMutation.isPending ||
+                  <FlowActionButtons
+                    showBack={false}
+                    onNext={handleOnedaContactSaveAndContinue}
+                    nextDisabled={
+                      !selectedOnedaContactIds.length ||
+                      createBulkContactsMutation.isPending ||
                       createParticipantsBulkMutation.isPending
-                        ? "Saving..."
-                        : "Next"}
-                    </ModalButton>
-                  </div>
+                    }
+                    nextLabel={
+                      createBulkContactsMutation.isPending ||
+                      createParticipantsBulkMutation.isPending
+                        ? "Importing..."
+                        : "Import"
+                    }
+                  />
                 }
                 triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
               />
@@ -3132,7 +3671,7 @@ export default function DashboardHangoutsScreen() {
             items={selectedParticipantReviewItems}
             onAddNew={handleOpenAddNewColleague}
             onBack={() => setHangoutFlowStep("source", mode, eventId)}
-            onNext={handleHangoutReviewNext}
+            onNext={handleHangoutReviewSaveAndContinue}
             onEdit={(id) => {
               const item = contactRecordOptions.find(
                 (record) => record.id === id,
@@ -3142,6 +3681,7 @@ export default function DashboardHangoutsScreen() {
               }
             }}
             onDelete={handleDeleteReviewParticipant}
+            nextLabel="Save & Continue"
             nextDisabled={
               selectedParticipantReviewItems.length === 0 ||
               createParticipantsBulkMutation.isPending ||
@@ -3159,16 +3699,23 @@ export default function DashboardHangoutsScreen() {
                 hangout.
               </>
             }
-             onShareFacebook={() => {}}
-            onShareWhatsApp={() => {}}
+            onShareFacebook={() =>
+              shareInvite({
+                platform: "facebook",
+                inviteUrl: hangoutInviteShareUrl,
+                message: hangoutInviteShareMessage,
+              })
+            }
+            onShareWhatsApp={() =>
+              shareInvite({
+                platform: "whatsapp",
+                inviteUrl: hangoutInviteShareUrl,
+                message: hangoutInviteShareMessage,
+              })
+            }
             onBack={handleHangoutInviteBack}
-            participants={filteredHangoutInviteParticipants}
-            isCopyListOpen={isHangoutInviteCopyListOpen}
-            onToggleCopyList={handleHangoutInviteToggleCopyList}
             onSendEmail={handleHangoutInviteSendEmail}
             onCopyLink={handleHangoutInviteCopyLink}
-            searchValue={hangoutInviteSearchValue}
-            onSearchValueChange={setHangoutInviteSearchValue}
           />
         ) : effectiveHangoutFlowStep === "add-record" ? (
           <AddColleagueForm
@@ -3222,7 +3769,7 @@ export default function DashboardHangoutsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() => setHangoutFlowStep("source", mode, eventId)}
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
                   />
                 }
@@ -3232,18 +3779,23 @@ export default function DashboardHangoutsScreen() {
                 onDeleteItem={setRecordPendingDelete}
                 suspendDismiss={Boolean(recordPendingDelete)}
                 footer={
-                  <ModalButton
-                    type="button"
-                    onClick={handleHangoutParticipantsNext}
-                    disabled={
+                  <FlowActionButtons
+                    showBack={false}
+                    onNext={handleHangoutParticipantsNext}
+                    onSaveAndContinue={handleHangoutParticipantsNext}
+                    nextDisabled={
                       !selectedParticipantContactIds.length ||
                       createParticipantsBulkMutation.isPending
                     }
-                  >
-                    {createParticipantsBulkMutation.isPending
-                      ? "Saving..."
-                      : "Next"}
-                  </ModalButton>
+                    nextLabel={
+                      createParticipantsBulkMutation.isPending
+                        ? "Saving..."
+                        : "Next"
+                    }
+                    isSaveAndContinuePending={
+                      createParticipantsBulkMutation.isPending
+                    }
+                  />
                 }
                 triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
               />
@@ -3318,23 +3870,43 @@ export default function DashboardHangoutsScreen() {
               </button>
             ) : null}
 
-            <ModalButton
-              type="button"
-              onClick={handleHangoutFlowEventNext}
-              disabled={
-                !selectedHangoutEventTypeId ||
+            <FlowActionButtons
+              showBack={false}
+              onNext={handleHangoutFlowEventNext}
+              onSaveAndContinue={handleHangoutFlowEventSaveAndContinue}
+              stackSaveAndContinue={false}
+              nextDisabled={!selectedHangoutEventTypeId}
+              nextClassName="!w-fit min-w-[96px] px-6"
+              saveClassName="!w-fit min-w-[140px] px-6"
+              isSaveAndContinuePending={
                 createHangoutEventMutation.isPending ||
                 updateHangoutEventMutation.isPending
               }
-            >
-              {createHangoutEventMutation.isPending ||
-              updateHangoutEventMutation.isPending
-                ? "Saving..."
-                : "Next"}
-            </ModalButton>
+            />
           </div>
         )}
       </ContentModal>
+
+      <EmailInviteComposeModal
+        open={isHangoutInviteEmailComposeOpen}
+        onClose={() => setIsHangoutInviteEmailComposeOpen(false)}
+        initialTitle={
+          currentHangoutEventRecord?.event.title?.trim() ||
+          hangoutEventName?.trim() ||
+          selectedEventTypeOption?.label ||
+          "Hangout event"
+        }
+        initialBody={buildInviteShareMessage(
+          currentHangoutEventRecord?.event.title?.trim() ||
+            hangoutEventName?.trim() ||
+            selectedEventTypeOption?.label ||
+            "this hangout",
+          hangoutInviteShareUrl,
+        )}
+        lockedEmails={hangoutInviteLockedEmails}
+        onSubmit={handleConfirmSendHangoutInviteEmails}
+        isSubmitting={sendEmailMutation.isPending}
+      />
     </div>
   );
 }

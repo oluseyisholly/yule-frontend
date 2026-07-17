@@ -6,9 +6,9 @@ import dropIcon from "@/assets/icons/dropIcon.svg";
 
 const faqs = [
   {
-    question: "What types of celebrations can I plan through yule?",
+    question: "What types of celebrations can I plan through festa?",
     answer:
-      "From birthdays, anniversaries, and graduations to weddings and holidays — Yule helps you organize and celebrate any meaningful moment.",
+      "From birthdays, anniversaries, and graduations to weddings and holidays — Festa helps you organize and celebrate any meaningful moment.",
   },
   {
     question: "Can I personalize or customize a gift?",
