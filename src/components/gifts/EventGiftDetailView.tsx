@@ -34,12 +34,12 @@ type EventGiftDetailViewProps = {
   backHref: string;
   backLabel: string;
   onBack?: () => void;
-  eventTitle: string;
-  createdBy: string;
-  createdAt: string;
-  status: EventGiftDetailStatus;
-  avatarInitials: string;
-  summaryItems: EventGiftDetailSummaryItem[];
+  eventTitle?: string;
+  createdBy?: string;
+  createdAt?: string;
+  status?: EventGiftDetailStatus;
+  avatarInitials?: string;
+  summaryItems?: EventGiftDetailSummaryItem[];
   showSummaryItems?: boolean;
   product: MarketplaceProduct;
   onDelete: () => void;
@@ -190,12 +190,12 @@ export default function EventGiftDetailView({
   backHref,
   backLabel,
   onBack,
-  eventTitle,
-  createdBy,
-  createdAt,
-  status,
-  avatarInitials,
-  summaryItems,
+  eventTitle = "Gift Details",
+  createdBy = "Festa",
+  createdAt = "-",
+  status = "Pending",
+  avatarInitials = "GI",
+  summaryItems = [],
   showHeader = true,
   showSummaryItems = true,
   product,

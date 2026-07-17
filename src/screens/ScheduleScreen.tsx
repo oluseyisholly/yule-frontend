@@ -798,8 +798,11 @@ export default function ScheduleScreen() {
     setScheduleDraftFields(flowSelectionKey, { selectedOnedaBusinessIds: ids });
   const setSelectedOnedaContactIds = (ids: string[]) =>
     setScheduleDraftFields(flowSelectionKey, { selectedOnedaContactIds: ids });
-  const setSelectedGiftIds = (ids: string[]) =>
-    setStoredSelectedGiftIds(flowSelectionKey, ids);
+  const setSelectedGiftIds = (next: string[] | ((current: string[]) => string[])) =>
+    setStoredSelectedGiftIds(
+      flowSelectionKey,
+      typeof next === "function" ? next(selectedGiftIds) : next,
+    );
   const setSelectedGiftProductsById = (
     next:
       | Record<string, MarketplaceProduct>

@@ -307,7 +307,7 @@ function normalizeParticipantGiftSelections(
   return [];
 }
 
-function toMarketplaceCondition(value?: string) {
+function toMarketplaceCondition(value?: string | null) {
   const normalizedValue = value?.trim();
 
   if (
@@ -981,8 +981,7 @@ export default function WishListScreen() {
       enabled:
         isOpen &&
         isWishlistGiftSelectionStep &&
-        !isParticipantClaimWishlistStep &&
-        mode !== "participant",
+        !isParticipantClaimWishlistStep,
     },
   );
   const {
@@ -992,11 +991,10 @@ export default function WishListScreen() {
     isError: isCaughtMyEyeGiftIdsError,
     refetch: refetchCaughtMyEyeGiftIds,
   } = useContactGiftCartParticipantGiftIdsQuery({
-    enabled:
-      isOpen &&
-      isWishlistGiftSelectionStep &&
-      !isParticipantClaimWishlistStep &&
-      mode !== "participant",
+      enabled:
+        isOpen &&
+        isWishlistGiftSelectionStep &&
+        !isParticipantClaimWishlistStep,
   });
   const {
     data: participantClaimWishlistGiftsResponse,
@@ -1619,7 +1617,7 @@ export default function WishListScreen() {
 
     const resolvedTitle =
       wishListSuggestedName.trim() ||
-      selectedEventTypeOption.label ||
+      selectedEventTypeOption?.label ||
       "Untitled event";
     const resolvedEventDate =
       options?.eventDate || selectedWishListDate || getTodayDateInputValue();
@@ -1683,10 +1681,10 @@ export default function WishListScreen() {
     }
 
     setWishListDraftFields(flowSelectionKey, {
-      selectedEventTypeId: selectedEventTypeOption.value,
+      selectedEventTypeId,
       eventName:
         wishListSuggestedName.trim() ||
-        selectedEventTypeOption.label ||
+        selectedEventTypeOption?.label ||
         "Untitled event",
     });
     setCurrentStep("event-date", mode, eventId, wishlistEventId);
@@ -1700,7 +1698,7 @@ export default function WishListScreen() {
 
     const resolvedTitle =
       wishListSuggestedName.trim() ||
-      selectedEventTypeOption.label ||
+      selectedEventTypeOption?.label ||
       "Untitled event";
 
     if (wishlistEventId) {
@@ -2089,7 +2087,6 @@ export default function WishListScreen() {
         await completeWishlistEventMutation.mutateAsync(wishlistEventId);
       toast.success(completeResponse.message);
       setIsCompleteWishlistConfirmationOpen(false);
-      setIsWishlistInviteCopyListOpen(false);
       setCurrentStep("invite", mode, eventId, wishlistEventId);
     } catch (error) {
       toast.error(
@@ -2131,7 +2128,7 @@ export default function WishListScreen() {
   }) => {
     const redirectUrl = wishlistInviteShareUrl || publicWishlistLink;
 
-    if (!wishlistEventId || !redirectUrl) {
+    if (!eventId || !wishlistEventId || !redirectUrl) {
       toast.error("Unable to resolve this wish list invite right now.");
       return;
     }
@@ -2148,7 +2145,6 @@ export default function WishListScreen() {
 
       toast.success(response.message);
       setIsWishlistInviteEmailComposeOpen(false);
-      setIsWishlistInviteCopyListOpen(true);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2324,13 +2320,6 @@ export default function WishListScreen() {
                 )
               }
               onNext={handleWishListGiftSelectionNext}
-              isInitialSelectionLoading={
-                isMyParticipantLoading ||
-                isMyParticipantFetching ||
-                isParticipantGiftSelectionsLoading ||
-                isParticipantGiftSelectionsFetching
-              }
-              isInitialSelectionError={isParticipantGiftSelectionsError}
               onRetryInitialSelection={() => {
                 void refetchMyParticipant();
                 void refetchParticipantGiftSelections();

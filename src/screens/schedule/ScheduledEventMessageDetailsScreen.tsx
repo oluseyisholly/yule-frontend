@@ -198,7 +198,7 @@ function SummaryStat({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
 }) {
   return (
     <div className="rounded-[14px] bg-white px-4 py-4 sm:px-5">

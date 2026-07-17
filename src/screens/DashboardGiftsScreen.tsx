@@ -2772,7 +2772,6 @@ export default function DashboardGiftsScreen() {
         await completeGiftingEventMutation.mutateAsync(giftingEventId);
       toast.success(completeResponse.message);
       setIsCompleteGiftingEventConfirmationOpen(false);
-      setIsGiftInviteCopyListOpen(false);
       setGiftFlowStep(
         "invite",
         mode,
