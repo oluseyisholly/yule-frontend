@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import toast from "react-hot-toast";
 import BackButton from "@/components/BackButton";
 import ModalButton from "@/components/ModalButtons";
@@ -93,6 +94,7 @@ type DrawNameStartModalProps = {
   drawNameEventId: string | null;
   flowActor: "creator" | "participant";
   renderInline?: boolean;
+  transitionDirection?: 1 | -1;
   onStepChange: (
     step: DrawNameModalStep,
     nextEventId?: string | null,
@@ -124,6 +126,11 @@ const BUDGET_PRESET_OPTIONS = [
   "N85,000",
   "N100,000",
 ] as const;
+
+const drawNameStepTransition = {
+  duration: 0.34,
+  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+};
 
 const RECORD_AVATAR_STYLES = [
   { avatarBg: "#FCEEC8", avatarColor: "#8A5B00" },
@@ -560,10 +567,12 @@ export default function DrawNameStartModal({
   drawNameEventId,
   flowActor,
   renderInline = false,
+  transitionDirection = 1,
   onStepChange,
   onReplaceStep,
   onClose,
 }: DrawNameStartModalProps) {
+  const shouldReduceModalMotion = useReducedMotion();
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
   const currentUserContactId = useAuthStore((state) => state.currentContactId);
@@ -581,6 +590,7 @@ export default function DrawNameStartModal({
     eventId,
   );
   const isParticipantFlow = flowActor === "participant";
+  const modalStepDirection = transitionDirection;
   const [isForceClosing, setIsForceClosing] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
@@ -645,6 +655,7 @@ export default function DrawNameStartModal({
   const hasTouchedEventDateRef = React.useRef(false);
   const suggestedGroupNameRef = React.useRef("");
   const hasTouchedGroupNameRef = React.useRef(false);
+
   const storedFlowSelection = useDrawNameFlowStore(
     (state) =>
       state.flowSelectionsByKey[flowSelectionKey] ??
@@ -3786,6 +3797,22 @@ Thank you.`;
   const isLargeGiftStep = currentStep === "wishlist-gifts";
   const isDrawResultStep = currentStep === "draw-result";
   const isDrawInviteStep = currentStep === "draw-invite";
+  const animatedModalContent = shouldReduceModalMotion ? (
+    modalContent
+  ) : (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={currentStep}
+        initial={{ opacity: 0, x: modalStepDirection * 42 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: modalStepDirection * -42 }}
+        transition={drawNameStepTransition}
+        className={isLargeGiftStep ? "h-full w-full" : "w-full"}
+      >
+        {modalContent}
+      </motion.div>
+    </AnimatePresence>
+  );
 
   if (isForceClosing) {
     return null;
@@ -3880,7 +3907,9 @@ Thank you.`;
               : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10"
         }
       >
-        {modalContent}
+        <div className={isLargeGiftStep ? "h-full overflow-hidden" : "overflow-hidden"}>
+          {animatedModalContent}
+        </div>
       </ContentModal>
       {confirmationModals}
     </>

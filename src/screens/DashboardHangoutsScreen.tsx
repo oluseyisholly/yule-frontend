@@ -148,10 +148,12 @@ type HangoutParticipantBubble = {
 
 type HangoutRow = {
   id: string;
+  hangoutId: string | null;
   eventId: string;
   hangoutEventId: string | null;
   eventTypeId: string;
   eventStatus: string;
+  fulfillmentStatus: "Fulfilled" | "Not Fulfilled";
   venueName: string;
   location: string;
   eventName: string;
@@ -931,10 +933,12 @@ function toHangoutEventRow(
 
   return {
     id: record.eventId,
+    hangoutId: record.id?.trim() || null,
     eventId: record.eventId,
     hangoutEventId: record.hangoutEventId?.trim() || null,
     eventTypeId: record.event.eventTypeId,
     eventStatus: record.event.status?.trim() || "",
+    fulfillmentStatus: record.isFulfilled ? "Fulfilled" : "Not Fulfilled",
     venueName: record.location?.trim() || "Hangout venue",
     location: record.location?.trim() || "-",
     eventName: record.event.title?.trim() || "Untitled hangout",
@@ -3063,12 +3067,10 @@ export default function DashboardHangoutsScreen() {
       },
       {
         id: "status",
-        header: "Status",
+        header: "Fulfillment",
         headerClassName: "min-w-[100px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
-        render: (row) => (
-          <StatusPill status={row?.eventStatus as HangoutStatusLabel} />
-        ),
+        render: (row) => <StatusPill status={row.fulfillmentStatus} />,
       },
       {
         id: "actions",

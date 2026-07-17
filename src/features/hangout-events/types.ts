@@ -34,6 +34,7 @@ export type HangoutEventCore = {
 };
 
 export type HangoutEventRecord = {
+  id?: string | null;
   eventId: string;
   location: string | null;
   hangoutEventId: string | null;

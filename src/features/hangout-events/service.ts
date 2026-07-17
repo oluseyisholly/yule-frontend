@@ -81,13 +81,13 @@ export async function completeHangoutEvent(eventId: string) {
 }
 
 export async function updateHangoutEventFulfillment(
-  eventId: string,
+  hangoutId: string,
   payload: HangoutEventFulfillmentPayload,
 ) {
   return patchApi<
     HangoutEventMutationResponse,
     HangoutEventFulfillmentPayload
-  >(`${HANGOUT_EVENTS_ENDPOINT}/${eventId}/fulfillment`, payload);
+  >(`${HANGOUT_EVENTS_ENDPOINT}/${hangoutId}/fulfillment`, payload);
 }
 
 export async function deleteHangoutEvent(eventId: string) {

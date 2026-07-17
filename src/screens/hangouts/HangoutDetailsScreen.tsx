@@ -670,6 +670,8 @@ export default function HangoutDetailsScreen({
     typeof hangout?.isFulfilled === "boolean"
       ? hangout.isFulfilled
       : hangout?.event.status?.trim().toLowerCase() === "completed";
+  const hangoutRecordId =
+    hangout?.id?.trim() || hangout?.hangoutEventId?.trim() || null;
   const fulfillmentActionLabel = isHangoutFulfilled
     ? "Mark as not fulfilled"
     : "Mark as fulfilled";
@@ -724,9 +726,14 @@ export default function HangoutDetailsScreen({
       return;
     }
 
+    if (!hangoutRecordId) {
+      toast.error("Unable to resolve this hangout record right now.");
+      return;
+    }
+
     try {
       await updateHangoutFulfillmentMutation.mutateAsync({
-        eventId: hangout.eventId,
+        hangoutId: hangoutRecordId,
         isFulfilled: pendingFulfillmentState,
       });
 

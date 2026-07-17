@@ -40,6 +40,7 @@ export default function DrawNamesScreen() {
     closeModal,
     setCurrentStep,
     replaceCurrentStep,
+    transitionDirection,
   } =
     useDrawNameModalRouteState();
   const hasShownCreatorAccessErrorRef = useRef<string | null>(null);
@@ -221,6 +222,7 @@ export default function DrawNamesScreen() {
           drawNameEventId={drawNameEventId}
           flowActor={flowActor}
           renderInline={true}
+          transitionDirection={transitionDirection}
           onStepChange={setCurrentStep}
           onReplaceStep={replaceCurrentStep}
           onClose={closeModal}
@@ -237,6 +239,7 @@ export default function DrawNamesScreen() {
             eventId={eventId}
             drawNameEventId={drawNameEventId}
             flowActor={flowActor}
+            transitionDirection={transitionDirection}
             onStepChange={setCurrentStep}
             onReplaceStep={replaceCurrentStep}
             onClose={closeModal}

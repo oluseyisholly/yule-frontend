@@ -10,12 +10,12 @@ export function useUpdateHangoutEventFulfillmentMutation() {
   return useMutation({
     mutationKey: ["hangout-events", "fulfillment"],
     mutationFn: ({
-      eventId,
+      hangoutId,
       isFulfilled,
     }: {
-      eventId: string;
+      hangoutId: string;
       isFulfilled: boolean;
-    }) => updateHangoutEventFulfillment(eventId, { isFulfilled }),
+    }) => updateHangoutEventFulfillment(hangoutId, { isFulfilled }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: hangoutEventQueryKeys.all,

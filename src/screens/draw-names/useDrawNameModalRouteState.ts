@@ -12,6 +12,37 @@ const FLOW_PATH_PREFIX = `${BASE_DRAW_NAMES_PATH}/flow`;
 const LEGACY_MODAL_PARAM = "drawNameModal";
 const EVENT_ID_PARAM = "eventId";
 const DRAW_NAME_EVENT_ID_PARAM = "drawNameEventId";
+const DRAW_NAME_FLOW_DIRECTION_STORAGE_KEY = "yule:draw-name-flow-direction";
+
+const DRAW_NAME_FLOW_STEP_ORDER: DrawNameModalStep[] = [
+  "event",
+  "source",
+  "oneda-business",
+  "oneda-contact",
+  "record",
+  "add-record",
+  "review-records",
+  "exclusion-choice",
+  "exclusion-record",
+  "event-date",
+  "group-name",
+  "budget",
+  "wishlist-choice",
+  "wishlist-gifts",
+  "wishlist-notification",
+  "draw-ready",
+  "draw-spin",
+  "draw-result",
+  "draw-invite",
+];
+
+const drawNameStepOrderIndex = DRAW_NAME_FLOW_STEP_ORDER.reduce(
+  (accumulator, step, index) => {
+    accumulator[step] = index;
+    return accumulator;
+  },
+  {} as Record<DrawNameModalStep, number>,
+);
 
 type ModalNavigationMethod = "push" | "replace";
 
@@ -62,6 +93,17 @@ export function useDrawNameModalRouteState() {
     () => resolvedSearchParams.get(DRAW_NAME_EVENT_ID_PARAM),
     [resolvedSearchParams],
   );
+  const transitionDirection = useMemo<1 | -1>(() => {
+    if (typeof window === "undefined") {
+      return 1;
+    }
+
+    return window.sessionStorage.getItem(
+      DRAW_NAME_FLOW_DIRECTION_STORAGE_KEY,
+    ) === "-1"
+      ? -1
+      : 1;
+  }, [pathname]);
 
   const navigateModalStep = useCallback(
     (
@@ -92,9 +134,30 @@ export function useDrawNameModalRouteState() {
       const nextQuery = nextParams.toString();
       const nextPath = step ? `${FLOW_PATH_PREFIX}/${step}` : BASE_DRAW_NAMES_PATH;
       const nextHref = nextQuery ? `${nextPath}?${nextQuery}` : nextPath;
+
+      if (typeof window !== "undefined") {
+        if (step) {
+          const currentStepIndex = modalStep
+            ? drawNameStepOrderIndex[modalStep]
+            : -1;
+          const nextStepIndex = drawNameStepOrderIndex[step];
+          const nextDirection =
+            currentStepIndex > nextStepIndex ? "-1" : "1";
+
+          window.sessionStorage.setItem(
+            DRAW_NAME_FLOW_DIRECTION_STORAGE_KEY,
+            nextDirection,
+          );
+        } else {
+          window.sessionStorage.removeItem(
+            DRAW_NAME_FLOW_DIRECTION_STORAGE_KEY,
+          );
+        }
+      }
+
       router[method](nextHref, { scroll: false });
     },
-    [drawNameEventId, eventId, router],
+    [drawNameEventId, eventId, modalStep, router],
   );
 
   const openModal = useCallback(
@@ -160,6 +223,7 @@ export function useDrawNameModalRouteState() {
     currentStep: modalStep ?? "event",
     eventId,
     drawNameEventId,
+    transitionDirection,
     openModal,
     setCurrentStep,
     replaceCurrentStep,
