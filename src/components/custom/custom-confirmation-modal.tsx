@@ -15,11 +15,14 @@ type ConfirmationModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onSecondaryConfirm?: () => void;
   action?: ConfirmationAction | string;
   isLoading?: boolean;
+  isSecondaryLoading?: boolean;
   title?: string;
   description?: string;
   confirmText?: string;
+  secondaryConfirmText?: string;
   cancelText?: string;
   employeeName?: string;
   courseName?: string;
@@ -41,11 +44,14 @@ const ConfirmationModal = ({
   open,
   onClose,
   onConfirm,
+  onSecondaryConfirm,
   action,
   isLoading = false,
+  isSecondaryLoading = false,
   title,
   description,
   confirmText,
+  secondaryConfirmText,
   cancelText = "Cancel",
   employeeName,
   courseName,
@@ -109,6 +115,7 @@ const ConfirmationModal = ({
   const modalTitle = title || currentConfig.defaultTitle;
   const modalDescription = description || currentConfig.defaultDescription;
   const confirmButtonText = confirmText || currentConfig.buttonText;
+  const hasSecondaryConfirm = Boolean(onSecondaryConfirm && secondaryConfirmText);
 
   return (
     <Dialog
@@ -155,15 +162,32 @@ const ConfirmationModal = ({
           <Button
             variant="outline"
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isLoading || isSecondaryLoading}
             className="h-9"
           >
             {cancelText}
           </Button>
+          {hasSecondaryConfirm ? (
+            <Button
+              variant="outline"
+              className="h-9 border-[#3300C9] text-[#3300C9] hover:bg-[#F8F5FF]"
+              onClick={onSecondaryConfirm}
+              disabled={isLoading || isSecondaryLoading}
+            >
+              {isSecondaryLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner className="size-4" />
+                  {` ${secondaryConfirmText?.toLowerCase()}`}
+                </span>
+              ) : (
+                secondaryConfirmText
+              )}
+            </Button>
+          ) : null}
           <Button
             className={`h-9 text-white ${currentConfig.buttonColor}`}
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || isSecondaryLoading}
           >
             {isLoading ? (
               <span className="inline-flex items-center gap-2">

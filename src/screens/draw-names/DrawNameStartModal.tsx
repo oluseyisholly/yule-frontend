@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import toast from "react-hot-toast";
 import BackButton from "@/components/BackButton";
@@ -41,11 +42,14 @@ import { useCreateDrawNameEventMutation } from "@/features/draw-name-events/hook
 import { useDrawNameEventMutation } from "@/features/draw-name-events/hooks/useDrawNameEventMutation";
 import { canManageDrawNameEvent } from "@/features/draw-name-events/access";
 import { useDrawNameEventQuery } from "@/features/draw-name-events/hooks/useDrawNameEventQuery";
+import { useSetupDrawNameEventMutation } from "@/features/draw-name-events/hooks/useSetupDrawNameEventMutation";
+import { useUpdateDrawNameEventSetupMutation } from "@/features/draw-name-events/hooks/useUpdateDrawNameEventSetupMutation";
 import { useUpdateDrawNameEventMutation } from "@/features/draw-name-events/hooks/useUpdateDrawNameEventMutation";
-import type { DrawNameEventCreatePayload } from "@/features/draw-name-events/types";
-import { useCreateParticipantExclusionsBulkMutation } from "@/features/participants/hooks/useCreateParticipantExclusionsBulkMutation";
+import type {
+  DrawNameEventCreatePayload,
+  DrawNameEventSetupPayload,
+} from "@/features/draw-name-events/types";
 import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
-import { useDeleteParticipantExclusionMutation } from "@/features/participants/hooks/useDeleteParticipantExclusionMutation";
 import { useEventParticipantContactIdsQuery } from "@/features/participants/hooks/useEventParticipantContactIdsQuery";
 import { useEventParticipantsQuery } from "@/features/participants/hooks/useEventParticipantsQuery";
 import { useGiftRecipientQuery } from "@/features/participants/hooks/useGiftRecipientQuery";
@@ -75,7 +79,9 @@ import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutatio
 import { useAuthStore } from "@/stores/auth-store";
 import { YULE_SIGN_IN_URL } from "@/lib/external-links";
 import {
+  buildDrawNameFlowHref,
   buildDrawNameFlowSelectionKey,
+  type DrawNameLocalAssignment,
   EMPTY_DRAW_NAME_ADD_RECORD_DRAFT,
   EMPTY_DRAW_NAME_FLOW_SELECTION,
   useDrawNameFlowStore,
@@ -117,6 +123,8 @@ const EMPTY_NEW_COLLEAGUE_FORM: AddColleagueFormValues = {
 };
 
 const MINIMUM_COLLEAGUES_FOR_UNPAIRING = 4;
+const CREATOR_CLIENT_REF = "creator";
+type DrawNameSetupSaveMode = "draft" | "save";
 const BUDGET_PRESET_OPTIONS = [
   "N10,000",
   "N15,000",
@@ -178,7 +186,9 @@ function mapContactToRecordItem(
     email: contact.email,
     createdById: contact.createdById ?? null,
     isManageable: Boolean(
-      currentUserContactId && contact.createdById === currentUserContactId,
+      !contact.userId?.trim() &&
+        currentUserContactId &&
+        contact.createdById === currentUserContactId,
     ),
     firstName: contact.firstName,
     lastName: contact.lastName,
@@ -318,6 +328,96 @@ function mergePairedRecordMaps(...maps: Record<string, string[]>[]) {
       )
       .filter(([, pairedIds]) => pairedIds.length > 0),
   ) as Record<string, string[]>;
+}
+
+function shuffleValues<T>(values: T[]) {
+  const nextValues = [...values];
+
+  for (let index = nextValues.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [nextValues[index], nextValues[swapIndex]] = [
+      nextValues[swapIndex],
+      nextValues[index],
+    ];
+  }
+
+  return nextValues;
+}
+
+function buildParticipantClientRefsByContactId(
+  participantContactIds: string[],
+  currentRefsByContactId: Record<string, string>,
+) {
+  const usedRefs = new Set<string>();
+  const nextRefsByContactId: Record<string, string> = {};
+
+  participantContactIds.forEach((contactId) => {
+    const existingRef = currentRefsByContactId[contactId]?.trim();
+
+    if (existingRef && existingRef !== CREATOR_CLIENT_REF) {
+      nextRefsByContactId[contactId] = existingRef;
+      usedRefs.add(existingRef);
+      return;
+    }
+
+    let nextIndex = usedRefs.size + 1;
+    let nextRef = `p${nextIndex}`;
+
+    while (usedRefs.has(nextRef)) {
+      nextIndex += 1;
+      nextRef = `p${nextIndex}`;
+    }
+
+    nextRefsByContactId[contactId] = nextRef;
+    usedRefs.add(nextRef);
+  });
+
+  return nextRefsByContactId;
+}
+
+function findDrawAssignments(
+  receiverRefs: string[],
+  giverRefs: string[],
+  isAllowed: (receiverRef: string, giverRef: string) => boolean,
+) {
+  const orderedReceivers = shuffleValues(receiverRefs);
+
+  const assignNext = (
+    receiverIndex: number,
+    availableGivers: string[],
+    assignments: DrawNameLocalAssignment[],
+  ): DrawNameLocalAssignment[] | null => {
+    if (receiverIndex >= orderedReceivers.length) {
+      return assignments;
+    }
+
+    const receiverRef = orderedReceivers[receiverIndex];
+    const allowedGivers = shuffleValues(availableGivers).filter((giverRef) =>
+      isAllowed(receiverRef, giverRef),
+    );
+
+    for (const giverRef of allowedGivers) {
+      const nextAssignments = assignNext(
+        receiverIndex + 1,
+        availableGivers.filter((candidateRef) => candidateRef !== giverRef),
+        [...assignments, { receiverRef, giverRef }],
+      );
+
+      if (nextAssignments) {
+        return nextAssignments;
+      }
+    }
+
+    return null;
+  };
+
+  return (
+    assignNext(0, giverRefs, [])?.sort(
+      (left, right) =>
+        receiverRefs.indexOf(left.receiverRef) -
+        receiverRefs.indexOf(right.receiverRef),
+    ) ?? null
+  );
 }
 
 function getGiftRecipientDisplayName(result: GiftRecipientResult) {
@@ -573,6 +673,7 @@ export default function DrawNameStartModal({
   onClose,
 }: DrawNameStartModalProps) {
   const shouldReduceModalMotion = useReducedMotion();
+  const router = useRouter();
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
   const currentUserContactId = useAuthStore((state) => state.currentContactId);
@@ -590,6 +691,7 @@ export default function DrawNameStartModal({
     eventId,
   );
   const isParticipantFlow = flowActor === "participant";
+  const isCreatorSetupFlow = flowActor === "creator";
   const modalStepDirection = transitionDirection;
   const [isForceClosing, setIsForceClosing] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -606,6 +708,12 @@ export default function DrawNameStartModal({
     useState<SearchableRecordItem | null>(null);
   const [isCompleteDrawConfirmationOpen, setIsCompleteDrawConfirmationOpen] =
     useState(false);
+  const [
+    isDiscardCreateSetupConfirmationOpen,
+    setIsDiscardCreateSetupConfirmationOpen,
+  ] = useState(false);
+  const [drawNameSetupSaveMode, setDrawNameSetupSaveMode] =
+    useState<DrawNameSetupSaveMode>("save");
   const [isInviteEmailModalOpen, setIsInviteEmailModalOpen] = useState(false);
   const [selectedOnedaBusinessIds, setSelectedOnedaBusinessIds] = useState<
     string[]
@@ -636,6 +744,13 @@ export default function DrawNameStartModal({
   const [wishlistNotificationChoice, setWishlistNotificationChoice] = useState<
     "yes" | "no"
   >("yes");
+  const [
+    participantClientRefsByContactId,
+    setParticipantClientRefsByContactId,
+  ] = useState<Record<string, string>>({});
+  const [drawAssignments, setDrawAssignments] = useState<
+    DrawNameLocalAssignment[]
+  >([]);
   const [drawResultName, setDrawResultName] = useState("");
   const [isPortalReady, setIsPortalReady] = useState(false);
   const [recordSearchValue, setRecordSearchValue] = useState("");
@@ -651,6 +766,7 @@ export default function DrawNameStartModal({
   const [isFlowSelectionHydrated, setIsFlowSelectionHydrated] = useState(false);
   const hydratedDrawNameEventIdRef = React.useRef<string | null>(null);
   const hydratedFlowSelectionKeyRef = React.useRef<string | null>(null);
+  const hasHydratedRecordSelectionFromBackendRef = React.useRef(false);
   const hasTouchedEventTypeRef = React.useRef(false);
   const hasTouchedEventDateRef = React.useRef(false);
   const suggestedGroupNameRef = React.useRef("");
@@ -679,11 +795,20 @@ export default function DrawNameStartModal({
   const setStoredPairedRecordIdsById = useDrawNameFlowStore(
     (state) => state.setPairedRecordIdsById,
   );
+  const setStoredParticipantClientRefsByContactId = useDrawNameFlowStore(
+    (state) => state.setParticipantClientRefsByContactId,
+  );
+  const setStoredDrawAssignments = useDrawNameFlowStore(
+    (state) => state.setDrawAssignments,
+  );
   const setStoredAddRecordDraft = useDrawNameFlowStore(
     (state) => state.setAddRecordDraft,
   );
   const setStoredDraftFields = useDrawNameFlowStore(
     (state) => state.setDraftFields,
+  );
+  const resetStoredFlowSelection = useDrawNameFlowStore(
+    (state) => state.resetFlowSelection,
   );
   const createEventTypeMutation = useCreateEventTypeMutation();
   const updateEventTypeMutation = useUpdateEventTypeMutation();
@@ -696,14 +821,13 @@ export default function DrawNameStartModal({
   const completeDrawNameEventMutation = useCompleteDrawNameEventMutation();
   const createDrawNameEventMutation = useCreateDrawNameEventMutation();
   const drawNameEventMutation = useDrawNameEventMutation();
+  const setupDrawNameEventMutation = useSetupDrawNameEventMutation();
+  const updateDrawNameEventSetupMutation =
+    useUpdateDrawNameEventSetupMutation();
   const updateDrawNameEventMutation = useUpdateDrawNameEventMutation();
   const sendEmailMutation = useSendEmailMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
   const createBulkGiftsMutation = useCreateBulkGiftsMutation();
-  const createParticipantExclusionsBulkMutation =
-    useCreateParticipantExclusionsBulkMutation(eventId);
-  const deleteParticipantExclusionMutation =
-    useDeleteParticipantExclusionMutation(eventId);
   const updateMyParticipantNotificationMutation =
     useUpdateMyParticipantNotificationMutation();
   const ensureMyContactMutation = useEnsureMyContactMutation();
@@ -821,7 +945,7 @@ export default function DrawNameStartModal({
     isError: isEventParticipantContactIdsError,
     refetch: refetchEventParticipantContactIds,
   } = useEventParticipantContactIdsQuery(drawNameEventId, {
-    enabled: open && currentStep === "record",
+    enabled: open && currentStep === "record" && Boolean(drawNameEventId),
   });
   const {
     data: eventParticipantsResponse,
@@ -865,6 +989,7 @@ export default function DrawNameStartModal({
     useMyParticipantQuery(eventId, {
       enabled:
         open &&
+        Boolean(eventId) &&
         ["wishlist-gifts", "wishlist-notification"].includes(currentStep),
     });
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
@@ -875,7 +1000,11 @@ export default function DrawNameStartModal({
     isError: isParticipantGiftSelectionsError,
     refetch: refetchParticipantGiftSelections,
   } = useParticipantGiftSelectionsQuery(currentParticipantId, eventId, {
-    enabled: open && currentStep === "wishlist-gifts",
+    enabled:
+      open &&
+      Boolean(eventId) &&
+      Boolean(currentParticipantId) &&
+      currentStep === "wishlist-gifts",
   });
   const { data: giftRecipientResponse, refetch: refetchGiftRecipient } =
     useGiftRecipientQuery(eventId, {
@@ -935,24 +1064,6 @@ export default function DrawNameStartModal({
         .filter((record) => !deletedRecordIds.includes(record.id)),
     [deletedRecordIds, eventParticipantsResponse],
   );
-  const participantByContactId = useMemo(
-    () =>
-      Object.fromEntries(
-        (eventParticipantsResponse?.data.data ?? [])
-          .map((participant) => {
-            const contactId =
-              participant.eventContact?.id ||
-              participant.eventContactId ||
-              null;
-
-            return contactId ? [contactId, participant] : null;
-          })
-          .filter((entry): entry is [string, EventParticipant] =>
-            Boolean(entry),
-          ),
-      ),
-    [eventParticipantsResponse],
-  );
   const participantContactIdByParticipantId = useMemo(
     () =>
       Object.fromEntries(
@@ -990,6 +1101,7 @@ export default function DrawNameStartModal({
     data: caughtMyEyeParticipantGiftIdsResponse,
     isLoading: isCaughtMyEyeParticipantGiftIdsLoading,
     isFetching: isCaughtMyEyeParticipantGiftIdsFetching,
+    refetch: refetchCaughtMyEyeParticipantGiftIds,
   } = useContactGiftCartParticipantGiftIdsQuery({
     enabled: open && currentStep === "wishlist-gifts",
   });
@@ -1085,35 +1197,6 @@ export default function DrawNameStartModal({
         return true;
       });
   }, [authUser?.email, drawInviteParticipants]);
-  const exclusionIdByContactPairKey = useMemo(
-    () =>
-      Object.fromEntries(
-        (participantExclusionsResponse?.data ?? [])
-          .map((exclusion) => {
-            const [participantOneId, participantTwoId] =
-              exclusion.participantIds;
-            const participantOneContactId =
-              participantContactIdByParticipantId[participantOneId] || null;
-            const participantTwoContactId =
-              participantContactIdByParticipantId[participantTwoId] || null;
-
-            if (!participantOneContactId || !participantTwoContactId) {
-              return null;
-            }
-
-            const pairKey = [participantOneContactId, participantTwoContactId]
-              .sort()
-              .join("::");
-
-            return [pairKey, exclusion.id] as const;
-          })
-          .filter((entry): entry is readonly [string, string] =>
-            Boolean(entry),
-          ),
-      ),
-    [participantContactIdByParticipantId, participantExclusionsResponse],
-  );
-
   const filteredCustomRecordOptions = useMemo(() => {
     const normalizedQuery = recordSearchValue.trim().toLowerCase();
 
@@ -1151,14 +1234,73 @@ export default function DrawNameStartModal({
   );
   const greetingName = firstName?.trim() || "Andrew";
   const signedInEmail = authUser?.email?.trim().toLowerCase() || "";
+  const creatorRecordOption = useMemo<SearchableRecordItem | null>(() => {
+    const knownCreatorRecord =
+      (currentUserContactId
+        ? allKnownRecordOptions.find(
+            (record) => record.id === currentUserContactId,
+          )
+        : null) ||
+      (signedInEmail
+        ? allKnownRecordOptions.find(
+            (record) => record.email?.trim().toLowerCase() === signedInEmail,
+          )
+        : null);
+
+    if (knownCreatorRecord) {
+      return knownCreatorRecord;
+    }
+
+    const creatorContactId = currentUserContactId?.trim();
+
+    if (!creatorContactId || !authUser) {
+      return null;
+    }
+
+    const creatorFirstName = authUser.firstName?.trim() ?? "";
+    const creatorLastName = authUser.lastName?.trim() ?? "";
+    const creatorName =
+      `${creatorFirstName} ${creatorLastName}`.trim() ||
+      authUser.email?.trim() ||
+      "You";
+    const creatorEmail = authUser.email?.trim() ?? "";
+    const initials =
+      `${creatorFirstName.charAt(0)}${creatorLastName.charAt(0)}`
+        .trim()
+        .toUpperCase() || creatorName.slice(0, 2).toUpperCase();
+    const { avatarBg, avatarColor } = getContactAvatarStyle(creatorContactId);
+
+    return {
+      id: creatorContactId,
+      name: creatorName,
+      subtitle: creatorEmail || "Creator",
+      email: creatorEmail,
+      isManageable: false,
+      firstName: creatorFirstName,
+      lastName: creatorLastName,
+      phoneNumber: authUser.phoneNumber ?? "",
+      profileUrl: authUser.profile?.profilePhotoUrl ?? null,
+      initials,
+      avatarBg,
+      avatarColor,
+    };
+  }, [allKnownRecordOptions, authUser, currentUserContactId, signedInEmail]);
   const adminRecordId = useMemo(
     () =>
-      allKnownRecordOptions.find(
-        (record) => record.email?.trim().toLowerCase() === signedInEmail,
-      )?.id ?? null,
-    [allKnownRecordOptions, signedInEmail],
+      currentUserContactId?.trim() || creatorRecordOption?.id?.trim() || null,
+    [creatorRecordOption?.id, currentUserContactId],
   );
   const lockedSelectedRecordIds = adminRecordId ? [adminRecordId] : [];
+  const exclusionRecordOptions = useMemo(() => {
+    if (
+      !creatorRecordOption ||
+      selectedRecordOptions.some((record) => record.id === creatorRecordOption.id)
+    ) {
+      return selectedRecordOptions;
+    }
+
+    return mergeRecordItems([creatorRecordOption], selectedRecordOptions);
+  }, [creatorRecordOption, selectedRecordOptions]);
 
   const selectedRecordReviewItems = useMemo(
     () =>
@@ -1204,8 +1346,41 @@ ${drawNameSignInInviteUrl}
 
 Thank you.`;
   const drawNameInviteShareMessage = `You have been invited to join ${resolvedInviteEmailTitle} on Festa.\n\nSign in with the link below to view the event and participate:\n${drawNameSignInInviteUrl}`;
+  const localDrawResultName = useMemo(() => {
+    const creatorAssignment = drawAssignments.find(
+      (assignment) => assignment.giverRef === CREATOR_CLIENT_REF,
+    );
+
+    if (!creatorAssignment) {
+      return "";
+    }
+
+    if (creatorAssignment.receiverRef === CREATOR_CLIENT_REF) {
+      return `${authUser?.firstName ?? ""} ${authUser?.lastName ?? ""}`.trim();
+    }
+
+    const receiverContactId = Object.entries(
+      participantClientRefsByContactId,
+    ).find(([, clientRef]) => clientRef === creatorAssignment.receiverRef)?.[0];
+
+    if (!receiverContactId) {
+      return "";
+    }
+
+    return (
+      selectedRecordReviewItems.find((item) => item.id === receiverContactId)
+        ?.name ?? ""
+    );
+  }, [
+    authUser?.firstName,
+    authUser?.lastName,
+    drawAssignments,
+    participantClientRefsByContactId,
+    selectedRecordReviewItems,
+  ]);
   const resolvedDrawResultName =
     getGiftRecipientDisplayName(giftRecipientResponse?.data ?? null) ||
+    localDrawResultName ||
     drawResultName ||
     selectedRecordReviewItems.find((item) => !item.isAdmin)?.name ||
     selectedRecordReviewItems[0]?.name ||
@@ -1392,6 +1567,224 @@ Thank you.`;
     };
   };
 
+  const buildLocalSetupPayload = (): DrawNameEventSetupPayload | null => {
+    if (!selectedEventId) {
+      toast.error("Please select an event before completing this draw.");
+      return null;
+    }
+
+    const participantContactIds = selectedRecordReviewDisplayItems
+      .map((item) => item.id?.trim())
+      .filter(Boolean);
+
+    if (!participantContactIds.length) {
+      toast.error("Please add at least one participant before completing.");
+      return null;
+    }
+
+    if (new Set(participantContactIds).size !== participantContactIds.length) {
+      toast.error("Please remove duplicate participants before completing.");
+      return null;
+    }
+
+    const participantRefs = participantContactIds.map(
+      (contactId) => participantClientRefsByContactId[contactId],
+    );
+
+    if (participantRefs.some((clientRef) => !clientRef)) {
+      toast.error("Please draw names again before completing this setup.");
+      return null;
+    }
+
+    if (new Set(participantRefs).size !== participantRefs.length) {
+      toast.error("Please draw names again before completing this setup.");
+      return null;
+    }
+
+    const expectedRefs = [CREATOR_CLIENT_REF, ...participantRefs];
+    const expectedRefSet = new Set(expectedRefs);
+
+    if (expectedRefSet.size !== expectedRefs.length) {
+      toast.error("Please draw names again before completing this setup.");
+      return null;
+    }
+
+    if (drawAssignments.length !== expectedRefs.length) {
+      toast.error("Please draw names again before completing this setup.");
+      return null;
+    }
+
+    const receiverRefs = drawAssignments.map(
+      (assignment) => assignment.receiverRef,
+    );
+    const giverRefs = drawAssignments.map((assignment) => assignment.giverRef);
+    const hasUnknownAssignmentRef = [...receiverRefs, ...giverRefs].some(
+      (clientRef) => !expectedRefSet.has(clientRef),
+    );
+
+    if (
+      hasUnknownAssignmentRef ||
+      new Set(receiverRefs).size !== expectedRefs.length ||
+      new Set(giverRefs).size !== expectedRefs.length ||
+      expectedRefs.some(
+        (clientRef) =>
+          !receiverRefs.includes(clientRef) || !giverRefs.includes(clientRef),
+      )
+    ) {
+      toast.error("Please draw names again before completing this setup.");
+      return null;
+    }
+
+    const hasSelfDraw = drawAssignments.some(
+      (assignment) => assignment.receiverRef === assignment.giverRef,
+    );
+
+    if (hasSelfDraw) {
+      toast.error("A participant cannot be paired with themselves.");
+      return null;
+    }
+
+    const selectedProducts = selectedWishlistGiftIds
+      .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
+      .filter((product): product is MarketplaceProduct => Boolean(product));
+
+    if (!selectedProducts.length) {
+      toast.error("Please select at least one gift before completing.");
+      return null;
+    }
+
+    const budgetAmount = getSelectedBudgetAmount();
+
+    if (!Number.isFinite(budgetAmount) || budgetAmount <= 0) {
+      toast.error("Please select a maximum spend before completing.");
+      return null;
+    }
+
+    const hasBudgetExceededGift = selectedProducts.some(
+      (product) => Number(product.amount) > budgetAmount,
+    );
+
+    if (hasBudgetExceededGift) {
+      toast.error("Budget has been exceeded for this draw name.", {
+        id: "draw-name-budget-exceeded",
+        position: "top-center",
+      });
+      return null;
+    }
+
+    const hasIncompleteGiftDetails = selectedProducts.some(
+      (product) =>
+        !product.title?.trim() ||
+        product.title.trim() === "Selected gift" ||
+        !Number.isFinite(product.amount) ||
+        product.amount <= 0,
+    );
+
+    if (hasIncompleteGiftDetails) {
+      toast.error(
+        "Some selected gifts are not fully loaded yet. Please reselect them before completing.",
+      );
+      return null;
+    }
+
+    const resolvedEventDate = getIsoDateValue(eventDate);
+    const resolvedTitle =
+      groupName.trim() || suggestedGroupName || selectedEventLabel;
+    const refByRecordId: Record<string, string> = {
+      ...participantClientRefsByContactId,
+    };
+
+    if (adminRecordId) {
+      refByRecordId[adminRecordId] = CREATOR_CLIENT_REF;
+    }
+
+    const seenExclusionPairKeys = new Set<string>();
+    const exclusions = Object.entries(pairedRecordIdsById).flatMap(
+      ([recordId, pairedIds]) => {
+        const participantOneRef = refByRecordId[recordId];
+
+        if (!participantOneRef) {
+          return [];
+        }
+
+        return pairedIds
+          .map((pairedId) => {
+            const participantTwoRef = refByRecordId[pairedId];
+
+            if (!participantTwoRef) {
+              return null;
+            }
+
+            const pairKey = [participantOneRef, participantTwoRef]
+              .sort()
+              .join("::");
+
+            if (seenExclusionPairKeys.has(pairKey)) {
+              return null;
+            }
+
+            seenExclusionPairKeys.add(pairKey);
+
+            return {
+              participantOneRef,
+              participantTwoRef,
+            };
+          })
+          .filter(
+            (
+              exclusion,
+            ): exclusion is {
+              participantOneRef: string;
+              participantTwoRef: string;
+            } => Boolean(exclusion),
+          );
+      },
+    );
+
+    return {
+      event: {
+        title: resolvedTitle,
+        description: "",
+        eventTypeId: selectedEventId,
+        eventDate: resolvedEventDate,
+      },
+      drawName: {
+        drawDate: resolvedEventDate,
+        budget: budgetAmount,
+        maximumSpend: budgetAmount,
+        allowSelfDraw: false,
+      },
+      participants: participantContactIds.map((contactId) => ({
+        clientRef: participantClientRefsByContactId[contactId],
+        contactId,
+        isNotified: true,
+      })),
+      exclusions,
+      assignments: drawAssignments.map((assignment) => ({
+        receiverRef: assignment.receiverRef,
+        giverRef: assignment.giverRef,
+      })),
+      creatorWishlist: {
+        isNotified: wishlistNotificationChoice === "yes",
+        gifts: selectedProducts.map((product) => ({
+          participantGiftId: product._id,
+          title: product.title,
+          description: product.description ?? "",
+          amount: product.amount,
+          currency: "NGN",
+          imageUrl: product.images[0] || undefined,
+          categorySlug: product.categorySlug || undefined,
+          subCategorySlug: product.subCategorySlug || undefined,
+          condition: product.condition || undefined,
+          locationState: product.location?.state || undefined,
+          locationCity: product.location?.city || undefined,
+          sellerId: product.sellerId || undefined,
+          productSlug: product.slug || undefined,
+        })),
+      },
+    };
+  };
+
   const resetModalState = () => {
     setSelectedEventId("");
     setSelectedRecordIds([]);
@@ -1412,7 +1805,10 @@ Thank you.`;
     setSelectedWishlistGiftIds([]);
     setSelectedWishlistGiftProductsById({});
     setWishlistNotificationChoice("yes");
+    setParticipantClientRefsByContactId({});
+    setDrawAssignments([]);
     setIsCompleteDrawConfirmationOpen(false);
+    setIsDiscardCreateSetupConfirmationOpen(false);
     setIsInviteEmailModalOpen(false);
     setDrawResultName("");
     setRecordSearchValue("");
@@ -1435,6 +1831,7 @@ Thank you.`;
     setIsForceClosing(false);
     hydratedDrawNameEventIdRef.current = null;
     hydratedFlowSelectionKeyRef.current = null;
+    hasHydratedRecordSelectionFromBackendRef.current = false;
     hasTouchedEventTypeRef.current = false;
     hasTouchedEventDateRef.current = false;
     suggestedGroupNameRef.current = "";
@@ -1448,6 +1845,8 @@ Thank you.`;
     }
 
     setIsFlowSelectionHydrated(false);
+    hasHydratedRecordSelectionFromBackendRef.current =
+      storedFlowSelection.selectedRecordIds.length > 0;
     setSelectedEventId(storedFlowSelection.selectedEventId);
     setSelectedOnedaBusinessIds(storedFlowSelection.selectedOnedaBusinessIds);
     setSelectedOnedaContactIds(storedFlowSelection.selectedOnedaContactIds);
@@ -1465,6 +1864,10 @@ Thank you.`;
     setWishlistNotificationChoice(
       storedFlowSelection.wishlistNotificationChoice,
     );
+    setParticipantClientRefsByContactId(
+      storedFlowSelection.participantClientRefsByContactId ?? {},
+    );
+    setDrawAssignments(storedFlowSelection.drawAssignments ?? []);
     setCustomRecordOptions(storedFlowSelection.customRecordOptions);
     setPersistedFetchedRecordItemsById(
       storedFlowSelection.persistedFetchedRecordItemsById,
@@ -1606,6 +2009,43 @@ Thank you.`;
     isFlowSelectionHydrated,
     pairedRecordIdsById,
     setStoredPairedRecordIdsById,
+  ]);
+
+  useEffect(() => {
+    if (
+      !flowSelectionKey ||
+      hydratedFlowSelectionKeyRef.current !== flowSelectionKey ||
+      !isFlowSelectionHydrated
+    ) {
+      return;
+    }
+
+    setStoredParticipantClientRefsByContactId(
+      flowSelectionKey,
+      participantClientRefsByContactId,
+    );
+  }, [
+    flowSelectionKey,
+    isFlowSelectionHydrated,
+    participantClientRefsByContactId,
+    setStoredParticipantClientRefsByContactId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !flowSelectionKey ||
+      hydratedFlowSelectionKeyRef.current !== flowSelectionKey ||
+      !isFlowSelectionHydrated
+    ) {
+      return;
+    }
+
+    setStoredDrawAssignments(flowSelectionKey, drawAssignments);
+  }, [
+    drawAssignments,
+    flowSelectionKey,
+    isFlowSelectionHydrated,
+    setStoredDrawAssignments,
   ]);
 
   useEffect(() => {
@@ -1852,7 +2292,13 @@ Thank you.`;
 
     ensureMyContactMutation
       .mutateAsync()
-      .then(() => {
+      .then((response) => {
+        const ensuredContactId = response.data?.id?.trim();
+
+        if (ensuredContactId) {
+          setCurrentContactId(ensuredContactId);
+        }
+
         setHasEnsuredMyContact(true);
       })
       .catch((error) => {
@@ -1868,6 +2314,7 @@ Thank you.`;
     ensureRequested,
     hasEnsuredMyContact,
     open,
+    setCurrentContactId,
   ]);
 
   useEffect(() => {
@@ -1903,10 +2350,14 @@ Thank you.`;
       eventParticipantContactIdsResponse?.data ?? []
     ).filter((contactId) => !deletedRecordIds.includes(contactId));
 
-    if (!fetchedParticipantContactIds.length) {
+    if (
+      hasHydratedRecordSelectionFromBackendRef.current ||
+      !fetchedParticipantContactIds.length
+    ) {
       return;
     }
 
+    hasHydratedRecordSelectionFromBackendRef.current = true;
     setSelectedRecordIds((current) =>
       Array.from(new Set([...current, ...fetchedParticipantContactIds])),
     );
@@ -1937,6 +2388,11 @@ Thank you.`;
       return;
     }
 
+    if (hasHydratedRecordSelectionFromBackendRef.current) {
+      return;
+    }
+
+    hasHydratedRecordSelectionFromBackendRef.current = true;
     setSelectedRecordIds((current) =>
       Array.from(new Set([...current, ...fetchedParticipantContactIds])),
     );
@@ -2164,6 +2620,29 @@ Thank you.`;
     onReplaceStep,
   ]);
 
+  const handleCloseAndRedirect = React.useCallback(() => {
+    setIsForceClosing(true);
+    onClose();
+  }, [onClose]);
+
+  const shouldConfirmCreateSetupDiscard =
+    isCreatorSetupFlow && !drawNameEventId;
+
+  const handleRequestClose = React.useCallback(() => {
+    if (shouldConfirmCreateSetupDiscard) {
+      setIsDiscardCreateSetupConfirmationOpen(true);
+      return;
+    }
+
+    handleCloseAndRedirect();
+  }, [handleCloseAndRedirect, shouldConfirmCreateSetupDiscard]);
+
+  const handleConfirmDiscardCreateSetup = React.useCallback(() => {
+    resetStoredFlowSelection(flowSelectionKey);
+    setIsDiscardCreateSetupConfirmationOpen(false);
+    handleCloseAndRedirect();
+  }, [flowSelectionKey, handleCloseAndRedirect, resetStoredFlowSelection]);
+
   useEffect(() => {
     if (!open || currentStep !== "exclusion-record") {
       return;
@@ -2174,7 +2653,7 @@ Thank you.`;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleCloseAndRedirect();
+        handleRequestClose();
       }
     };
 
@@ -2184,12 +2663,11 @@ Thank you.`;
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [currentStep, open]);
-
-  const handleCloseAndRedirect = () => {
-    setIsForceClosing(true);
-    onClose();
-  };
+  }, [
+    currentStep,
+    handleRequestClose,
+    open,
+  ]);
 
   const ensureDrawNameDraft = async () => {
     if (!selectedEventId) {
@@ -2311,6 +2789,15 @@ Thank you.`;
     onStepChange("record");
   };
 
+  const markRecordSelectionLocallyOwned = () => {
+    hasHydratedRecordSelectionFromBackendRef.current = true;
+  };
+
+  const handleSelectedRecordIdsChange = (ids: string[]) => {
+    markRecordSelectionLocallyOwned();
+    setSelectedRecordIds(ids);
+  };
+
   const handleOnedaBusinessNext = () => {
     if (!selectedOnedaBusinessId) return;
     onStepChange("oneda-contact");
@@ -2354,6 +2841,7 @@ Thank you.`;
             importedRecords.map((record) => [record.id, record]),
           ),
         }));
+        markRecordSelectionLocallyOwned();
         setSelectedRecordIds((current) =>
           Array.from(new Set([...current, ...importedRecordIds])),
         );
@@ -2377,6 +2865,12 @@ Thank you.`;
 
   const handleReviewNext = async () => {
     if (!selectedRecordIds.length) return;
+
+    if (isCreatorSetupFlow) {
+      setExclusionChoice((current) => current || "yes");
+      onStepChange("exclusion-choice");
+      return;
+    }
 
     let nextEventId = eventId;
     let nextDrawNameEventId = drawNameEventId;
@@ -2449,14 +2943,6 @@ Thank you.`;
   };
 
   const handleExclusionRecordNext = () => {
-    console.log({
-      eventId: selectedEventId,
-      participantIds: selectedRecordIds,
-      exclusionChoice,
-      excludedParticipantIds: excludedRecordIds,
-      pairedParticipantIdsById: pairedRecordIdsById,
-    });
-
     onStepChange("event-date");
   };
 
@@ -2559,6 +3045,7 @@ Thank you.`;
       setDeletedRecordIds((current) =>
         current.filter((recordId) => recordId !== createdRecord.id),
       );
+      markRecordSelectionLocallyOwned();
       setSelectedRecordIds((current) =>
         current.includes(createdRecord.id)
           ? current
@@ -2598,6 +3085,7 @@ Thank you.`;
     try {
       const response = await deleteContactMutation.mutateAsync(recordId);
 
+      markRecordSelectionLocallyOwned();
       setSelectedRecordIds((current) =>
         current.filter((selectedId) => selectedId !== recordId),
       );
@@ -2703,6 +3191,12 @@ Thank you.`;
   };
 
   const handleGroupNameNext = async () => {
+    if (isCreatorSetupFlow) {
+      setCameToBudgetFromGroupName(true);
+      onStepChange("budget");
+      return;
+    }
+
     if (!drawNameEventId) {
       handleCloseAndRedirect();
       return;
@@ -2730,6 +3224,11 @@ Thank you.`;
 
   const handleBudgetNext = async () => {
     const resolvedBudgetAmount = getSelectedBudgetAmount();
+
+    if (isCreatorSetupFlow) {
+      onStepChange("wishlist-gifts");
+      return;
+    }
 
     if (!drawNameEventId) {
       handleCloseAndRedirect();
@@ -2788,17 +3287,28 @@ Thank you.`;
     });
   };
 
+  const handleViewWishlistGiftProduct = (product: MarketplaceProduct) => {
+    const productId = product._id?.trim();
+
+    if (!productId) {
+      toast.error("Unable to view this gift right now.");
+      return;
+    }
+
+    const backHref = buildDrawNameFlowHref(
+      "wishlist-gifts",
+      eventId,
+      drawNameEventId,
+    );
+
+    router.push(
+      `/dashboard/gifts/product/${encodeURIComponent(
+        productId,
+      )}?backHref=${encodeURIComponent(backHref)}`,
+    );
+  };
+
   const handleWishlistGiftsNext = async () => {
-    if (!eventId) {
-      handleCloseAndRedirect();
-      return;
-    }
-
-    if (!currentParticipantId) {
-      toast.error("Unable to resolve your participant record right now.");
-      return;
-    }
-
     const selectedProducts = selectedWishlistGiftIds
       .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
       .filter((product): product is MarketplaceProduct => Boolean(product));
@@ -2838,6 +3348,21 @@ Thank you.`;
       return;
     }
 
+    if (isCreatorSetupFlow) {
+      onStepChange("wishlist-notification");
+      return;
+    }
+
+    if (!eventId) {
+      handleCloseAndRedirect();
+      return;
+    }
+
+    if (!currentParticipantId) {
+      toast.error("Unable to resolve your participant record right now.");
+      return;
+    }
+
     try {
       const response = await createBulkGiftsMutation.mutateAsync({
         eventId,
@@ -2871,6 +3396,12 @@ Thank you.`;
   };
 
   const handleWishlistNotificationYes = async () => {
+    if (isCreatorSetupFlow) {
+      setWishlistNotificationChoice("yes");
+      onStepChange("draw-ready");
+      return;
+    }
+
     if (!eventId) {
       handleCloseAndRedirect();
       return;
@@ -2894,10 +3425,100 @@ Thank you.`;
   };
 
   const handleWishlistNotificationNo = () => {
+    setWishlistNotificationChoice("no");
     onStepChange("draw-ready");
   };
 
   const handleDrawNameReadyNext = async () => {
+    if (isCreatorSetupFlow) {
+      const participantContactIds = selectedRecordReviewDisplayItems.map(
+        (item) => item.id,
+      );
+
+      if (!participantContactIds.length) {
+        toast.error("Please add at least one participant before drawing.");
+        return;
+      }
+
+      const nextClientRefsByContactId = buildParticipantClientRefsByContactId(
+        participantContactIds,
+        participantClientRefsByContactId,
+      );
+      const refByRecordId: Record<string, string> = {
+        ...nextClientRefsByContactId,
+      };
+
+      if (adminRecordId) {
+        refByRecordId[adminRecordId] = CREATOR_CLIENT_REF;
+      }
+
+      const participantRefs = [
+        CREATOR_CLIENT_REF,
+        ...participantContactIds.map(
+          (contactId) => nextClientRefsByContactId[contactId],
+        ),
+      ].filter(Boolean);
+
+      const uniqueParticipantRefs = Array.from(new Set(participantRefs));
+
+      if (uniqueParticipantRefs.length !== participantRefs.length) {
+        toast.error("Unable to prepare participant references for this draw.");
+        return;
+      }
+
+      if (uniqueParticipantRefs.length < 2) {
+        toast.error("Please add at least one participant before drawing.");
+        return;
+      }
+
+      const excludedRefPairKeys = new Set<string>();
+
+      Object.entries(pairedRecordIdsById).forEach(([recordId, pairedIds]) => {
+        const recordRef = refByRecordId[recordId];
+
+        if (!recordRef) {
+          return;
+        }
+
+        pairedIds.forEach((pairedId) => {
+          const pairedRef = refByRecordId[pairedId];
+
+          if (!pairedRef) {
+            return;
+          }
+
+          excludedRefPairKeys.add([recordRef, pairedRef].sort().join("::"));
+        });
+      });
+
+      const assignments = findDrawAssignments(
+        uniqueParticipantRefs,
+        uniqueParticipantRefs,
+        (receiverRef, giverRef) => {
+          if (receiverRef === giverRef) {
+            return false;
+          }
+
+          return !excludedRefPairKeys.has(
+            [receiverRef, giverRef].sort().join("::"),
+          );
+        },
+      );
+
+      if (!assignments) {
+        toast.error(
+          "Unable to draw names with the current exclusions. Please adjust the exclusions and try again.",
+        );
+        return;
+      }
+
+      setParticipantClientRefsByContactId(nextClientRefsByContactId);
+      setDrawAssignments(assignments);
+      setDrawResultName("");
+      onStepChange("draw-spin");
+      return;
+    }
+
     if (!drawNameEventId) {
       handleCloseAndRedirect();
       return;
@@ -2916,10 +3537,74 @@ Thank you.`;
   };
 
   const handleRequestCompleteDrawNameEvent = () => {
+    setDrawNameSetupSaveMode("save");
     setIsCompleteDrawConfirmationOpen(true);
   };
 
+  const handleSaveDrawNameSetup = async (saveMode: DrawNameSetupSaveMode) => {
+    if (isCreatorSetupFlow) {
+      const setupPayload = buildLocalSetupPayload();
+
+      if (!setupPayload) {
+        return;
+      }
+
+      setDrawNameSetupSaveMode(saveMode);
+
+      try {
+        const setupResponse = drawNameEventId
+          ? await updateDrawNameEventSetupMutation.mutateAsync({
+              id: drawNameEventId,
+              payload: setupPayload,
+            })
+          : await setupDrawNameEventMutation.mutateAsync(setupPayload);
+        const nextDrawNameEventId =
+          setupResponse.data.id || drawNameEventId || "";
+        const nextEventId =
+          setupResponse.data.eventId || setupResponse.data.event?.id || eventId;
+
+        if (saveMode === "draft") {
+          toast.success(setupResponse.message);
+          setIsCompleteDrawConfirmationOpen(false);
+          handleCloseAndRedirect();
+          return;
+        }
+
+        if (!nextDrawNameEventId) {
+          toast.error("Unable to resolve this draw name event right now.");
+          return;
+        }
+
+        const completeResponse =
+          await completeDrawNameEventMutation.mutateAsync(nextDrawNameEventId);
+
+        toast.success(completeResponse.message);
+        setIsCompleteDrawConfirmationOpen(false);
+
+        if (nextEventId) {
+          onStepChange("draw-invite", nextEventId, nextDrawNameEventId);
+          return;
+        }
+
+        handleCloseAndRedirect();
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to complete this draw name right now.",
+        );
+      }
+
+      return;
+    }
+  };
+
   const handleConfirmCompleteDrawNameEvent = async () => {
+    if (isCreatorSetupFlow) {
+      await handleSaveDrawNameSetup("save");
+      return;
+    }
+
     if (!drawNameEventId) {
       handleCloseAndRedirect();
       return;
@@ -3045,7 +3730,8 @@ Thank you.`;
 
       <ModalButton
         variant="secondary"
-        onClick={() =>
+        onClick={() => {
+          markRecordSelectionLocallyOwned();
           setSelectedRecordIds(
             allRecordsSelected
               ? lockedSelectedRecordIds
@@ -3055,8 +3741,8 @@ Thank you.`;
                     ...recordOptions.map((record) => record.id),
                   ]),
                 ),
-          )
-        }
+          );
+        }}
       >
         {allRecordsSelected ? "Clear all" : "Select all"}
       </ModalButton>
@@ -3071,8 +3757,8 @@ Thank you.`;
   );
 
   const allExclusionRecordsSelected =
-    selectedRecordOptions.length > 0 &&
-    excludedRecordIds.length === selectedRecordOptions.length;
+    exclusionRecordOptions.length > 0 &&
+    excludedRecordIds.length === exclusionRecordOptions.length;
   const selectedExclusionPair =
     excludedRecordIds.length === 2
       ? ([excludedRecordIds[0], excludedRecordIds[1]] as const)
@@ -3110,7 +3796,7 @@ Thank you.`;
             recordId,
             pairedIds
               .map((pairedId) =>
-                selectedRecordOptions.find((record) => record.id === pairedId),
+                exclusionRecordOptions.find((record) => record.id === pairedId),
               )
               .filter((record): record is SearchableRecordItem =>
                 Boolean(record),
@@ -3118,7 +3804,7 @@ Thank you.`;
           ],
         ),
       ) as Record<string, SearchableRecordItem[]>,
-    [displayPairedRecordIdsById, selectedRecordOptions],
+    [displayPairedRecordIdsById, exclusionRecordOptions],
   );
   const pairedIndicatorIdsById = useMemo(
     () =>
@@ -3130,105 +3816,50 @@ Thank you.`;
       ),
     [pairedRecordIdsById],
   );
-  const isExclusionActionPending =
-    createParticipantExclusionsBulkMutation.isPending ||
-    deleteParticipantExclusionMutation.isPending;
   const exclusionActionLabel = selectedExclusionPair
-    ? isExclusionActionPending
-      ? "Saving..."
-      : isSelectedExclusionPairPaired
-        ? "Pair"
-        : "Unpair"
+    ? isSelectedExclusionPairPaired
+      ? "Pair"
+      : "Unpair"
     : undefined;
 
-  const handleToggleExclusionPair = async () => {
+  const handleToggleExclusionPair = () => {
     if (!selectedExclusionPair) {
       return;
     }
 
     const [firstId, secondId] = selectedExclusionPair;
-    const firstParticipantId = participantByContactId[firstId]?.id;
-    const secondParticipantId = participantByContactId[secondId]?.id;
 
-    console.log(selectedExclusionPair);
-
-    if (!firstParticipantId || !secondParticipantId) {
-      toast.error("Unable to resolve those participants right now.");
-      return;
-    }
-
-    if (isSelectedExclusionPairPaired) {
-      const pairKey = [firstId, secondId].sort().join("::");
-      const exclusionId = exclusionIdByContactPairKey[pairKey];
-
-      if (!exclusionId) {
-        toast.error("Unable to find that exclusion right now.");
-        return;
-      }
-
-      try {
-        const response =
-          await deleteParticipantExclusionMutation.mutateAsync(exclusionId);
-
-        setPairedRecordIdsById((current) => {
-          const next = { ...current };
-          next[firstId] = (next[firstId] ?? []).filter((id) => id !== secondId);
-          next[secondId] = (next[secondId] ?? []).filter(
-            (id) => id !== firstId,
-          );
-
-          if (!next[firstId]?.length) {
-            delete next[firstId];
-          }
-
-          if (!next[secondId]?.length) {
-            delete next[secondId];
-          }
-
-          return next;
-        });
-        setExcludedRecordIds([]);
-        toast.success(response.message);
-        await refetchParticipantExclusions();
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to remove that exclusion right now.",
+    setPairedRecordIdsById((current) => {
+      if (isSelectedExclusionPairPaired) {
+        const next = { ...current };
+        next[firstId] = (next[firstId] ?? []).filter(
+          (id) => id !== secondId,
         );
+        next[secondId] = (next[secondId] ?? []).filter(
+          (id) => id !== firstId,
+        );
+
+        if (!next[firstId]?.length) {
+          delete next[firstId];
+        }
+
+        if (!next[secondId]?.length) {
+          delete next[secondId];
+        }
+
+        return next;
       }
 
-      return;
-    }
-
-    try {
-      const response =
-        await createParticipantExclusionsBulkMutation.mutateAsync({
-          exclusions: [
-            {
-              participantId: firstParticipantId,
-              excludedParticipantId: secondParticipantId,
-            },
-          ],
-        });
-
-      setPairedRecordIdsById((current) => ({
+      return {
         ...current,
         [firstId]: Array.from(new Set([...(current[firstId] ?? []), secondId])),
         [secondId]: Array.from(
           new Set([...(current[secondId] ?? []), firstId]),
         ),
-      }));
-      setExcludedRecordIds([]);
-      toast.success(response.message);
-      await refetchParticipantExclusions();
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save exclusions right now.",
-      );
-    }
+      };
+    });
+
+    setExcludedRecordIds([]);
   };
 
   const handleBackFromExclusionRecord = () => {
@@ -3240,7 +3871,7 @@ Thank you.`;
     <div className="flex items-center justify-center gap-3 pt-4">
       <BackButton
         onClick={handleBackFromExclusionRecord}
-        className="flex items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+        className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
         iconClassName="size-[24px]"
       />
 
@@ -3248,7 +3879,7 @@ Thank you.`;
         className="!h-[38px] max-w-[170px]"
         onClick={handleExclusionRecordNext}
       >
-        Save & Continue
+        Next
       </ModalButton>
     </div>
   );
@@ -3265,7 +3896,7 @@ Thank you.`;
             <div className="relative z-[101] w-full max-w-[494px]">
               <SearchableRecordPicker
                 title="Search for colleague"
-                items={selectedRecordOptions}
+                items={exclusionRecordOptions}
                 selectedIds={excludedRecordIds}
                 onSelectedIdsChange={setExcludedRecordIds}
                 maxSelected={2}
@@ -3330,20 +3961,11 @@ Thank you.`;
 
         <div className="flex flex-wrap items-center justify-center gap-3">
           <ModalButton
-            variant="secondary"
             onClick={handleEventNext}
-            disabled={!selectedEventId || activeDraftMutation}
+            disabled={!selectedEventId}
             className="max-w-[140px]"
           >
             Next
-          </ModalButton>
-
-          <ModalButton
-            onClick={handleEventSaveAndContinue}
-            disabled={!selectedEventId || activeDraftMutation}
-            className="max-w-[210px]"
-          >
-            {activeDraftMutation ? "Saving..." : "Save & Continue"}
           </ModalButton>
         </div>
       </div>
@@ -3374,7 +3996,8 @@ Thank you.`;
         <div className="flex justify-center">
           <BackButton
             onClick={() => onStepChange("event")}
-            className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            iconClassName="size-[24px]"
           />
         </div>
       </div>
@@ -3494,7 +4117,7 @@ Thank you.`;
                 >
                   {createBulkContactsMutation.isPending
                     ? "Importing..."
-                    : "Next"}
+                    : "Import"}
                 </ModalButton>
               </div>
             }
@@ -3529,7 +4152,7 @@ Thank you.`;
           <OverlayRecordPicker
             items={recordOptions}
             selectedIds={selectedRecordIds}
-            onSelectedIdsChange={setSelectedRecordIds}
+            onSelectedIdsChange={handleSelectedRecordIdsChange}
             lockedSelectedIds={lockedSelectedRecordIds}
             placeholder="Search for colleague"
             panelTitle="Search for colleague"
@@ -3640,15 +4263,17 @@ Thank you.`;
           }}
           nextDisabled={
             selectedRecordReviewDisplayItems.length === 0 ||
-            activeDraftMutation ||
-            createParticipantsBulkMutation.isPending ||
-            isEventParticipantsLoading ||
-            isEventParticipantsFetching
+            (!isCreatorSetupFlow &&
+              (activeDraftMutation ||
+                createParticipantsBulkMutation.isPending ||
+                isEventParticipantsLoading ||
+                isEventParticipantsFetching))
           }
           nextLabel={
-            activeDraftMutation || createParticipantsBulkMutation.isPending
+            !isCreatorSetupFlow &&
+            (activeDraftMutation || createParticipantsBulkMutation.isPending)
               ? "Saving..."
-              : "Save & Continue"
+              : "Next"
           }
         />
 
@@ -3686,8 +4311,12 @@ Thank you.`;
         }}
         onBack={() => onStepChange("exclusion-choice")}
         onNext={handleEventDateNext}
-        onSaveAndContinue={handleEventDateSaveAndContinue}
-        isSaveAndContinuePending={updateDrawNameEventMutation.isPending}
+        onSaveAndContinue={
+          isCreatorSetupFlow ? undefined : handleEventDateSaveAndContinue
+        }
+        isSaveAndContinuePending={
+          !isCreatorSetupFlow && updateDrawNameEventMutation.isPending
+        }
         onGoToEventName={() => {
           setCameToBudgetFromGroupName(true);
           onStepChange("group-name");
@@ -3703,7 +4332,7 @@ Thank you.`;
         onBack={() => onStepChange("event-date")}
         onNext={handleGroupNameNext}
         onGoToEventName={() => onStepChange("event")}
-        nextLabel="Save & Continue"
+        nextLabel={isCreatorSetupFlow ? "Next" : "Save & Continue"}
       />
     ) : currentStep === "budget" ? (
       <GiftBudgetStep
@@ -3720,7 +4349,7 @@ Thank you.`;
           onStepChange(cameToBudgetFromGroupName ? "group-name" : "event-date")
         }
         onNext={handleBudgetNext}
-        nextLabel="Save & Continue"
+        nextLabel={isCreatorSetupFlow ? "Next" : "Save & Continue"}
       />
     ) : isParticipantDrawNameFlowStep(currentStep) ||
       currentStep === "draw-invite" ? (
@@ -3729,29 +4358,40 @@ Thank you.`;
         selectedWishlistGiftIds={selectedWishlistGiftIds}
         onSelectedWishlistGiftIdsChange={setSelectedWishlistGiftIds}
         onSelectedProductToggle={handleWishlistGiftProductToggle}
+        onViewWishlistGiftProduct={handleViewWishlistGiftProduct}
         maximumSpend={resolvedWishlistMaximumSpend}
         onWishlistBack={
           isParticipantFlow ? undefined : () => onStepChange("budget")
         }
         onWishlistNext={handleWishlistGiftsNext}
         isInitialSelectionLoading={
-          isParticipantGiftSelectionsLoading ||
-          isParticipantGiftSelectionsFetching ||
+          (Boolean(eventId) &&
+            (isParticipantGiftSelectionsLoading ||
+              isParticipantGiftSelectionsFetching)) ||
           isCaughtMyEyeParticipantGiftIdsLoading ||
           isCaughtMyEyeParticipantGiftIdsFetching
         }
-        isInitialSelectionError={isParticipantGiftSelectionsError}
+        isInitialSelectionError={
+          Boolean(eventId) && isParticipantGiftSelectionsError
+        }
         onRetryInitialSelection={() => {
-          void refetchMyParticipant();
-          void refetchParticipantGiftSelections();
+          if (eventId) {
+            void refetchMyParticipant();
+            void refetchParticipantGiftSelections();
+          }
+
+          void refetchCaughtMyEyeParticipantGiftIds();
         }}
-        isWishlistNextPending={createBulkGiftsMutation.isPending}
+        isWishlistNextPending={
+          !isCreatorSetupFlow && createBulkGiftsMutation.isPending
+        }
         wishlistNotificationChoice={wishlistNotificationChoice}
         onWishlistNotificationChoiceChange={setWishlistNotificationChoice}
         onWishlistNotificationYes={handleWishlistNotificationYes}
         onWishlistNotificationNo={handleWishlistNotificationNo}
         onWishlistNotificationBack={() => onStepChange("wishlist-gifts")}
         isWishlistNotificationPending={
+          !isCreatorSetupFlow &&
           updateMyParticipantNotificationMutation.isPending
         }
         caughtMyEyeProductIds={caughtMyEyeParticipantGiftIds}
@@ -3759,20 +4399,32 @@ Thank you.`;
         readyEventName={resolvedReadyStepEventName}
         onReadyBack={() => onStepChange("wishlist-notification")}
         onDrawName={handleDrawNameReadyNext}
-        isDrawing={drawNameEventMutation.isPending}
-        participantNames={selectedRecordReviewItems.map((item) => item.name)}
+        isDrawing={!isCreatorSetupFlow && drawNameEventMutation.isPending}
+        participantNames={
+          isCreatorSetupFlow
+            ? selectedRecordReviewDisplayItems.map((item) => item.name)
+            : selectedRecordReviewItems.map((item) => item.name)
+        }
         onSpinBack={() => onStepChange("draw-ready")}
         onSpinNext={(selectedName) => {
-          setDrawResultName(selectedName);
+          setDrawResultName(
+            isCreatorSetupFlow ? localDrawResultName : selectedName,
+          );
           onStepChange("draw-result");
         }}
         selectedName={resolvedDrawResultName}
         onResultBack={() => onStepChange("draw-spin")}
         onResultPrimaryAction={handleRequestCompleteDrawNameEvent}
         resultPrimaryActionLabel={
-          isCreatorForCurrentDrawFlow ? "Invite Members" : "End Draw"
+          isCreatorSetupFlow || isCreatorForCurrentDrawFlow
+            ? "Invite Members"
+            : "End Draw"
         }
-        isResultPrimaryActionPending={completeDrawNameEventMutation.isPending}
+        isResultPrimaryActionPending={
+          setupDrawNameEventMutation.isPending ||
+          updateDrawNameEventSetupMutation.isPending ||
+          completeDrawNameEventMutation.isPending
+        }
         onInviteBack={() => onStepChange("draw-result")}
         onSendEmail={handleRequestSendEmailInvites}
         onShareFacebook={() =>
@@ -3846,16 +4498,55 @@ Thank you.`;
         onClose={() => setIsCompleteDrawConfirmationOpen(false)}
         onConfirm={handleConfirmCompleteDrawNameEvent}
         action="save"
-        title={isCreatorForCurrentDrawFlow ? "Complete Draw Name" : "End Draw"}
+        title={
+          isCreatorSetupFlow
+            ? "Save Draw Name Setup"
+            : "End Draw"
+        }
         description={
-          isCreatorForCurrentDrawFlow
-            ? "Are you sure you want to end this draft and continue to invite members?"
+          isCreatorSetupFlow
+            ? "Save this setup as a draft, or save and complete it so you can invite members."
             : "Are you sure you want to end this draw now?"
         }
         confirmText={
-          isCreatorForCurrentDrawFlow ? "Yes, Continue" : "Yes, End Draw"
+          isCreatorSetupFlow
+            ? "Save"
+            : "Yes, End Draw"
         }
-        isLoading={completeDrawNameEventMutation.isPending}
+        secondaryConfirmText={
+          isCreatorSetupFlow ? "Save as Draft" : undefined
+        }
+        onSecondaryConfirm={
+          isCreatorSetupFlow
+            ? () => {
+                void handleSaveDrawNameSetup("draft");
+              }
+            : undefined
+        }
+        isLoading={
+          drawNameSetupSaveMode === "save" &&
+          (setupDrawNameEventMutation.isPending ||
+            updateDrawNameEventSetupMutation.isPending ||
+            completeDrawNameEventMutation.isPending)
+        }
+        isSecondaryLoading={
+          drawNameSetupSaveMode === "draft" &&
+          (setupDrawNameEventMutation.isPending ||
+            updateDrawNameEventSetupMutation.isPending)
+        }
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={isDiscardCreateSetupConfirmationOpen}
+        onClose={() => setIsDiscardCreateSetupConfirmationOpen(false)}
+        onConfirm={handleConfirmDiscardCreateSetup}
+        action="delete"
+        title="Discard Draw Name Setup?"
+        description="If you close this flow now, the records and setup details you have entered locally will be lost."
+        confirmText="Discard"
+        cancelText="Keep Editing"
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
@@ -3888,7 +4579,7 @@ Thank you.`;
     <>
       <ContentModal
         open={open}
-        onClose={handleCloseAndRedirect}
+        onClose={handleRequestClose}
         title="Start draw name"
         bodyScrollable={!isLargeGiftStep && !isDrawInviteStep}
         showHeader={false}

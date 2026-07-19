@@ -72,6 +72,7 @@ type WishlistGiftSelectionStepProps = {
   externalProductsError?: boolean;
   onRetryExternalProducts?: () => void;
   hideSelectionControls?: boolean;
+  hidePriceFilters?: boolean;
   caughtMyEyeProductIds?: string[];
   prioritizedProductIds?: string[];
   deferProductsUntilInitialSelectionResolved?: boolean;
@@ -262,7 +263,7 @@ function WishlistFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors sm:w-auto sm:justify-start",
+          "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors",
           disabled
             ? "cursor-not-allowed border-gray-200 bg-[#F1F3F5] text-[#B0B4BA]"
             : "border-gray-200 bg-[#E4E9ED] text-[#716F6F] hover:bg-[#DCE2E7]",
@@ -447,6 +448,7 @@ export default function WishlistGiftSelectionStep({
   externalProductsError = false,
   onRetryExternalProducts,
   hideSelectionControls = false,
+  hidePriceFilters = false,
   caughtMyEyeProductIds = [],
   prioritizedProductIds = [],
   deferProductsUntilInitialSelectionResolved = false,
@@ -491,12 +493,12 @@ export default function WishlistGiftSelectionStep({
     [categories, draftCategorySlug],
   );
   const resolvedMinimumPrice = useMemo(
-    () => parsePriceFilterValue(minimumPrice),
-    [minimumPrice],
+    () => (hidePriceFilters ? undefined : parsePriceFilterValue(minimumPrice)),
+    [hidePriceFilters, minimumPrice],
   );
   const resolvedMaximumPrice = useMemo(
-    () => parsePriceFilterValue(maximumPrice),
-    [maximumPrice],
+    () => (hidePriceFilters ? undefined : parsePriceFilterValue(maximumPrice)),
+    [hidePriceFilters, maximumPrice],
   );
   const prioritizedProductIdsForQuery = useMemo(
     () => Array.from(new Set(prioritizedProductIds.filter(Boolean))),
@@ -764,8 +766,8 @@ export default function WishlistGiftSelectionStep({
     setSelectedCategorySlug(draftCategorySlug);
     setSelectedSubCategorySlug(draftSubCategorySlug);
     setSelectedCondition(draftCondition);
-    setMinimumPrice(draftMinimumPrice);
-    setMaximumPrice(draftMaximumPrice);
+    setMinimumPrice(hidePriceFilters ? "" : draftMinimumPrice);
+    setMaximumPrice(hidePriceFilters ? "" : draftMaximumPrice);
     setCurrentPage(1);
     setIsFilterDrawerOpen(false);
   };
@@ -782,8 +784,8 @@ export default function WishlistGiftSelectionStep({
     selectedCategorySlug,
     selectedSubCategorySlug,
     selectedCondition,
-    minimumPrice,
-    maximumPrice,
+    hidePriceFilters ? "" : minimumPrice,
+    hidePriceFilters ? "" : maximumPrice,
   ].filter(Boolean).length;
 
   const drawerFilterControls = (
@@ -814,38 +816,40 @@ export default function WishlistGiftSelectionStep({
         className="w-full"
       />
 
-      <div className="rounded-[16px] border border-[#F0ECF7] bg-[#FAF8FF] p-4">
-        <p className="mb-3 text-[13px] font-semibold text-[#434343]">
-          Price range
-        </p>
-        <div className="grid grid-cols-1 gap-3">
-          <div className="relative min-w-0 w-full">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
-              ₦
-            </span>
-            <Input
-              value={draftMinimumPrice}
-              onChange={handleMinimumPriceChange}
-              inputMode="numeric"
-              placeholder="Minimum price"
-              className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
-            />
-          </div>
+      {hidePriceFilters ? null : (
+        <div className="rounded-[16px] border border-[#F0ECF7] bg-[#FAF8FF] p-4">
+          <p className="mb-3 text-[13px] font-semibold text-[#434343]">
+            Price range
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            <div className="relative min-w-0 w-full">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
+                ₦
+              </span>
+              <Input
+                value={draftMinimumPrice}
+                onChange={handleMinimumPriceChange}
+                inputMode="numeric"
+                placeholder="Minimum price"
+                className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
+              />
+            </div>
 
-          <div className="relative min-w-0 w-full">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
-              ₦
-            </span>
-            <Input
-              value={draftMaximumPrice}
-              onChange={handleMaximumPriceChange}
-              inputMode="numeric"
-              placeholder="Maximum price"
-              className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
-            />
+            <div className="relative min-w-0 w-full">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#716F6F]">
+                ₦
+              </span>
+              <Input
+                value={draftMaximumPrice}
+                onChange={handleMaximumPriceChange}
+                inputMode="numeric"
+                placeholder="Maximum price"
+                className="h-11 rounded-[14px] border-[#E5DFF4] bg-white pl-7 text-[13px] font-medium text-[#434343] placeholder:text-[#716F6F]"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* <div className="rounded-[16px] border border-dashed border-[#E5DFF4] bg-white p-4">
         <p className="text-[13px] font-semibold text-[#434343]">Coming soon</p>
@@ -894,7 +898,7 @@ export default function WishlistGiftSelectionStep({
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+          <div className="flex flex-row items-start gap-2 sm:gap-3">
             <SearchInput
               value={query}
               onChange={(event) => {
@@ -902,10 +906,10 @@ export default function WishlistGiftSelectionStep({
                 setCurrentPage(1);
               }}
               placeholder={searchPlaceholder}
-              containerClassName="w-full xl:max-w-[520px]"
+              containerClassName="min-w-0 flex-1 xl:max-w-[520px]"
               className="h-10 rounded-[5px] border-[#9F9F9F] bg-[#FFFFFF] text-[12px] font-medium placeholder:text-[#716F6F]"
             />
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex shrink-0 flex-wrap gap-2.5">
               {isExternalProductSource ? null : (
                 <button
                   type="button"

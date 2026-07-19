@@ -31,6 +31,54 @@ export type DrawNameEventPatchPayload = Partial<
   event?: Partial<DrawNameEventPayload["event"]>;
 };
 
+export type DrawNameEventSetupGiftPayload = {
+  participantGiftId: string;
+  title: string;
+  description: string;
+  amount: number;
+  currency: string;
+  imageUrl?: string;
+  categorySlug?: string;
+  subCategorySlug?: string;
+  condition?: string;
+  locationState?: string;
+  locationCity?: string;
+  sellerId?: string;
+  productSlug?: string;
+};
+
+export type DrawNameEventSetupPayload = {
+  event: {
+    title: string;
+    description?: string;
+    eventTypeId: string;
+    eventDate: string;
+  };
+  drawName: {
+    drawDate: string;
+    budget: number;
+    maximumSpend: number;
+    allowSelfDraw: boolean;
+  };
+  participants: {
+    clientRef: string;
+    contactId: string;
+    isNotified: boolean;
+  }[];
+  exclusions: {
+    participantOneRef: string;
+    participantTwoRef: string;
+  }[];
+  assignments: {
+    receiverRef: string;
+    giverRef: string;
+  }[];
+  creatorWishlist: {
+    isNotified: boolean;
+    gifts: DrawNameEventSetupGiftPayload[];
+  };
+};
+
 export type DrawNameEventRecord = {
   id: string;
   createdById?: string | null;

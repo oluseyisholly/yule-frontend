@@ -35,16 +35,6 @@ export const VALID_DRAW_NAME_MODAL_STEPS = [
 export type DrawNameModalStep = (typeof VALID_DRAW_NAME_MODAL_STEPS)[number];
 
 export const DRAW_NAME_BACKEND_REQUIRED_STEPS = [
-  "exclusion-choice",
-  "exclusion-record",
-  "event-date",
-  "group-name",
-  "budget",
-  "wishlist-gifts",
-  "wishlist-notification",
-  "draw-ready",
-  "draw-spin",
-  "draw-result",
   "draw-invite",
 ] as const satisfies readonly DrawNameModalStep[];
 

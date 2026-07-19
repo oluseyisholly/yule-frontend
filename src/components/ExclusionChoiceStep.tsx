@@ -62,15 +62,15 @@ export default function ExclusionChoiceStep({
       <div className="flex  items-center justify-center gap-3 pt-4">
         <BackButton
           onClick={onBack}
-          className="flex  min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[22px]"
+          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+          iconClassName="size-[24px]"
         />
 
         <ModalButton
           type="button"
           onClick={onNext}
           disabled={!value}
-          className="max-w-[170px] !h-[37px]"
+          className="max-w-[170px]"
         >
           {nextLabel}
         </ModalButton>

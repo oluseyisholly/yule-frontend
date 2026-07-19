@@ -4,6 +4,7 @@ import type {
   DrawNameEventCreatePayload,
   DrawNameEventMutationResponse,
   DrawNameEventPatchPayload,
+  DrawNameEventSetupPayload,
   DrawNameEventsParams,
   DrawNameEventsResponse,
   DrawNameMetricsResponse,
@@ -45,6 +46,23 @@ export async function updateDrawNameEventDraft(
 ) {
   return patchApi<DrawNameEventMutationResponse, DrawNameEventPatchPayload>(
     `${DRAW_NAME_EVENTS_ENDPOINT}/${id}`,
+    payload,
+  );
+}
+
+export async function setupDrawNameEvent(payload: DrawNameEventSetupPayload) {
+  return postApi<DrawNameEventMutationResponse, DrawNameEventSetupPayload>(
+    `${DRAW_NAME_EVENTS_ENDPOINT}/setup`,
+    payload,
+  );
+}
+
+export async function updateDrawNameEventSetup(
+  id: string,
+  payload: DrawNameEventSetupPayload,
+) {
+  return patchApi<DrawNameEventMutationResponse, DrawNameEventSetupPayload>(
+    `${DRAW_NAME_EVENTS_ENDPOINT}/${id}/setup`,
     payload,
   );
 }

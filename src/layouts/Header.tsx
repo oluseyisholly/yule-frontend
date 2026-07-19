@@ -14,8 +14,8 @@ import { Spinner } from "@/components/ui/spinner";
 import AuthCtaButton from "@/components/AuthCtaButton";
 
 const navLinks = [
-  { label: "find gifts", href: "/gifts" },
-  { label: "find hangouts", href: "/hangouts" },
+  { label: "Find gifts", href: "/gifts" },
+  { label: "Find hangouts", href: "/hangouts" },
 ];
 
 function getInitials(firstName?: string | null, lastName?: string | null) {
@@ -137,7 +137,7 @@ export default function Header() {
           <Image
             src={Logo}
             alt="Festa logo"
-            className="h-[30px] w-[66px] sm:h-[60px] sm:w-[70.5px]"
+            className="h-[30px] w-[66px] sm:h-[70px] sm:w-[90px]"
             priority
           />
         </Link>

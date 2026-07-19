@@ -30,6 +30,11 @@ type DrawNameAddRecordDraftState = {
   form: AddColleagueFormValues;
 };
 
+export type DrawNameLocalAssignment = {
+  receiverRef: string;
+  giverRef: string;
+};
+
 export type DrawNameFlowSelectionState = DrawNameFlowDraftFields & {
   selectedRecordIds: string[];
   selectedWishlistGiftIds: string[];
@@ -37,6 +42,8 @@ export type DrawNameFlowSelectionState = DrawNameFlowDraftFields & {
   customRecordOptions: SearchableRecordItem[];
   persistedFetchedRecordItemsById: Record<string, SearchableRecordItem>;
   pairedRecordIdsById: Record<string, string[]>;
+  participantClientRefsByContactId: Record<string, string>;
+  drawAssignments: DrawNameLocalAssignment[];
   addRecordDraft: DrawNameAddRecordDraftState;
 };
 
@@ -59,6 +66,14 @@ type DrawNameFlowStore = {
   setPairedRecordIdsById: (
     flowKey: string,
     pairedRecordIdsById: Record<string, string[]>,
+  ) => void;
+  setParticipantClientRefsByContactId: (
+    flowKey: string,
+    participantClientRefsByContactId: Record<string, string>,
+  ) => void;
+  setDrawAssignments: (
+    flowKey: string,
+    assignments: DrawNameLocalAssignment[],
   ) => void;
   setAddRecordDraft: (
     flowKey: string,
@@ -101,6 +116,8 @@ export const EMPTY_DRAW_NAME_FLOW_SELECTION: DrawNameFlowSelectionState = {
   customRecordOptions: [],
   persistedFetchedRecordItemsById: {},
   pairedRecordIdsById: {},
+  participantClientRefsByContactId: {},
+  drawAssignments: [],
   addRecordDraft: EMPTY_DRAW_NAME_ADD_RECORD_DRAFT,
 };
 
@@ -205,6 +222,29 @@ export const useDrawNameFlowStore = create<DrawNameFlowStore>()(
             },
           },
         })),
+      setParticipantClientRefsByContactId: (
+        flowKey,
+        participantClientRefsByContactId,
+      ) =>
+        set((state) => ({
+          flowSelectionsByKey: {
+            ...state.flowSelectionsByKey,
+            [flowKey]: {
+              ...getFlowSelection(state.flowSelectionsByKey, flowKey),
+              participantClientRefsByContactId,
+            },
+          },
+        })),
+      setDrawAssignments: (flowKey, assignments) =>
+        set((state) => ({
+          flowSelectionsByKey: {
+            ...state.flowSelectionsByKey,
+            [flowKey]: {
+              ...getFlowSelection(state.flowSelectionsByKey, flowKey),
+              drawAssignments: assignments,
+            },
+          },
+        })),
       setAddRecordDraft: (flowKey, draft) =>
         set((state) => ({
           flowSelectionsByKey: {
@@ -237,7 +277,7 @@ export const useDrawNameFlowStore = create<DrawNameFlowStore>()(
     }),
     {
       name: "draw-name-flow-store",
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 );

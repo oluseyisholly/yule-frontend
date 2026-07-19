@@ -3,6 +3,7 @@ export type Contact = {
   firstName: string;
   lastName: string;
   email: string;
+  userId?: string | null;
   profileUrl?: string | null;
   gender: "male" | "female" | string;
   phone: string;

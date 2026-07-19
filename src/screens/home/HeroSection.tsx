@@ -5,16 +5,12 @@ import Image, { type StaticImageData } from "next/image";
 import Button from "@/components/Button";
 import {
   CelebrationSprinkles,
-  MotionFloat,
   MotionReveal,
   MotionStagger,
   MotionStaggerItem,
 } from "@/components/LandingMotion";
 import { cn } from "@/lib/utils";
-import {
-  getAuthAwareCtaHref,
-  YULE_SIGN_UP_URL,
-} from "@/lib/external-links";
+import { getAuthAwareCtaHref, YULE_SIGN_UP_URL } from "@/lib/external-links";
 import { useAuthStore } from "@/stores/auth-store";
 
 import hero from "@/assets/images/hero1.svg";
@@ -73,22 +69,22 @@ export default function HeroSection() {
   );
 
   return (
-    <section className="relative">
+    <section className="relative overflow-hidden">
       <CelebrationSprinkles className="hidden md:block" />
 
       <div
         className={cn(
           "flex flex-col gap-8 pt-3",
-          "md:flex-row md:items-center md:gap-6 md:pt-8",
+          "md:flex-row md:items-end md:gap-6 md:pt-8",
           "lg:gap-10",
         )}
       >
-        {/* Hero content */}
         <MotionStagger
           className={cn(
             "flex min-w-0 flex-1 flex-col justify-center gap-3",
             "sm:gap-4",
-            "lg:gap-5",
+            "md:pb-8",
+            "lg:gap-5 lg:pb-12",
           )}
         >
           <MotionStaggerItem>
@@ -116,10 +112,10 @@ export default function HeroSection() {
                 "lg:text-[20px]",
               )}
             >
-              Life is full of moments worth celebrating. Festa helps you turn
-              them into meaningful gestures through effortless messages,
+              Life is full of moments worth celebrating. YuleFesta helps you
+              turn them into meaningful gestures through effortless messages,
               thoughtful gifts, and memorable experiences, so no special moment
-              ever goes unnoticed. 🎉
+              ever goes unnoticed.
             </p>
           </MotionStaggerItem>
 
@@ -137,7 +133,6 @@ export default function HeroSection() {
               >
                 <span className="inline-flex items-center justify-center gap-3">
                   Get Started
-
                   <Image
                     src={diagArrow}
                     alt=""
@@ -150,28 +145,25 @@ export default function HeroSection() {
           </MotionStaggerItem>
         </MotionStagger>
 
-        {/* Hero illustration */}
-        <MotionFloat
+        <div
           className={cn(
-            "relative min-h-[320px] w-full flex-1",
+            "relative flex min-h-[300px] w-full flex-1 items-end",
             "sm:min-h-[420px]",
-            "md:min-h-[460px] md:self-end",
-            "lg:min-h-[560px]",
+            "md:min-h-[500px]",
+            "lg:min-h-[590px]",
           )}
         >
           <Image
             src={hero}
-            alt="People celebrating special moments with Festa"
-            fill
+            alt="People celebrating special moments with YuleFesta"
             priority
             sizes="(max-width: 767px) 100vw, 50vw"
-            className="object-contain object-bottom"
+            className="mt-auto h-auto w-full object-contain object-bottom"
           />
-        </MotionFloat>
+        </div>
       </div>
 
-      {/* Search panel */}
-      <MotionReveal delay={0.15} amount={0.1}>
+      <MotionReveal delay={0.08} amount={0.1}>
         <div
           className={cn(
             "w-full rounded-[20px] bg-[#104A63]",

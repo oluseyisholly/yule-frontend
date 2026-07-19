@@ -68,10 +68,10 @@ const features: FeatureCardData[] = [
       "items-stretch bg-[#FCB900] px-5 sm:px-6 flex-col-reverse",
 
     imageWrapperClassName:
-      "rounded-[8px] mt-[-28px] w-full min-h-full sm:min-h-full  md:min-h-full md:self-stretch",
+      "flex items-end rounded-[8px] mt-[-28px] w-full min-h-full sm:min-h-full md:min-h-full md:self-stretch",
 
     imageClassName:
-      "w-full object-contain sm:min-h-[200px] md:h-full md:min-h-full ",
+      "!min-h-0 w-full object-contain sm:min-h-[200px] md:h-full md:min-h-full",
 
     contentClassName: "items-start text-left py-5 sm:py-8",
   },

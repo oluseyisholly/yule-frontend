@@ -69,7 +69,9 @@ export default function FilterDrawer({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-            <div className="space-y-5">{children}</div>
+            <div className="flex w-full flex-col gap-5 [&>*]:w-full">
+              {children}
+            </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-3 border-t border-[#F0ECF7] bg-white px-5 py-4 sm:px-6">

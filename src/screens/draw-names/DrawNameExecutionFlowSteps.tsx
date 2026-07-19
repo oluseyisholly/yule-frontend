@@ -17,6 +17,7 @@ type DrawNameExecutionFlowStepsProps = {
     product: MarketplaceProduct,
     checked: boolean,
   ) => void;
+  onViewWishlistGiftProduct?: (product: MarketplaceProduct) => void;
   maximumSpend?: number;
   onWishlistBack?: () => void;
   onWishlistNext: () => void;
@@ -57,6 +58,7 @@ export default function DrawNameExecutionFlowSteps({
   selectedWishlistGiftIds,
   onSelectedWishlistGiftIdsChange,
   onSelectedProductToggle,
+  onViewWishlistGiftProduct,
   maximumSpend,
   onWishlistBack,
   onWishlistNext,
@@ -97,6 +99,7 @@ export default function DrawNameExecutionFlowSteps({
         selectedIds={selectedWishlistGiftIds}
         onSelectedIdsChange={onSelectedWishlistGiftIdsChange}
         onSelectedProductToggle={onSelectedProductToggle}
+        onViewProduct={onViewWishlistGiftProduct}
         maximumSpend={maximumSpend}
         onBack={onWishlistBack}
         onNext={onWishlistNext}
@@ -110,6 +113,7 @@ export default function DrawNameExecutionFlowSteps({
         nextLabel={isWishlistNextPending ? "Saving..." : "Next"}
         caughtMyEyeProductIds={caughtMyEyeProductIds}
         prioritizedProductIds={prioritizedWishlistGiftIds}
+        hidePriceFilters
         deferProductsUntilInitialSelectionResolved
       />
     );
