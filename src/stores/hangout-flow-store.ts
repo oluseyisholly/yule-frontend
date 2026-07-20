@@ -257,7 +257,7 @@ export const useHangoutFlowStore = create<HangoutFlowStore>()(
     }),
     {
       name: "hangout-flow-store",
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 );

@@ -9,6 +9,7 @@ import type {
   HangoutEventMutationResponse,
   HangoutEventPatchPayload,
   HangoutEventResponse,
+  HangoutEventSetupPayload,
   HangoutEventsParams,
   HangoutEventsResponse,
   HangoutMetricsResponse,
@@ -55,6 +56,23 @@ export async function updateHangoutEvent(
 ) {
   return patchApi<HangoutEventMutationResponse, HangoutEventPatchPayload>(
     `${HANGOUT_EVENTS_ENDPOINT}/${eventId}`,
+    payload,
+  );
+}
+
+export async function setupHangoutEvent(payload: HangoutEventSetupPayload) {
+  return postApi<HangoutEventMutationResponse, HangoutEventSetupPayload>(
+    `${HANGOUT_EVENTS_ENDPOINT}/setup`,
+    payload,
+  );
+}
+
+export async function updateHangoutEventSetup(
+  hangoutId: string,
+  payload: HangoutEventSetupPayload,
+) {
+  return patchApi<HangoutEventMutationResponse, HangoutEventSetupPayload>(
+    `${HANGOUT_EVENTS_ENDPOINT}/${hangoutId}/setup`,
     payload,
   );
 }

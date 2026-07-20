@@ -5,7 +5,17 @@ import { hangoutEventQueryKeys } from "@/features/hangout-events/query-keys";
 import { getHangoutEvent } from "@/features/hangout-events/service";
 import type { HangoutEventRecord } from "@/features/hangout-events/types";
 
-export function useHangoutEventQuery(eventId: string | null) {
+type UseHangoutEventQueryOptions = {
+  enabled?: boolean;
+  refetchOnMount?: boolean | "always";
+  refetchOnReconnect?: boolean;
+  staleTime?: number;
+};
+
+export function useHangoutEventQuery(
+  eventId: string | null,
+  options: UseHangoutEventQueryOptions = {},
+) {
   return useQuery({
     queryKey: hangoutEventQueryKeys.detail(eventId),
     queryFn: async (): Promise<HangoutEventRecord | null> => {
@@ -16,10 +26,10 @@ export function useHangoutEventQuery(eventId: string | null) {
       const response = await getHangoutEvent(eventId);
       return response.data;
     },
-    enabled: Boolean(eventId),
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnReconnect: true,
+    enabled: (options.enabled ?? true) && Boolean(eventId),
+    staleTime: options.staleTime ?? 0,
+    refetchOnMount: options.refetchOnMount ?? "always",
+    refetchOnReconnect: options.refetchOnReconnect ?? true,
     placeholderData: (previousData) => previousData,
   });
 }

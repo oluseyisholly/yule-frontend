@@ -33,6 +33,8 @@ type OverlayRecordPickerProps = {
   onAddAction?: () => void;
   onEditItem?: (item: SearchableRecordItem) => void;
   onDeleteItem?: (item: SearchableRecordItem) => void;
+  canEditItem?: (item: SearchableRecordItem) => boolean;
+  canDeleteItem?: (item: SearchableRecordItem) => boolean;
   pairedItemsById?: Record<string, SearchableRecordItem[] | undefined>;
   pairedIndicatorIdsById?: Record<string, string[] | undefined>;
   topAction?: ReactNode;
@@ -64,6 +66,8 @@ export default function OverlayRecordPicker({
   onAddAction,
   onEditItem,
   onDeleteItem,
+  canEditItem,
+  canDeleteItem,
   pairedItemsById,
   pairedIndicatorIdsById,
   topAction,
@@ -251,6 +255,8 @@ export default function OverlayRecordPicker({
                 onAddAction={onAddAction}
                 onEditItem={onEditItem}
                 onDeleteItem={onDeleteItem}
+                canEditItem={canEditItem}
+                canDeleteItem={canDeleteItem}
                 pairedItemsById={pairedItemsById}
                 pairedIndicatorIdsById={pairedIndicatorIdsById}
                 topAction={topAction}

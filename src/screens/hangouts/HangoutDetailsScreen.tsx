@@ -503,6 +503,7 @@ export default function HangoutDetailsScreen({
   hangoutId,
 }: HangoutDetailsScreenProps) {
   const authUser = useAuthStore((state) => state.user);
+
   const currentContactId = useAuthStore((state) => state.currentContactId);
   const {
     data: hangout,
@@ -978,37 +979,41 @@ export default function HangoutDetailsScreen({
                 />
               </div>
 
-              <Button
-                type="button"
-                onClick={
-                  canManage
-                    ? () => void handleSaveBookingDetails()
-                    : () => toast("Reservation flow will be connected next.")
-                }
-                disabled={
-                  canManage
-                    ? updateHangoutEventMutation.isPending || !hasBookingChanges
-                    : false
-                }
-                className="h-[44px] w-full rounded-full text-sm font-medium"
-              >
-                {canManage
-                  ? updateHangoutEventMutation.isPending
-                    ? "Saving..."
-                    : "Save Details"
-                  : "Reserve"}
-              </Button>
+              {canManage && (
+                <Button
+                  type="button"
+                  onClick={
+                    canManage
+                      ? () => void handleSaveBookingDetails()
+                      : () => toast("Reservation flow will be connected next.")
+                  }
+                  disabled={
+                    canManage
+                      ? updateHangoutEventMutation.isPending ||
+                        !hasBookingChanges
+                      : false
+                  }
+                  className="h-[44px] w-full rounded-full text-sm font-medium"
+                >
+                  {canManage
+                    ? updateHangoutEventMutation.isPending
+                      ? "Saving..."
+                      : "Save Details"
+                    : "Reserve"}
+                </Button>
+              )}
 
-              <Button
-                type="button"
-                onClick={() =>
-                  toast("Vendor messaging will be connected next.")
-                }
-                className="h-[44px] w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:h-auto"
-              >
-                Message Vendor
-              </Button>
-
+              {canManage && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    toast("Vendor messaging will be connected next.")
+                  }
+                  className="h-[44px] w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:h-auto"
+                >
+                  Message Vendor
+                </Button>
+              )}
             </div>
           </div>
         </div>

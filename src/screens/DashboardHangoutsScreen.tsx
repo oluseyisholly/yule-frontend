@@ -82,16 +82,17 @@ import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDele
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import { canManageHangoutEvent } from "@/features/hangout-events/access";
 import { useCompleteHangoutEventMutation } from "@/features/hangout-events/hooks/useCompleteHangoutEventMutation";
-import { useCreateHangoutEventMutation } from "@/features/hangout-events/hooks/useCreateHangoutEventMutation";
 import { useDeleteHangoutEventMutation } from "@/features/hangout-events/hooks/useDeleteHangoutEventMutation";
 import { useHangoutEventQuery } from "@/features/hangout-events/hooks/useHangoutEventQuery";
 import { useHangoutEventsQuery } from "@/features/hangout-events/hooks/useHangoutEventsQuery";
 import { useHangoutMetricsQuery } from "@/features/hangout-events/hooks/useHangoutMetricsQuery";
-import { useUpdateHangoutEventMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventMutation";
+import { useSetupHangoutEventMutation } from "@/features/hangout-events/hooks/useSetupHangoutEventMutation";
+import { useUpdateHangoutEventSetupMutation } from "@/features/hangout-events/hooks/useUpdateHangoutEventSetupMutation";
 import type {
   HangoutEventActor,
   HangoutEventParticipant,
   HangoutEventRecord,
+  HangoutEventSetupPayload,
 } from "@/features/hangout-events/types";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
@@ -101,7 +102,6 @@ import type {
   MarketplaceCondition,
   MarketplaceProduct,
 } from "@/features/marketplace/types";
-import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
 import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
 import { cn, shareInvite } from "@/lib/utils";
 import {
@@ -577,6 +577,17 @@ function toIsoDate(value: string) {
   return new Date(`${value}T00:00:00`).toISOString();
 }
 
+function isDateAfter(firstDate: string, secondDate: string) {
+  const firstTime = new Date(`${firstDate}T00:00:00`).getTime();
+  const secondTime = new Date(`${secondDate}T00:00:00`).getTime();
+
+  if (Number.isNaN(firstTime) || Number.isNaN(secondTime)) {
+    return false;
+  }
+
+  return firstTime > secondTime;
+}
+
 function normalizeAmount(value?: number | string | null) {
   const numericValue =
     typeof value === "number" ? value : Number(value?.toString() ?? 0);
@@ -628,7 +639,7 @@ function toDisplayName(person?: HangoutEventActor | null) {
 
 function mapContactToRecordItem(
   contact: Contact,
-  currentUserContactId: string | null,
+  _currentUserContactId: string | null,
 ): SearchableRecordItem {
   const fullName = `${contact.firstName} ${contact.lastName}`.trim();
   const firstInitial = contact.firstName.trim().charAt(0);
@@ -652,10 +663,9 @@ function mapContactToRecordItem(
       contact.note ||
       "Contact",
     email: contact.email,
+    userId: contact.userId ?? null,
     createdById: contact.createdById ?? null,
-    isManageable: Boolean(
-      currentUserContactId && contact.createdById === currentUserContactId,
-    ),
+    isManageable: !contact.userId,
     firstName: contact.firstName,
     lastName: contact.lastName,
     phoneNumber: contact.phoneNumber || contact.phone || "",
@@ -987,12 +997,13 @@ export default function DashboardHangoutsScreen() {
   const [customContactRecordItems, setCustomContactRecordItems] = useState<
     SearchableRecordItem[]
   >([]);
+  const [locallyRemovedRecordContactIds, setLocallyRemovedRecordContactIds] =
+    useState<string[]>([]);
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [recordPendingDelete, setRecordPendingDelete] =
     useState<SearchableRecordItem | null>(null);
-  const { data: hangoutMetricsData } = useHangoutMetricsQuery();
   const [pendingDeleteHangoutRow, setPendingDeleteHangoutRow] =
     useState<HangoutRow | null>(null);
   const [viewingHangoutProduct, setViewingHangoutProduct] =
@@ -1000,6 +1011,12 @@ export default function DashboardHangoutsScreen() {
   const [
     isCompleteHangoutEventConfirmationOpen,
     setIsCompleteHangoutEventConfirmationOpen,
+  ] = useState(false);
+  const [isSavingHangoutSetupAsDraft, setIsSavingHangoutSetupAsDraft] =
+    useState(false);
+  const [
+    isSavingHangoutSetupAndCompleting,
+    setIsSavingHangoutSetupAndCompleting,
   ] = useState(false);
   const [isHangoutInviteEmailComposeOpen, setIsHangoutInviteEmailComposeOpen] =
     useState(false);
@@ -1044,6 +1061,9 @@ export default function DashboardHangoutsScreen() {
     currentHangoutFlowStep === "event-date"
       ? "event-name"
       : currentHangoutFlowStep;
+  const { data: hangoutMetricsData } = useHangoutMetricsQuery(
+    !isHangoutFlowOpen,
+  );
   const flowSelectionKey = buildHangoutFlowSelectionKey(mode, eventId);
   const flowSelectionsByKey = useHangoutFlowStore(
     (state) => state.flowSelectionsByKey,
@@ -1118,16 +1138,28 @@ export default function DashboardHangoutsScreen() {
     isFetching: isHangoutEventsFetching,
     isError: isHangoutEventsError,
     refetch: refetchHangoutEvents,
-  } = useHangoutEventsQuery({
-    scope: activeTab,
-    page: currentPage,
-    per_page: PAGE_SIZE,
-    searchQuery: debouncedQuery,
-  });
+  } = useHangoutEventsQuery(
+    {
+      scope: activeTab,
+      page: currentPage,
+      per_page: PAGE_SIZE,
+      searchQuery: debouncedQuery,
+    },
+    {
+      enabled: !isHangoutFlowOpen,
+    },
+  );
   const {
     data: currentHangoutEventRecord,
-    refetch: refetchCurrentHangoutEvent,
-  } = useHangoutEventQuery(isHangoutFlowOpen && eventId ? eventId : null);
+  } = useHangoutEventQuery(eventId ?? null, {
+    enabled:
+      isHangoutFlowOpen &&
+      Boolean(eventId) &&
+      (mode === "edit" || currentHangoutFlowStep === "invite"),
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
   const currentHangoutEventId =
     currentHangoutEventRecord?.hangoutEventId?.trim() || null;
   const selectedMarketplaceListingId =
@@ -1290,8 +1322,8 @@ export default function DashboardHangoutsScreen() {
       ),
     [caughtMyEyeHangoutGiftIds, selectedListingIds],
   );
-  const createHangoutEventMutation = useCreateHangoutEventMutation();
-  const updateHangoutEventMutation = useUpdateHangoutEventMutation();
+  const setupHangoutEventMutation = useSetupHangoutEventMutation();
+  const updateHangoutEventSetupMutation = useUpdateHangoutEventSetupMutation();
   const completeHangoutEventMutation = useCompleteHangoutEventMutation();
   const deleteHangoutEventMutation = useDeleteHangoutEventMutation();
   const createEventTypeMutation = useCreateEventTypeMutation();
@@ -1302,12 +1334,9 @@ export default function DashboardHangoutsScreen() {
   const createBulkContactsMutation = useCreateBulkContactsMutation();
   const updateContactMutation = useUpdateContactMutation();
   const deleteContactMutation = useDeleteContactMutation();
-  const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
   const sendEmailMutation = useSendEmailMutation();
   const shouldEnableContactsQuery =
-    isHangoutFlowOpen &&
-    (currentHangoutFlowStep === "record" ||
-      currentHangoutFlowStep === "add-record");
+    isHangoutFlowOpen && currentHangoutFlowStep === "record";
   const {
     data: contactsResponse,
     isLoading: isContactsLoading,
@@ -1440,10 +1469,11 @@ export default function DashboardHangoutsScreen() {
         customContactRecordItems,
         selectedParticipantRecordItems,
         fetchedContactRecordItems,
-      ),
+      ).filter((item) => !locallyRemovedRecordContactIds.includes(item.id)),
     [
       customContactRecordItems,
       fetchedContactRecordItems,
+      locallyRemovedRecordContactIds,
       selectedParticipantRecordItems,
     ],
   );
@@ -2191,134 +2221,9 @@ export default function DashboardHangoutsScreen() {
 
     setHangoutFlowDraftFields(flowSelectionKey, {
       selectedEventTypeId: selectedEventTypeOption.value,
-      eventName:
-        selectedEventTypeOption.label || "Untitled hangout",
+      eventName: selectedEventTypeOption.label || "Untitled hangout",
     });
-    setHangoutFlowStep("event-name", mode, eventId);
-  };
-
-  const handleHangoutFlowEventSaveAndContinue = async () => {
-    if (!selectedEventTypeOption) {
-      toast.error("Please select an event first.");
-      return;
-    }
-
-    if (mode === "edit") {
-      if (!eventId) {
-        toast.error("Unable to resolve this hangout right now.");
-        return;
-      }
-
-      try {
-        await updateHangoutEventMutation.mutateAsync({
-          eventId,
-          payload: {
-            event: {
-              eventTypeId: selectedEventTypeOption.value,
-            },
-          },
-        });
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to update this hangout right now.",
-        );
-        return;
-      }
-
-      setHangoutFlowDraftFields(flowSelectionKey, {
-        selectedEventTypeId: selectedEventTypeOption.value,
-        eventName:
-          selectedEventTypeOption.label || "Untitled hangout",
-      });
-      setHangoutFlowStep("event-name", mode, eventId);
-      return;
-    }
-
-    try {
-      const response = await createHangoutEventMutation.mutateAsync({
-        event: {
-          title: selectedEventTypeOption.label,
-          eventTypeId: selectedEventTypeOption.value,
-        },
-      });
-      const nextEventId = response.data.eventId;
-      const nextHangoutEventId = response.data.hangoutEventId?.trim() || null;
-      const nextFlowKey = buildHangoutFlowSelectionKey("create", nextEventId);
-
-      setHangoutFlowDraftFields(nextFlowKey, {
-        lastVisitedStep: "event-name",
-        selectedEventTypeId: selectedEventTypeOption.value,
-        eventName: response.data.event.title || selectedEventTypeOption.label,
-      });
-
-      if (selectedParticipantContactIds.length) {
-        setSelectedParticipantContactIds(
-          nextFlowKey,
-          selectedParticipantContactIds,
-        );
-      }
-
-      if (flowSelectionKey !== nextFlowKey) {
-        resetHangoutFlowSelection(flowSelectionKey);
-      }
-
-      toast.success(response.message);
-      setHangoutFlowStep(
-        "event-name",
-        "create",
-        nextEventId,
-        nextHangoutEventId,
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to create this hangout right now.",
-      );
-    }
-  };
-
-  const handleSaveHangoutEventDetails = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
-    if (!selectedHangoutEventTypeId) {
-      toast.error("Please complete all hangout details.");
-      return;
-    }
-
-    const resolvedTitle =
-      hangoutEventName.trim() ||
-      selectedEventTypeOption?.label ||
-      "Untitled hangout";
-
-    try {
-      const response = await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          event: {
-            title: resolvedTitle,
-            eventTypeId: selectedHangoutEventTypeId,
-          },
-        },
-      });
-
-      toast.success(response.message);
-      setHangoutFlowDraftFields(flowSelectionKey, {
-        eventName: resolvedTitle,
-      });
-      setHangoutFlowStep("check-in-date", mode, eventId);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this hangout right now.",
-      );
-    }
+    setHangoutFlowStep("event-name", mode, eventId, hangoutEventId);
   };
 
   const handleHangoutEventNameNext = () => {
@@ -2336,7 +2241,7 @@ export default function DashboardHangoutsScreen() {
       eventName: resolvedTitle,
       selectedEventTypeId: selectedHangoutEventTypeId,
     });
-    setHangoutFlowStep("check-in-date", mode, eventId);
+    setHangoutFlowStep("check-in-date", mode, eventId, hangoutEventId);
   };
 
   const handleHangoutCheckInDateNext = () => {
@@ -2348,35 +2253,7 @@ export default function DashboardHangoutsScreen() {
     setHangoutFlowDraftFields(flowSelectionKey, {
       checkInDate: selectedHangoutCheckInDate,
     });
-    setHangoutFlowStep("check-out-date", mode, eventId);
-  };
-
-  const handleHangoutCheckInDateSaveAndContinue = async () => {
-    if (!selectedHangoutCheckInDate) {
-      toast.error("Please select a check-in date.");
-      return;
-    }
-
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
-    try {
-      await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          checkInDate: toIsoDate(selectedHangoutCheckInDate),
-        },
-      });
-      setHangoutFlowStep("check-out-date", mode, eventId);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this hangout right now.",
-      );
-    }
+    setHangoutFlowStep("check-out-date", mode, eventId, hangoutEventId);
   };
 
   const handleHangoutCheckOutDateNext = () => {
@@ -2385,38 +2262,18 @@ export default function DashboardHangoutsScreen() {
       return;
     }
 
+    if (
+      selectedHangoutCheckInDate &&
+      !isDateAfter(selectedHangoutCheckOutDate, selectedHangoutCheckInDate)
+    ) {
+      toast.error("Check-out date must be after check-in date.");
+      return;
+    }
+
     setHangoutFlowDraftFields(flowSelectionKey, {
       checkOutDate: selectedHangoutCheckOutDate,
     });
-    setHangoutFlowStep("source", mode, eventId);
-  };
-
-  const handleHangoutCheckOutDateSaveAndContinue = async () => {
-    if (!selectedHangoutCheckOutDate) {
-      toast.error("Please select a check-out date.");
-      return;
-    }
-
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
-    try {
-      await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          checkOutDate: toIsoDate(selectedHangoutCheckOutDate),
-        },
-      });
-      setHangoutFlowStep("source", mode, eventId);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this hangout right now.",
-      );
-    }
+    setHangoutFlowStep("source", mode, eventId, hangoutEventId);
   };
 
   const handleOpenOnedaBusinessStep = () => {
@@ -2425,7 +2282,7 @@ export default function DashboardHangoutsScreen() {
       return;
     }
 
-    setHangoutFlowStep("oneda-business", mode, eventId);
+    setHangoutFlowStep("oneda-business", mode, eventId, hangoutEventId);
   };
 
   const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
@@ -2445,7 +2302,7 @@ export default function DashboardHangoutsScreen() {
     setHangoutFlowDraftFields(flowSelectionKey, {
       selectedOnedaBusinessIds: [selectedOnedaBusinessId],
     });
-    setHangoutFlowStep("oneda-contact", mode, eventId);
+    setHangoutFlowStep("oneda-contact", mode, eventId, hangoutEventId);
   };
 
   const activeContactMutationPending =
@@ -2458,10 +2315,15 @@ export default function DashboardHangoutsScreen() {
   const handleOpenAddNewColleague = () => {
     setEditingRecordId(null);
     setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
-    setHangoutFlowStep("add-record", mode, eventId);
+    setHangoutFlowStep("add-record", mode, eventId, hangoutEventId);
   };
 
   const handleOpenEditColleague = (item: SearchableRecordItem) => {
+    if (item.userId) {
+      toast.error("This contact is linked to a user account and cannot be edited here.");
+      return;
+    }
+
     setEditingRecordId(item.id);
     setNewColleagueForm({
       gender: item.gender || "",
@@ -2470,7 +2332,7 @@ export default function DashboardHangoutsScreen() {
       phoneNumber: item.phoneNumber || "",
       email: item.email || "",
     });
-    setHangoutFlowStep("add-record", mode, eventId);
+    setHangoutFlowStep("add-record", mode, eventId, hangoutEventId);
   };
 
   const handleNewColleagueChange = <K extends keyof AddColleagueFormValues>(
@@ -2517,6 +2379,9 @@ export default function DashboardHangoutsScreen() {
           [savedRecord],
         ),
       );
+      setLocallyRemovedRecordContactIds((current) =>
+        current.filter((contactId) => contactId !== savedRecord.id),
+      );
 
       if (!editingRecordId) {
         setSelectedParticipantContactIds(flowSelectionKey, [
@@ -2529,8 +2394,7 @@ export default function DashboardHangoutsScreen() {
       setRecordSearchValue("");
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
-      await refetchContacts();
-      setHangoutFlowStep("record", mode, eventId);
+      setHangoutFlowStep("record", mode, eventId, hangoutEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2538,39 +2402,6 @@ export default function DashboardHangoutsScreen() {
           : editingRecordId
             ? "Unable to update contact right now."
             : "Unable to create contact right now.",
-      );
-    }
-  };
-
-  const handleDeleteColleague = async () => {
-    if (!recordPendingDelete) {
-      return;
-    }
-
-    try {
-      const response = await deleteContactMutation.mutateAsync(
-        recordPendingDelete.id,
-      );
-
-      setCustomContactRecordItems((current) =>
-        current.filter((item) => item.id !== recordPendingDelete.id),
-      );
-      setSelectedParticipantContactIds(
-        flowSelectionKey,
-        selectedParticipantContactIds.filter(
-          (selectedId) => selectedId !== recordPendingDelete.id,
-        ),
-      );
-      setRecordPendingDelete(null);
-      setEditingRecordId(null);
-      setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
-      toast.success(response.message);
-      await refetchContacts();
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to delete contact right now.",
       );
     }
   };
@@ -2600,197 +2431,13 @@ export default function DashboardHangoutsScreen() {
     setSelectedListingsById(flowSelectionKey, nextListingsById);
   };
 
-  const ensureHangoutDraftEvent = async () => {
-    const resolvedEventTypeId = selectedHangoutEventTypeId?.trim() || "";
-    const resolvedTitle =
-      hangoutEventName.trim() ||
-      selectedEventTypeOption?.label ||
-      "Untitled hangout";
-    const resolvedCheckInDate = selectedHangoutCheckInDate
-      ? toIsoDate(selectedHangoutCheckInDate)
-      : undefined;
-    const resolvedCheckOutDate = selectedHangoutCheckOutDate
-      ? toIsoDate(selectedHangoutCheckOutDate)
-      : undefined;
-    const resolvedGuestCount =
-      Number.parseInt(selectedHangoutGuestCount, 10) ||
-      selectedParticipantContactIds.length;
-
-    if (eventId?.trim()) {
-      try {
-        await updateHangoutEventMutation.mutateAsync({
-          eventId: eventId.trim(),
-          payload: {
-            event: {
-              ...(resolvedTitle ? { title: resolvedTitle } : {}),
-              ...(resolvedEventTypeId
-                ? { eventTypeId: resolvedEventTypeId }
-                : {}),
-              ...(resolvedCheckInDate ? { eventDate: resolvedCheckInDate } : {}),
-            },
-            ...(resolvedCheckInDate ? { checkInDate: resolvedCheckInDate } : {}),
-            ...(resolvedCheckOutDate
-              ? { checkOutDate: resolvedCheckOutDate }
-              : {}),
-            ...(resolvedGuestCount > 0
-              ? { numberOfGuests: resolvedGuestCount }
-              : {}),
-          },
-        });
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to update this hangout right now.",
-        );
-        return null;
-      }
-
-      return {
-        eventId: eventId.trim(),
-        hangoutEventId: hangoutEventId?.trim() || currentHangoutEventId || null,
-      };
-    }
-
-    if (mode !== "create") {
-      toast.error("Unable to resolve this hangout right now.");
-      return null;
-    }
-
-    if (!resolvedEventTypeId) {
-      toast.error("Please select an event first.");
-      return null;
-    }
-
-    try {
-      const response = await createHangoutEventMutation.mutateAsync({
-        event: {
-          title: resolvedTitle,
-          eventTypeId: resolvedEventTypeId,
-          ...(resolvedCheckInDate ? { eventDate: resolvedCheckInDate } : {}),
-        },
-        ...(resolvedCheckInDate ? { checkInDate: resolvedCheckInDate } : {}),
-        ...(resolvedCheckOutDate ? { checkOutDate: resolvedCheckOutDate } : {}),
-        ...(resolvedGuestCount > 0
-          ? { numberOfGuests: resolvedGuestCount }
-          : {}),
-      });
-
-      const nextEventId = response.data.eventId;
-      const nextHangoutEventId = response.data.hangoutEventId?.trim() || null;
-      const nextFlowKey = buildHangoutFlowSelectionKey("create", nextEventId);
-
-      setHangoutFlowDraftFields(nextFlowKey, {
-        lastVisitedStep: "review-records",
-        selectedEventTypeId: resolvedEventTypeId,
-        eventName: response.data.event.title || resolvedTitle,
-        checkInDate: selectedHangoutCheckInDate,
-        checkOutDate: selectedHangoutCheckOutDate,
-        guestCount:
-          selectedHangoutGuestCount || String(selectedParticipantContactIds.length),
-        selectedOnedaBusinessIds,
-        selectedOnedaContactIds,
-      });
-
-      if (selectedParticipantContactIds.length) {
-        setSelectedParticipantContactIds(
-          nextFlowKey,
-          selectedParticipantContactIds,
-        );
-      }
-
-      if (selectedListingIds.length) {
-        setStoredSelectedListingIds(nextFlowKey, selectedListingIds);
-      }
-
-      if (Object.keys(selectedListingsById).length) {
-        setSelectedListingsById(nextFlowKey, selectedListingsById);
-      }
-
-      if (flowSelectionKey !== nextFlowKey) {
-        resetHangoutFlowSelection(flowSelectionKey);
-      }
-
-      setHangoutFlowStep(
-        "review-records",
-        "create",
-        nextEventId,
-        nextHangoutEventId,
-      );
-
-      return {
-        eventId: nextEventId,
-        hangoutEventId: nextHangoutEventId,
-      };
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to create this hangout right now.",
-      );
-      return null;
-    }
-  };
-
-  const saveHangoutParticipants = async (contactIds: string[]) => {
-    const resolvedHangout = await ensureHangoutDraftEvent();
-
-    if (!resolvedHangout?.eventId) {
-      return false;
-    }
-
-    if (!contactIds.length) {
-      toast.error("Please select at least one participant.");
-      return false;
-    }
-
-    try {
-      const response = await createParticipantsBulkMutation.mutateAsync({
-        eventId: resolvedHangout.eventId,
-        role: "participant",
-        contactIds,
-      });
-
-      await updateHangoutEventMutation.mutateAsync({
-        eventId: resolvedHangout.eventId,
-        payload: {
-          numberOfGuests: contactIds.length,
-        },
-      });
-
-      setHangoutFlowDraftFields(
-        buildHangoutFlowSelectionKey(mode, resolvedHangout.eventId),
-        {
-          guestCount: String(contactIds.length),
-        },
-      );
-
-      await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
-      toast.success(response.message || "Participants saved successfully.");
-      setHangoutFlowStep(
-        "hangout-selection",
-        mode,
-        resolvedHangout.eventId,
-        resolvedHangout.hangoutEventId,
-      );
-      return true;
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to add participants right now.",
-      );
-      return false;
-    }
-  };
-
   const handleHangoutParticipantsNext = async () => {
     if (!selectedParticipantContactIds.length) {
       toast.error("Please select at least one participant.");
       return;
     }
 
-    setHangoutFlowStep("review-records", mode, eventId);
+    setHangoutFlowStep("review-records", mode, eventId, hangoutEventId);
   };
 
   const handleOnedaContactSaveAndContinue = async () => {
@@ -2835,7 +2482,7 @@ export default function DashboardHangoutsScreen() {
         mergeRecordItems(current, createdRecordItems),
       );
       setSelectedParticipantContactIds(flowSelectionKey, createdContactIds);
-      setHangoutFlowStep("review-records", mode, eventId);
+      setHangoutFlowStep("record", mode, eventId, hangoutEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2850,11 +2497,7 @@ export default function DashboardHangoutsScreen() {
       toast.error("Please select at least one participant.");
       return;
     }
-    setHangoutFlowStep("hangout-selection", mode, eventId);
-  };
-
-  const handleHangoutReviewSaveAndContinue = async () => {
-    await saveHangoutParticipants(selectedParticipantContactIds);
+    setHangoutFlowStep("hangout-selection", mode, eventId, hangoutEventId);
   };
 
   const handleDeleteReviewParticipant = (id: string) => {
@@ -2876,12 +2519,7 @@ export default function DashboardHangoutsScreen() {
     setViewingHangoutProduct(product);
   };
 
-  const handleConfirmCompleteHangoutEvent = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this hangout right now.");
-      return;
-    }
-
+  const buildHangoutSetupPayload = (): HangoutEventSetupPayload | null => {
     const selectedProduct = selectedListingIds
       .map((selectedId) => selectedListingsById[selectedId])
       .find((product): product is MarketplaceProduct => Boolean(product));
@@ -2890,42 +2528,226 @@ export default function DashboardHangoutsScreen() {
       toast.error(
         "The selected hangout option is not fully loaded yet. Please reselect it and try again.",
       );
+      return null;
+    }
+
+    if (!selectedHangoutEventTypeId) {
+      toast.error("Please select an event type before saving this hangout.");
+      return null;
+    }
+
+    if (!selectedHangoutCheckInDate) {
+      toast.error("Please select a check-in date before saving this hangout.");
+      return null;
+    }
+
+    if (!selectedHangoutCheckOutDate) {
+      toast.error("Please select a check-out date before saving this hangout.");
+      return null;
+    }
+
+    if (!isDateAfter(selectedHangoutCheckOutDate, selectedHangoutCheckInDate)) {
+      toast.error("Check-out date must be after check-in date.");
+      return null;
+    }
+
+    if (!selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant.");
+      return null;
+    }
+
+    const participantContactIds = Array.from(
+      new Set(
+        selectedParticipantContactIds
+          .map((contactId) => contactId.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (participantContactIds.length !== selectedParticipantContactIds.length) {
+      toast.error("Please remove duplicate participants before continuing.");
+      return null;
+    }
+
+    const checkInDate = toIsoDate(selectedHangoutCheckInDate);
+    const checkOutDate = toIsoDate(selectedHangoutCheckOutDate);
+    const eventTitle =
+      hangoutEventName.trim() ||
+      selectedEventTypeOption?.label ||
+      selectedProduct.title ||
+      "Untitled hangout";
+    const selectedProductDescription = selectedProduct.description?.trim();
+    const guestCount =
+      Number.parseInt(selectedHangoutGuestCount, 10) ||
+      participantContactIds.length;
+    const locationParts = [
+      selectedProduct.location?.city,
+      selectedProduct.location?.state,
+      selectedProduct.location?.lga,
+    ]
+      .map((value) => value?.trim())
+      .filter(Boolean);
+    const location = locationParts.join(", ") || undefined;
+
+    return {
+      event: {
+        title: eventTitle,
+        ...(selectedProductDescription
+          ? { description: selectedProductDescription }
+          : {}),
+        eventTypeId: selectedHangoutEventTypeId,
+        eventDate: checkInDate,
+      },
+      hangout: {
+        ...(location ? { location } : {}),
+        hangoutEventId: selectedProduct._id,
+        eventCenterName: selectedProduct.title,
+        checkInDate,
+        checkOutDate,
+        numberOfGuests: guestCount,
+        amount: selectedProduct.amount,
+        imageUrl: selectedProduct.images[0] || undefined,
+        maxAttendees: Math.max(guestCount, participantContactIds.length),
+        allowPlusOne: false,
+      },
+      participants: participantContactIds.map((contactId, index) => ({
+        clientRef: `p${index + 1}`,
+        contactId,
+        isNotified: true,
+      })),
+    };
+  };
+
+  const saveHangoutSetup = async () => {
+    const payload = buildHangoutSetupPayload();
+
+    if (!payload) {
+      return null;
+    }
+
+    if (mode === "edit") {
+      const resolvedHangoutId =
+        currentHangoutEventRecord?.id?.trim() || eventId?.trim() || "";
+
+      if (!resolvedHangoutId) {
+        toast.error("Unable to resolve this hangout right now.");
+        return null;
+      }
+
+      return updateHangoutEventSetupMutation.mutateAsync({
+        hangoutId: resolvedHangoutId,
+        payload,
+      });
+    }
+
+    return setupHangoutEventMutation.mutateAsync(payload);
+  };
+
+  const handleConfirmSaveHangoutSetupAsDraft = async () => {
+    setIsSavingHangoutSetupAsDraft(true);
+
+    try {
+      const response = await saveHangoutSetup();
+
+      if (!response) {
+        return;
+      }
+
+      toast.success(response.message || "Hangout saved as draft.");
+      setIsCompleteHangoutEventConfirmationOpen(false);
+      resetHangoutFlowSelection(flowSelectionKey);
+      closeHangoutFlowModal();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save this hangout right now.",
+      );
+    } finally {
+      setIsSavingHangoutSetupAsDraft(false);
+    }
+  };
+
+  const canManageRecordContact = (item: SearchableRecordItem) =>
+    !item.userId;
+
+  const handleDeleteColleague = async () => {
+    if (!recordPendingDelete) {
+      return;
+    }
+
+    if (recordPendingDelete.userId) {
+      toast.error(
+        "This contact is linked to a user account and cannot be removed here.",
+      );
       return;
     }
 
     try {
-      const selectedProductDescription = selectedProduct.description?.trim();
+      const response = await deleteContactMutation.mutateAsync(
+        recordPendingDelete.id,
+      );
 
-      const saveResponse = await updateHangoutEventMutation.mutateAsync({
-        eventId,
-        payload: {
-          hangoutEventId: selectedProduct._id,
-          imageUrl: selectedProduct.images[0] || undefined,
-          amount: selectedProduct.amount,
-          event: selectedProductDescription
-            ? {
-                description: selectedProductDescription,
-              }
-            : undefined,
-        },
-      });
+      setCustomContactRecordItems((current) =>
+        current.filter((record) => record.id !== recordPendingDelete.id),
+      );
+      setLocallyRemovedRecordContactIds((current) =>
+        current.includes(recordPendingDelete.id)
+          ? current
+          : [...current, recordPendingDelete.id],
+      );
+      setSelectedParticipantContactIds(
+        flowSelectionKey,
+        selectedParticipantContactIds.filter(
+          (contactId) => contactId !== recordPendingDelete.id,
+        ),
+      );
+      setRecordPendingDelete(null);
+      setEditingRecordId(null);
+      setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
+      toast.success(response.message);
+      await refetchContacts();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete contact right now.",
+      );
+    }
+  };
 
-      await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
-      toast.success(saveResponse.message || "Hangout details saved successfully.");
+  const handleConfirmCompleteHangoutEvent = async () => {
+    setIsSavingHangoutSetupAndCompleting(true);
+
+    try {
+      const setupResponse = await saveHangoutSetup();
+
+      if (!setupResponse) {
+        return;
+      }
+
+      const nextEventId =
+        setupResponse.data.eventId?.trim() || setupResponse.data.event.id;
+      const nextHangoutId =
+        setupResponse.data.id?.trim() ||
+        setupResponse.data.hangoutEventId?.trim() ||
+        null;
 
       const completeResponse =
-        await completeHangoutEventMutation.mutateAsync(eventId);
+        await completeHangoutEventMutation.mutateAsync(nextEventId);
 
-      await Promise.all([refetchHangoutEvents(), refetchCurrentHangoutEvent()]);
       toast.success(completeResponse.message);
       setIsCompleteHangoutEventConfirmationOpen(false);
-      setHangoutFlowStep("invite", mode, eventId, selectedProduct._id);
+      resetHangoutFlowSelection(flowSelectionKey);
+      setHangoutFlowStep("invite", mode, nextEventId, nextHangoutId);
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Unable to complete this hangout right now.",
       );
+    } finally {
+      setIsSavingHangoutSetupAndCompleting(false);
     }
   };
 
@@ -2965,7 +2787,9 @@ export default function DashboardHangoutsScreen() {
     emails: string[];
   }) => {
     const resolvedHangoutId =
-      hangoutEventId?.trim() || currentHangoutEventId || null;
+      currentHangoutEventRecord?.id?.trim() ||
+      hangoutEventId?.trim() ||
+      null;
     const redirectUrl =
       hangoutInviteShareUrl || (eventId ? `/dashboard/hangouts/${eventId}` : "");
 
@@ -3051,13 +2875,7 @@ export default function DashboardHangoutsScreen() {
         headerClassName: "min-w-[110px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3 font-medium",
       },
-      {
-        id: "dateCreated",
-        header: "Date Created",
-        accessor: "dateCreated",
-        headerClassName: "min-w-[120px] px-3 py-2 text-left",
-        cellClassName: "px-3 py-3",
-      },
+      
       {
         id: "time_status",
         header: "preiod Status",
@@ -3071,6 +2889,14 @@ export default function DashboardHangoutsScreen() {
         headerClassName: "min-w-[100px] px-3 py-2 text-left",
         cellClassName: "px-3 py-3",
         render: (row) => <StatusPill status={row.fulfillmentStatus} />,
+      },
+      {
+        id: "eventStatus",
+        header: "Status",
+        headerClassName: "min-w-[120px] px-3 py-2 text-left",
+        cellClassName: "px-3 py-3",
+        render: (row) => <StatusPill status={row.eventStatus} />,
+
       },
       {
         id: "actions",
@@ -3180,11 +3006,14 @@ export default function DashboardHangoutsScreen() {
           open={isCompleteHangoutEventConfirmationOpen}
           onClose={() => setIsCompleteHangoutEventConfirmationOpen(false)}
           onConfirm={handleConfirmCompleteHangoutEvent}
+          onSecondaryConfirm={handleConfirmSaveHangoutSetupAsDraft}
           action="save"
-          title="Complete Hangout"
-          description="Are you sure you are ready to complete this hangout and continue to the invite step?"
-          confirmText="Yes, Continue"
-          isLoading={completeHangoutEventMutation.isPending}
+          title="Save Hangout Setup"
+          description="You can save this hangout as a draft, or save and complete it so you can invite participants."
+          confirmText="Save"
+          secondaryConfirmText="Save as Draft"
+          isLoading={isSavingHangoutSetupAndCompleting}
+          isSecondaryLoading={isSavingHangoutSetupAsDraft}
           closeOnOverlayClick={false}
           closeOnEscape={false}
         />
@@ -3408,7 +3237,11 @@ export default function DashboardHangoutsScreen() {
         onConfirm={handleDeleteColleague}
         action="delete"
         title="Delete Contact"
-        description="Are you sure you want to delete this contact?"
+        description={
+          recordPendingDelete
+            ? `Are you sure you want to delete ${recordPendingDelete.name}?`
+            : "Are you sure you want to delete this contact?"
+        }
         confirmText="Delete"
         isLoading={deleteContactMutation.isPending}
         closeOnOverlayClick={false}
@@ -3419,11 +3252,14 @@ export default function DashboardHangoutsScreen() {
         open={isCompleteHangoutEventConfirmationOpen}
         onClose={() => setIsCompleteHangoutEventConfirmationOpen(false)}
         onConfirm={handleConfirmCompleteHangoutEvent}
+        onSecondaryConfirm={handleConfirmSaveHangoutSetupAsDraft}
         action="save"
-        title="Complete Hangout"
-        description="Are you sure you are ready to complete this hangout and continue to the invite step?"
-        confirmText="Yes, Continue"
-        isLoading={completeHangoutEventMutation.isPending}
+        title="Save Hangout Setup"
+        description="You can save this hangout as a draft, or save and complete it so you can invite participants."
+        confirmText="Save"
+        secondaryConfirmText="Save as Draft"
+        isLoading={isSavingHangoutSetupAndCompleting}
+        isSecondaryLoading={isSavingHangoutSetupAsDraft}
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
@@ -3455,16 +3291,13 @@ export default function DashboardHangoutsScreen() {
                 eventName: value,
               })
             }
-            onBack={() => setHangoutFlowStep("event", mode, eventId)}
+            onBack={() =>
+              setHangoutFlowStep("event", mode, eventId, hangoutEventId)
+            }
             onNext={handleHangoutEventNameNext}
-            onSaveAndContinue={handleSaveHangoutEventDetails}
             title="Below is a suggestion of a name for your event."
             description="Feel free to edit as you see fit."
             placeholder="Write event name"
-            nextLabel={
-              updateHangoutEventMutation.isPending ? "Saving..." : "Next"
-            }
-            nextDisabled={updateHangoutEventMutation.isPending}
           />
         ) : effectiveHangoutFlowStep === "check-in-date" ? (
           <EventDateStep
@@ -3475,9 +3308,10 @@ export default function DashboardHangoutsScreen() {
                 checkInDate: value,
               })
             }
-            onBack={() => setHangoutFlowStep("event-name", mode, eventId)}
+            onBack={() =>
+              setHangoutFlowStep("event-name", mode, eventId, hangoutEventId)
+            }
             onNext={handleHangoutCheckInDateNext}
-            onSaveAndContinue={handleHangoutCheckInDateSaveAndContinue}
             heading="When is check-in?"
             headingAlign="left"
             showGoToEventNameLink={false}
@@ -3491,9 +3325,10 @@ export default function DashboardHangoutsScreen() {
                 checkOutDate: value,
               })
             }
-            onBack={() => setHangoutFlowStep("check-in-date", mode, eventId)}
+            onBack={() =>
+              setHangoutFlowStep("check-in-date", mode, eventId, hangoutEventId)
+            }
             onNext={handleHangoutCheckOutDateNext}
-            onSaveAndContinue={handleHangoutCheckOutDateSaveAndContinue}
             heading="When is check-out?"
             headingAlign="left"
             showGoToEventNameLink={false}
@@ -3512,7 +3347,9 @@ export default function DashboardHangoutsScreen() {
             <div className="mx-auto max-w-[494px] space-y-4">
               <ModalButton
                 variant="secondary"
-                onClick={() => setHangoutFlowStep("record", mode, eventId)}
+                onClick={() =>
+                  setHangoutFlowStep("record", mode, eventId, hangoutEventId)
+                }
                 className="w-full"
               >
                 From Record
@@ -3528,9 +3365,14 @@ export default function DashboardHangoutsScreen() {
             <div className="flex justify-center">
               <BackButton
                 onClick={() =>
-                  setHangoutFlowStep("check-out-date", mode, eventId)
+                  setHangoutFlowStep(
+                    "check-out-date",
+                    mode,
+                    eventId,
+                    hangoutEventId,
+                  )
                 }
-                className={FLOW_BACK_TRIGGER_CLASS}
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                 iconClassName="size-[24px]"
               />
             </div>
@@ -3564,7 +3406,9 @@ export default function DashboardHangoutsScreen() {
                 }
                 triggerBottomAction={
                   <BackButton
-                    onClick={() => setHangoutFlowStep("source", mode, eventId)}
+                    onClick={() =>
+                      setHangoutFlowStep("source", mode, eventId, hangoutEventId)
+                    }
                     className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
                   />
@@ -3627,7 +3471,12 @@ export default function DashboardHangoutsScreen() {
                 triggerBottomAction={
                   <BackButton
                     onClick={() =>
-                      setHangoutFlowStep("oneda-business", mode, eventId)
+                      setHangoutFlowStep(
+                        "oneda-business",
+                        mode,
+                        eventId,
+                        hangoutEventId,
+                      )
                     }
                     className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
@@ -3639,12 +3488,10 @@ export default function DashboardHangoutsScreen() {
                     onNext={handleOnedaContactSaveAndContinue}
                     nextDisabled={
                       !selectedOnedaContactIds.length ||
-                      createBulkContactsMutation.isPending ||
-                      createParticipantsBulkMutation.isPending
+                      createBulkContactsMutation.isPending
                     }
                     nextLabel={
-                      createBulkContactsMutation.isPending ||
-                      createParticipantsBulkMutation.isPending
+                      createBulkContactsMutation.isPending
                         ? "Importing..."
                         : "Import"
                     }
@@ -3672,23 +3519,13 @@ export default function DashboardHangoutsScreen() {
             prompt="Who'd you like to hangout with?"
             items={selectedParticipantReviewItems}
             onAddNew={handleOpenAddNewColleague}
-            onBack={() => setHangoutFlowStep("source", mode, eventId)}
-            onNext={handleHangoutReviewSaveAndContinue}
-            onEdit={(id) => {
-              const item = contactRecordOptions.find(
-                (record) => record.id === id,
-              );
-              if (item) {
-                handleOpenEditColleague(item);
-              }
-            }}
-            onDelete={handleDeleteReviewParticipant}
-            nextLabel="Save & Continue"
-            nextDisabled={
-              selectedParticipantReviewItems.length === 0 ||
-              createParticipantsBulkMutation.isPending ||
-              updateHangoutEventMutation.isPending
+            onBack={() =>
+              setHangoutFlowStep("source", mode, eventId, hangoutEventId)
             }
+            onNext={handleHangoutReviewNext}
+            onDelete={handleDeleteReviewParticipant}
+            nextLabel="Next"
+            nextDisabled={selectedParticipantReviewItems.length === 0}
           />
         ) : effectiveHangoutFlowStep === "hangout-selection" ? (
           hangoutSelectionStep
@@ -3726,7 +3563,7 @@ export default function DashboardHangoutsScreen() {
             onBack={() => {
               setEditingRecordId(null);
               setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
-              setHangoutFlowStep("record", mode, eventId);
+              setHangoutFlowStep("record", mode, eventId, hangoutEventId);
             }}
             onSave={handleSaveNewColleague}
             saveDisabled={isSaveNewColleagueDisabled}
@@ -3770,7 +3607,9 @@ export default function DashboardHangoutsScreen() {
                 }
                 triggerBottomAction={
                   <BackButton
-                    onClick={() => setHangoutFlowStep("source", mode, eventId)}
+                    onClick={() =>
+                      setHangoutFlowStep("source", mode, eventId, hangoutEventId)
+                    }
                     className={FLOW_BACK_TRIGGER_CLASS}
                     iconClassName="size-[24px]"
                   />
@@ -3779,24 +3618,14 @@ export default function DashboardHangoutsScreen() {
                 onAddAction={handleOpenAddNewColleague}
                 onEditItem={handleOpenEditColleague}
                 onDeleteItem={setRecordPendingDelete}
+                canEditItem={canManageRecordContact}
+                canDeleteItem={canManageRecordContact}
                 suspendDismiss={Boolean(recordPendingDelete)}
                 footer={
                   <FlowActionButtons
                     showBack={false}
                     onNext={handleHangoutParticipantsNext}
-                    onSaveAndContinue={handleHangoutParticipantsNext}
-                    nextDisabled={
-                      !selectedParticipantContactIds.length ||
-                      createParticipantsBulkMutation.isPending
-                    }
-                    nextLabel={
-                      createParticipantsBulkMutation.isPending
-                        ? "Saving..."
-                        : "Next"
-                    }
-                    isSaveAndContinuePending={
-                      createParticipantsBulkMutation.isPending
-                    }
+                    nextDisabled={!selectedParticipantContactIds.length}
                   />
                 }
                 triggerClassName="h-[48px] border-[#3300C9] text-[18px] font-medium text-[#666666]"
@@ -3875,15 +3704,9 @@ export default function DashboardHangoutsScreen() {
             <FlowActionButtons
               showBack={false}
               onNext={handleHangoutFlowEventNext}
-              onSaveAndContinue={handleHangoutFlowEventSaveAndContinue}
               stackSaveAndContinue={false}
               nextDisabled={!selectedHangoutEventTypeId}
               nextClassName="!w-fit min-w-[96px] px-6"
-              saveClassName="!w-fit min-w-[140px] px-6"
-              isSaveAndContinuePending={
-                createHangoutEventMutation.isPending ||
-                updateHangoutEventMutation.isPending
-              }
             />
           </div>
         )}

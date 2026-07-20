@@ -75,6 +75,35 @@ export type HangoutEventPatchPayload = Partial<
   };
 };
 
+export type HangoutEventSetupParticipantPayload = {
+  clientRef: string;
+  contactId: string;
+  isNotified?: boolean;
+};
+
+export type HangoutEventSetupPayload = {
+  event: {
+    title: string;
+    description?: string;
+    eventTypeId: string;
+    eventDate: string;
+  };
+  hangout: {
+    location?: string;
+    hangoutEventId?: string;
+    eventCenterName?: string;
+    checkInDate: string;
+    checkOutDate: string;
+    numberOfGuests: number;
+    amount?: number;
+    imageUrl?: string;
+    maxAttendees?: number;
+    allowPlusOne?: boolean;
+  };
+  participants: HangoutEventSetupParticipantPayload[];
+  payerRef?: string;
+};
+
 export type HangoutEventDetailsPayload = {
   location?: string;
   eventCenterName?: string;

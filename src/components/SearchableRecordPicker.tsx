@@ -23,6 +23,7 @@ export type SearchableRecordItem = {
   name: string;
   subtitle: string;
   email?: string;
+  userId?: string | null;
   createdById?: string | null;
   isManageable?: boolean;
   firstName?: string;
@@ -53,6 +54,8 @@ type SearchableRecordPickerProps = {
   onAddAction?: () => void;
   onEditItem?: (item: SearchableRecordItem) => void;
   onDeleteItem?: (item: SearchableRecordItem) => void;
+  canEditItem?: (item: SearchableRecordItem) => boolean;
+  canDeleteItem?: (item: SearchableRecordItem) => boolean;
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   pairedItemsById?: Record<string, SearchableRecordItem[] | undefined>;
@@ -201,6 +204,8 @@ export default function SearchableRecordPicker({
   onAddAction,
   onEditItem,
   onDeleteItem,
+  canEditItem,
+  canDeleteItem,
   secondaryActionLabel,
   onSecondaryAction,
   pairedItemsById,
@@ -328,11 +333,15 @@ export default function SearchableRecordPicker({
               filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 const isLockedSelected = lockedSelectedIds.includes(item.id);
+                const shouldShowEdit =
+                  Boolean(onEditItem) && (canEditItem?.(item) ?? true);
+                const shouldShowDelete =
+                  Boolean(onDeleteItem) && (canDeleteItem?.(item) ?? true);
 
                 const canManageItem =
                   !isLockedSelected &&
                   item.isManageable !== false &&
-                  (Boolean(onEditItem) || Boolean(onDeleteItem));
+                  (shouldShowEdit || shouldShowDelete);
 
                 return (
                   <div
@@ -381,7 +390,7 @@ export default function SearchableRecordPicker({
 
                     {canManageItem ? (
                       <span className="ml-auto inline-flex items-center gap-2">
-                        {onEditItem ? (
+                        {shouldShowEdit && onEditItem ? (
                           <button
                             type="button"
                             onClick={(event) => {
@@ -394,7 +403,7 @@ export default function SearchableRecordPicker({
                             <PencilIcon className="size-3.5" />
                           </button>
                         ) : null}
-                        {onDeleteItem ? (
+                        {shouldShowDelete && onDeleteItem ? (
                           <button
                             type="button"
                             onClick={(event) => {
