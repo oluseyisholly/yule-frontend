@@ -17,6 +17,7 @@ type EmailInviteComposeModalProps = {
     emails: string[];
   }) => Promise<void> | void;
   isSubmitting?: boolean;
+  hasBody?: boolean;
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,6 +68,7 @@ export default function EmailInviteComposeModal({
   lockedEmails,
   onSubmit,
   isSubmitting = false,
+  hasBody = true,
 }: EmailInviteComposeModalProps) {
   const normalizedLockedEmails = useMemo(
     () => uniqueEmails(lockedEmails),
@@ -138,7 +140,7 @@ export default function EmailInviteComposeModal({
       return;
     }
 
-    if (!trimmedBody) {
+    if (!trimmedBody && hasBody) {
       setErrorMessage("Please write a message for the email body.");
       return;
     }
@@ -164,7 +166,7 @@ export default function EmailInviteComposeModal({
       closeOnOverlayClick={false}
       closeOnEscape={!isSubmitting}
       bodyScrollable={false}
-      dialogClassName="w-[calc(100%-24px)] max-w-[720px] overflow-hidden bg-white"
+      dialogClassName="w-[calc(100%-24px)] max-w-[620px] overflow-hidden bg-white"
       bodyClassName="!p-0"
     >
       <div className="flex max-h-[calc(100dvh-32px)] min-h-0 flex-col overflow-hidden">
@@ -177,8 +179,8 @@ export default function EmailInviteComposeModal({
               </h2>
 
               <p className="max-w-[560px] text-[13px] leading-relaxed text-[#6F6F77] sm:text-[14px]">
-                Compose a message for participants. Existing participant emails
-                are locked in so nobody is accidentally removed.
+                Send a message to participants. Existing participant emails are
+                locked in so nobody is accidentally removed.
               </p>
             </div>
           </div>
@@ -273,22 +275,23 @@ export default function EmailInviteComposeModal({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <span className="text-[13px] font-medium text-[#4B4B55]">
-                Body
-              </span>
-
-              <RichTextComposer
-                value={body}
-                onChange={(message) => {
-                  setBody(message);
-                  setErrorMessage("");
-                }}
-                readOnly={isSubmitting}
-                placeholder="Write your invitation message..."
-                className="shadow-none"
-              />
-            </div>
+            {hasBody && (
+              <div className="space-y-2">
+                <span className="text-[13px] font-medium text-[#4B4B55]">
+                  Body
+                </span>
+                <RichTextComposer
+                  value={body}
+                  onChange={(message) => {
+                    setBody(message);
+                    setErrorMessage("");
+                  }}
+                  readOnly={isSubmitting}
+                  placeholder="Write your invitation message..."
+                  className="shadow-none"
+                />
+              </div>
+            )}
 
             {errorMessage ? (
               <p className="rounded-[12px] bg-[#FFF1F1] px-4 py-3 text-[13px] font-medium text-[#D22F2F]">

@@ -4559,6 +4559,7 @@ Thank you.`;
         lockedEmails={lockedInviteEmails}
         onSubmit={handleSendInviteEmail}
         isSubmitting={sendEmailMutation.isPending}
+        hasBody={false}
       />
     </>
   );
