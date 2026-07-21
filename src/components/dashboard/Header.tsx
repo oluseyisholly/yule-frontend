@@ -394,7 +394,7 @@ function DashboardProfileMenu({
         <PopoverContent
           align="end"
           sideOffset={12}
-          className="w-[min(370px,calc(100vw-24px))] rounded-[26px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
+          className="w-[min(370px,calc(100vw-24px))] rounded-[16px] border border-[#E8E3F5] bg-white p-0 shadow-[0_28px_64px_rgba(33,18,94,0.14)]"
         >
           <div className="relative px-4 pb-6 pt-4 text-center sm:px-6 sm:pb-7">
             <p className="px-8 text-[13px] font-medium break-words text-[#616777] sm:px-10 sm:text-[14px]">

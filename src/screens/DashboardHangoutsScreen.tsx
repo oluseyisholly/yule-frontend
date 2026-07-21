@@ -2018,6 +2018,7 @@ export default function DashboardHangoutsScreen() {
       "record",
       "add-record",
       "review-records",
+      "hangout-selection",
     ];
 
     if (localOnlySteps.includes(currentHangoutFlowStep)) {
@@ -2941,7 +2942,9 @@ export default function DashboardHangoutsScreen() {
         onSelectedIdsChange={handleHangoutListingIdsChange}
         onSelectedProductToggle={handleHangoutListingToggle}
         onViewProduct={handleViewHangoutProduct}
-        onBack={() => setHangoutFlowStep("review-records", mode, eventId)}
+        onBack={() =>
+          setHangoutFlowStep("review-records", mode, eventId, hangoutEventId)
+        }
         onNext={handleHangoutSelectionNext}
         enableInfiniteScroll
         disableContentScroll
