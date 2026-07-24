@@ -6,6 +6,7 @@ import type {
   BulkCreateParticipantsResponse,
   DeleteParticipantExclusionResponse,
   DrawNameEventParticipantContactIdsResponse,
+  EventParticipantIdsResponse,
   EventParticipantExclusionsResponse,
   GiftRecipientGiftsParams,
   GiftRecipientGiftsResponse,
@@ -22,6 +23,7 @@ const PARTICIPANT_EXCLUSION_BULK_ENDPOINT = "/participant/exclusion/bulk";
 const PARTICIPANT_EXCLUSION_ENDPOINT = "/participant/exclusion";
 const PARTICIPANT_EVENT_ME_ENDPOINT = "/participant/event";
 const DRAW_NAME_EVENT_PARTICIPANTS_ENDPOINT = "/draw-name-event";
+const EVENTS_ENDPOINT = "/events";
 
 export async function createParticipantsBulk(
   payload: BulkCreateParticipantsPayload,
@@ -50,6 +52,12 @@ export async function getEventParticipants(
 export async function getEventParticipantContactIds(drawNameEventId: string) {
   return getApi<DrawNameEventParticipantContactIdsResponse>(
     `${DRAW_NAME_EVENT_PARTICIPANTS_ENDPOINT}/${drawNameEventId}/participant/contact-ids`,
+  );
+}
+
+export async function getEventParticipantIds(eventId: string) {
+  return getApi<EventParticipantIdsResponse>(
+    `${EVENTS_ENDPOINT}/${eventId}/participant-ids`,
   );
 }
 

@@ -7,6 +7,8 @@ import type { ScheduledEventMessagesParams } from "@/features/scheduled-event-me
 
 type UseScheduledEventMessagesQueryOptions = {
   enabled?: boolean;
+  staleTime?: number;
+  refetchOnMount?: boolean | "always";
 };
 
 export function useScheduledEventMessagesQuery(
@@ -24,8 +26,8 @@ export function useScheduledEventMessagesQuery(
     queryKey: scheduledEventMessageQueryKeys.list(normalizedParams),
     queryFn: () => getCreatedScheduledEventMessages(normalizedParams),
     enabled: options.enabled ?? true,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: options.staleTime ?? 30 * 1000,
+    refetchOnMount: options.refetchOnMount ?? false,
     refetchOnReconnect: true,
     placeholderData: (previousData) => previousData,
   });

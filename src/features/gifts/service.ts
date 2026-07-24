@@ -172,6 +172,7 @@ export async function getReceivedGifts(
 ) {
   return getApi<ReceivedGiftsResponse>(`${GIFTS_ENDPOINT}/received`, {
     params: {
+      ...(params.eventId ? { eventId: params.eventId } : {}),
       page: params.page ?? 1,
       per_page: params.per_page ?? 25,
       searchQuery: params.searchQuery ?? "",

@@ -129,6 +129,15 @@ export type DrawNameEventParticipantContactIdsResponse = {
   data: string[];
 };
 
+export type EventParticipantIdsResponse = {
+  code: number;
+  message: string;
+  data: Array<{
+    id: string;
+    eventContactId: string;
+  }>;
+};
+
 export type EventParticipantExclusion = {
   id: string;
   participantIds: string[];

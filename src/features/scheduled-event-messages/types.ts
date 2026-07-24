@@ -55,6 +55,53 @@ export type ScheduledEventMessagePayload = {
   metadata?: ScheduledEventMessageMetadata;
 };
 
+export type ScheduledEventMessageSetupGiftItem = {
+  participantGiftId: string;
+  title: string;
+  description: string;
+  amount: number;
+  currency: string;
+  imageUrl?: string;
+  categorySlug?: string;
+  subCategorySlug?: string;
+  condition?: string;
+  locationState?: string;
+  locationCity?: string;
+  sellerId?: string;
+  productSlug?: string;
+};
+
+export type ScheduledEventMessageSetupParticipant = {
+  clientRef: string;
+  contactId: string;
+  isNotified: boolean;
+};
+
+export type ScheduledEventMessageSetupGiftAssignment = {
+  recipientRefs: string[];
+  gifts: ScheduledEventMessageSetupGiftItem[];
+};
+
+export type ScheduledEventMessageSetupPayload = {
+  event: {
+    title: string;
+    description?: string;
+    eventTypeId: string;
+    eventDate: string;
+  };
+  message: {
+    subject: string;
+    message: string;
+    scheduledAt: string;
+    sendNow: boolean;
+    metadata?: ScheduledEventMessageMetadata;
+  };
+  participants: ScheduledEventMessageSetupParticipant[];
+  giftAssignments: ScheduledEventMessageSetupGiftAssignment[];
+  giftUrl?: string;
+  giftUrlExpiresAt?: string;
+};
+
 export type ScheduledEventMessagesParams = {
   page?: number;
   per_page?: number;

@@ -3,6 +3,7 @@ import type {
   CompleteScheduledEventMessageSetupResponse,
   ScheduledEventMessageDeleteResponse,
   ScheduledEventMessagePayload,
+  ScheduledEventMessageSetupPayload,
   ScheduledEventMessageResponse,
   ScheduledEventMessageMetricsResponse,
   ScheduledEventMessagesParams,
@@ -68,6 +69,25 @@ export async function updateScheduledEventMessage(
     `${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/${id}`,
     payload,
   );
+}
+
+export async function setupScheduledEventMessage(
+  payload: ScheduledEventMessageSetupPayload,
+) {
+  return postApi<
+    ScheduledEventMessageResponse,
+    ScheduledEventMessageSetupPayload
+  >(`${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/setup`, payload);
+}
+
+export async function updateScheduledEventMessageSetup(
+  id: string,
+  payload: ScheduledEventMessageSetupPayload,
+) {
+  return patchApi<
+    ScheduledEventMessageResponse,
+    ScheduledEventMessageSetupPayload
+  >(`${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/${id}/setup`, payload);
 }
 
 export async function deleteScheduledEventMessage(id: string) {

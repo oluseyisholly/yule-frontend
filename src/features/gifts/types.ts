@@ -367,6 +367,7 @@ export type ReceivedGiftsParams = {
   page?: number;
   per_page?: number;
   searchQuery?: string;
+  eventId?: string;
 };
 
 export type ReceivedGiftsPage = {

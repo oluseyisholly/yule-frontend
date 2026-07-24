@@ -17,6 +17,7 @@ export function useReceivedGiftsQuery(
     page: params.page ?? 1,
     per_page: params.per_page ?? 25,
     searchQuery: params.searchQuery ?? "",
+    eventId: params.eventId?.trim() || "",
   };
 
   return useQuery({

@@ -339,8 +339,8 @@ function GiftCard({
   const primaryImage = product.images[0] || "";
 
   return (
-    <div className="flex h-full min-w-0 flex-col gap-2 rounded-[10px] border border-gray-100 bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:gap-2.5 sm:rounded-[12px] sm:px-3 sm:py-2">
-      <div className="relative h-[96px] w-full overflow-hidden rounded-[6px] bg-gray-100 sm:h-[110px] lg:h-[120px]">
+    <div className="mx-auto flex h-full w-full max-w-[290px] min-w-0 flex-col gap-1.5 rounded-[16px] border border-gray-100 bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] min-[520px]:max-w-none">
+      <div className="relative h-[136px] w-full overflow-hidden rounded-[12px] bg-gray-100 sm:h-[148px] lg:h-[160px]">
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -354,62 +354,62 @@ function GiftCard({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 px-0.5 sm:px-1">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="truncate font-nunito text-[12px] font-semibold text-[#4E4C4D] sm:text-[14px] lg:text-[16px]">
-            {product.title}
-          </h3>
-          <Image
-            src={verifiedIcon}
-            alt="Product badge"
-            className="h-[14px] w-[14px] shrink-0 sm:h-[16px] sm:w-[16px] lg:h-[18px] lg:w-[18px]"
-          />
-        </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-1">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight text-[#4E4C4D] sm:text-[16px]">
+                {product.title}
+              </h3>
+            <Image
+              src={verifiedIcon}
+              alt="Product badge"
+              className="h-[18px] w-[18px] shrink-0"
+            />
+          </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-1.5 py-0.5 text-[8px] font-medium text-[#FF6600] sm:px-2 sm:text-[9px] lg:text-[10px]">
-            {formatConditionLabel(product.condition)}
-          </span>
-          {isCaughtMyEye ? <CaughtMyEyeLoveIcon /> : null}
-        </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#FF6600] bg-[#FF66001A] px-2 py-0.5 text-[9px] font-medium text-[#FF6600]">
+              {formatConditionLabel(product.condition)}
+            </span>
+            {isCaughtMyEye ? <CaughtMyEyeLoveIcon /> : null}
+          </div>
 
-        <p className="line-clamp-1 text-[8px] leading-snug text-neutral sm:line-clamp-2 sm:text-[9px]">
-          {product.description?.trim() ||
-            "No description available for this product yet."}
-        </p>
+          <p className="line-clamp-2 min-h-[30px] text-[10px] leading-4 text-neutral sm:min-h-[34px] sm:text-[11px]">
+            {product.description?.trim() ||
+              "No description available for this product yet."}
+          </p>
 
-        <div className="flex items-center gap-1 text-[8px] text-[#97989A] sm:text-[9px]">
-          <Image
-            src={locationIcon}
-            alt="Location"
-            className="h-[7px] w-[5px] shrink-0 sm:h-[7.5px] sm:w-[5.5px]"
-          />
-          <span className="truncate">{formatLocation(product)}</span>
-        </div>
+          <div className="flex items-center gap-1 text-[10px] text-[#97989A] sm:text-[11px]">
+            <Image
+              src={locationIcon}
+              alt="Location"
+              className="h-[7px] w-[5px] shrink-0"
+            />
+            <span className="truncate">{formatLocation(product)}</span>
+          </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-          <span className="min-w-0 truncate text-[10px] font-semibold leading-[117%] tracking-[0.03em] text-darker sm:text-[11px] lg:text-[12px]">
-            ₦{formatPrice(product.amount)}
-          </span>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+            <span className="min-w-0 truncate text-[13px] font-semibold leading-tight tracking-[0.03em] text-darker sm:text-[14px]">
+              ₦{formatPrice(product.amount)}
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
             {onView ? (
               <button
                 type="button"
                 onClick={onView}
-                className="inline-flex h-7 items-center justify-center rounded-full border border-[#3300C9] bg-white px-3 text-[10px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F6F2FF]"
-              >
-                View
-              </button>
+                  className="inline-flex h-7 items-center justify-center rounded-full border border-[#3300C9] bg-white px-3 text-[9px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F6F2FF] sm:h-8 sm:px-3.5 sm:text-[10px]"
+                >
+                  View
+                </button>
             ) : null}
             {hideSelectionControls ? null : (
               <Checkbox
                 checked={checked}
                 onCheckedChange={onToggle}
                 aria-label={`Select ${product.title}`}
-                className="size-4.5 shrink-0 rounded-[4px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white sm:size-5 sm:rounded-[5px]"
-              />
-            )}
-          </div>
+                  className="size-5 shrink-0 rounded-[5px] border-[#3300C9] data-[state=checked]:border-[#3300C9] data-[state=checked]:bg-[#3300C9] data-[state=checked]:text-white"
+                />
+              )}
+            </div>
         </div>
       </div>
     </div>
@@ -1082,9 +1082,9 @@ export default function WishlistGiftSelectionStep({
         </div>
       ) : (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-            {products.map((product) => (
-              <GiftCard
+            <div className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {products.map((product) => (
+                <GiftCard
                 key={product._id}
                 product={product}
                 checked={selectedIds.includes(product._id)}

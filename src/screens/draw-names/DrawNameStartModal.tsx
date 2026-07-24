@@ -50,7 +50,7 @@ import type {
   DrawNameEventSetupPayload,
 } from "@/features/draw-name-events/types";
 import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
-import { useEventParticipantContactIdsQuery } from "@/features/participants/hooks/useEventParticipantContactIdsQuery";
+import { useEventParticipantIdsQuery } from "@/features/participants/hooks/useEventParticipantIdsQuery";
 import { useEventParticipantsQuery } from "@/features/participants/hooks/useEventParticipantsQuery";
 import { useGiftRecipientQuery } from "@/features/participants/hooks/useGiftRecipientQuery";
 import { useMyParticipantQuery } from "@/features/participants/hooks/useMyParticipantQuery";
@@ -777,6 +777,52 @@ export default function DrawNameStartModal({
       state.flowSelectionsByKey[flowSelectionKey] ??
       EMPTY_DRAW_NAME_FLOW_SELECTION,
   );
+  const hasStoredRecordSelection = useMemo(
+    () =>
+      storedFlowSelection.selectedRecordIds.some(
+        (recordId) => recordId !== currentUserContactId,
+      ),
+    [currentUserContactId, storedFlowSelection.selectedRecordIds],
+  );
+  const hasStoredSetupDraft = useMemo(
+    () =>
+      Boolean(
+        storedFlowSelection.selectedEventId ||
+          storedFlowSelection.eventDate ||
+          storedFlowSelection.groupName ||
+          storedFlowSelection.selectedBudget ||
+          storedFlowSelection.customBudget,
+      ),
+    [
+      storedFlowSelection.customBudget,
+      storedFlowSelection.eventDate,
+      storedFlowSelection.groupName,
+      storedFlowSelection.selectedBudget,
+      storedFlowSelection.selectedEventId,
+    ],
+  );
+  const hasStoredWishlistSelection = useMemo(
+    () =>
+      storedFlowSelection.selectedWishlistGiftIds.length > 0 ||
+      Object.keys(
+        storedFlowSelection.selectedWishlistGiftProductsById ?? {},
+      ).length > 0,
+    [
+      storedFlowSelection.selectedWishlistGiftIds,
+      storedFlowSelection.selectedWishlistGiftProductsById,
+    ],
+  );
+  const hasStoredDrawAssignments = useMemo(
+    () => (storedFlowSelection.drawAssignments ?? []).length > 0,
+    [storedFlowSelection.drawAssignments],
+  );
+  const hasStoredExclusionPairs = useMemo(
+    () =>
+      Object.values(storedFlowSelection.pairedRecordIdsById ?? {}).some(
+        (pairedIds) => Array.isArray(pairedIds) && pairedIds.length > 0,
+      ),
+    [storedFlowSelection.pairedRecordIdsById],
+  );
   const setStoredSelectedRecordIds = useDrawNameFlowStore(
     (state) => state.setSelectedRecordIds,
   );
@@ -836,18 +882,27 @@ export default function DrawNameStartModal({
       enabled:
         open &&
         Boolean(drawNameEventId) &&
-        [
-          "event",
-          "event-date",
-          "group-name",
-          "budget",
-          "wishlist-gifts",
-          "wishlist-notification",
-          "draw-ready",
-          "draw-spin",
-          "draw-result",
-          "draw-invite",
-        ].includes(currentStep),
+        ((isCreatorSetupFlow &&
+          !hasStoredSetupDraft &&
+          [
+            "event",
+            "event-date",
+            "group-name",
+            "budget",
+            "wishlist-gifts",
+            "wishlist-notification",
+            "draw-ready",
+            "draw-spin",
+            "draw-result",
+            "draw-invite",
+          ].includes(currentStep)) ||
+          [
+            "wishlist-gifts",
+            "wishlist-notification",
+            "draw-spin",
+            "draw-result",
+            "draw-invite",
+          ].includes(currentStep)),
     });
   const isCreatorForCurrentDrawFlow = useMemo(
     () =>
@@ -939,13 +994,18 @@ export default function DrawNameStartModal({
     },
   );
   const {
-    data: eventParticipantContactIdsResponse,
-    isLoading: isEventParticipantContactIdsLoading,
-    isFetching: isEventParticipantContactIdsFetching,
-    isError: isEventParticipantContactIdsError,
-    refetch: refetchEventParticipantContactIds,
-  } = useEventParticipantContactIdsQuery(drawNameEventId, {
-    enabled: open && currentStep === "record" && Boolean(drawNameEventId),
+    data: eventParticipantIdsResponse,
+    isLoading: isEventParticipantIdsLoading,
+    isFetching: isEventParticipantIdsFetching,
+    isError: isEventParticipantIdsError,
+    refetch: refetchEventParticipantIds,
+  } = useEventParticipantIdsQuery(eventId, {
+    enabled:
+      open &&
+      currentStep === "record" &&
+      isCreatorSetupFlow &&
+      Boolean(eventId) &&
+      !hasStoredRecordSelection,
   });
   const {
     data: eventParticipantsResponse,
@@ -963,14 +1023,17 @@ export default function DrawNameStartModal({
       enabled:
         open &&
         Boolean(drawNameEventId) &&
-        [
-          "review-records",
-          "exclusion-choice",
-          "exclusion-record",
-          "draw-spin",
-          "draw-result",
-          "draw-invite",
-        ].includes(currentStep),
+        ((isCreatorSetupFlow &&
+          !hasStoredRecordSelection &&
+          ["record", "review-records"].includes(currentStep)) ||
+          (isCreatorSetupFlow &&
+            !hasStoredExclusionPairs &&
+            ["exclusion-choice", "exclusion-record"].includes(currentStep)) ||
+          (isCreatorSetupFlow &&
+            !hasStoredDrawAssignments &&
+            ["draw-spin", "draw-result"].includes(currentStep)) ||
+          (currentStep === "draw-invite" &&
+            !(isCreatorSetupFlow && hasStoredRecordSelection))),
     },
   );
   const {
@@ -983,14 +1046,16 @@ export default function DrawNameStartModal({
     enabled:
       open &&
       Boolean(eventId) &&
-      ["exclusion-choice", "exclusion-record"].includes(currentStep),
+      ["exclusion-choice", "exclusion-record"].includes(currentStep) &&
+      (!hasStoredExclusionPairs || !isCreatorSetupFlow),
   });
   const { data: myParticipantResponse, refetch: refetchMyParticipant } =
     useMyParticipantQuery(eventId, {
       enabled:
         open &&
         Boolean(eventId) &&
-        ["wishlist-gifts", "wishlist-notification"].includes(currentStep),
+        ["wishlist-gifts", "wishlist-notification"].includes(currentStep) &&
+        !(isCreatorSetupFlow && hasStoredWishlistSelection),
     });
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
   const {
@@ -1004,7 +1069,8 @@ export default function DrawNameStartModal({
       open &&
       Boolean(eventId) &&
       Boolean(currentParticipantId) &&
-      currentStep === "wishlist-gifts",
+      currentStep === "wishlist-gifts" &&
+      !(isCreatorSetupFlow && hasStoredWishlistSelection),
   });
   const { data: giftRecipientResponse, refetch: refetchGiftRecipient } =
     useGiftRecipientQuery(eventId, {
@@ -1140,63 +1206,6 @@ export default function DrawNameStartModal({
       selectedWishlistGiftIds,
     ],
   );
-  const drawInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
-    () =>
-      (eventParticipantsResponse?.data.data ?? []).map((participant) => {
-        const actor = participant.eventContact ?? participant.user ?? null;
-        const fullName =
-          `${actor?.firstName ?? ""} ${actor?.lastName ?? ""}`.trim() ||
-          actor?.email ||
-          "Participant";
-        const firstInitial = actor?.firstName?.trim().charAt(0) ?? "";
-        const lastInitial = actor?.lastName?.trim().charAt(0) ?? "";
-        const initials =
-          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
-          fullName.slice(0, 2).toUpperCase();
-        const { avatarBg, avatarColor } = getContactAvatarStyle(
-          actor?.id || participant.id || fullName,
-        );
-
-        return {
-          id: actor?.id || participant.id,
-          participantId: participant.id,
-          name: fullName,
-          role:
-            participant.role.toLowerCase() === "creator"
-              ? "Creator"
-              : actor?.email || "Participant",
-          initials,
-          avatarBg,
-          avatarColor,
-          email: actor?.email?.trim() || null,
-          profileUrl: actor?.profileUrl?.trim() || null,
-          inviteUrl: drawNameSignInInviteUrl,
-        };
-      }),
-    [drawNameSignInInviteUrl, eventParticipantsResponse],
-  );
-  const lockedInviteEmails = useMemo(() => {
-    const signedInEmailAddress = authUser?.email?.trim().toLowerCase() || "";
-    const seen = new Set<string>();
-
-    return drawInviteParticipants
-      .filter((participant) => participant.role.toLowerCase() !== "creator")
-      .map((participant) => participant.email?.trim() ?? "")
-      .filter(Boolean)
-      .filter((email) => {
-        const normalizedEmail = email.toLowerCase();
-
-        if (
-          normalizedEmail === signedInEmailAddress ||
-          seen.has(normalizedEmail)
-        ) {
-          return false;
-        }
-
-        seen.add(normalizedEmail);
-        return true;
-      });
-  }, [authUser?.email, drawInviteParticipants]);
   const filteredCustomRecordOptions = useMemo(() => {
     const normalizedQuery = recordSearchValue.trim().toLowerCase();
 
@@ -1212,17 +1221,32 @@ export default function DrawNameStartModal({
   }, [customRecordOptions, recordSearchValue]);
 
   const recordOptions = useMemo(
-    () => mergeRecordItems(fetchedRecordOptions, filteredCustomRecordOptions),
-    [fetchedRecordOptions, filteredCustomRecordOptions],
+    () =>
+      mergeRecordItems(
+        fetchedParticipantRecords,
+        fetchedRecordOptions,
+        filteredCustomRecordOptions,
+      ),
+    [
+      fetchedParticipantRecords,
+      fetchedRecordOptions,
+      filteredCustomRecordOptions,
+    ],
   );
 
   const allKnownRecordOptions = useMemo(
     () =>
       mergeRecordItems(
+        fetchedParticipantRecords,
         Object.values(persistedFetchedRecordItemsById),
         customRecordOptions,
       ).filter((record) => !deletedRecordIds.includes(record.id)),
-    [customRecordOptions, deletedRecordIds, persistedFetchedRecordItemsById],
+    [
+      customRecordOptions,
+      deletedRecordIds,
+      fetchedParticipantRecords,
+      persistedFetchedRecordItemsById,
+    ],
   );
 
   const selectedRecordOptions = useMemo(
@@ -1290,7 +1314,6 @@ export default function DrawNameStartModal({
       currentUserContactId?.trim() || creatorRecordOption?.id?.trim() || null,
     [creatorRecordOption?.id, currentUserContactId],
   );
-  const lockedSelectedRecordIds = adminRecordId ? [adminRecordId] : [];
   const exclusionRecordOptions = useMemo(() => {
     if (
       !creatorRecordOption ||
@@ -1321,6 +1344,98 @@ export default function DrawNameStartModal({
     () => selectedRecordReviewItems.filter((item) => !item.isAdmin),
     [selectedRecordReviewItems],
   );
+  const drawInviteParticipants = useMemo<DrawNameInviteParticipant[]>(
+    () => {
+      if (isCreatorSetupFlow && selectedRecordOptions.length > 0) {
+        return selectedRecordOptions.map((record) => {
+          const fullName =
+            record.name?.trim() || record.email?.trim() || "Participant";
+          const firstInitial = record.firstName?.trim().charAt(0) ?? "";
+          const lastInitial = record.lastName?.trim().charAt(0) ?? "";
+          const initials =
+            `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
+            record.initials?.trim().toUpperCase() ||
+            fullName.slice(0, 2).toUpperCase();
+          const { avatarBg, avatarColor } = getContactAvatarStyle(
+            record.id || fullName,
+          );
+
+          return {
+            id: record.id,
+            participantId: record.id,
+            name: fullName,
+            role: record.email?.trim() || "Participant",
+            initials,
+            avatarBg,
+            avatarColor,
+            email: record.email?.trim() || null,
+            profileUrl: record.profileUrl?.trim() || null,
+            inviteUrl: drawNameSignInInviteUrl,
+          };
+        });
+      }
+
+      return (eventParticipantsResponse?.data.data ?? []).map((participant) => {
+        const actor = participant.eventContact ?? participant.user ?? null;
+        const fullName =
+          `${actor?.firstName ?? ""} ${actor?.lastName ?? ""}`.trim() ||
+          actor?.email ||
+          "Participant";
+        const firstInitial = actor?.firstName?.trim().charAt(0) ?? "";
+        const lastInitial = actor?.lastName?.trim().charAt(0) ?? "";
+        const initials =
+          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
+          fullName.slice(0, 2).toUpperCase();
+        const { avatarBg, avatarColor } = getContactAvatarStyle(
+          actor?.id || participant.id || fullName,
+        );
+
+        return {
+          id: actor?.id || participant.id,
+          participantId: participant.id,
+          name: fullName,
+          role:
+            participant.role.toLowerCase() === "creator"
+              ? "Creator"
+              : actor?.email || "Participant",
+          initials,
+          avatarBg,
+          avatarColor,
+          email: actor?.email?.trim() || null,
+          profileUrl: actor?.profileUrl?.trim() || null,
+          inviteUrl: drawNameSignInInviteUrl,
+        };
+      });
+    },
+    [
+      drawNameSignInInviteUrl,
+      eventParticipantsResponse,
+      isCreatorSetupFlow,
+      selectedRecordOptions,
+    ],
+  );
+  const lockedInviteEmails = useMemo(() => {
+    const signedInEmailAddress = authUser?.email?.trim().toLowerCase() || "";
+    const seen = new Set<string>();
+
+    return drawInviteParticipants
+      .filter((participant) => participant.role.toLowerCase() !== "creator")
+      .map((participant) => participant.email?.trim() ?? "")
+      .filter(Boolean)
+      .filter((email) => {
+        const normalizedEmail = email.toLowerCase();
+
+        if (
+          normalizedEmail === signedInEmailAddress ||
+          seen.has(normalizedEmail)
+        ) {
+          return false;
+        }
+
+        seen.add(normalizedEmail);
+        return true;
+      });
+  }, [authUser?.email, drawInviteParticipants]);
   const selectedEventLabel =
     eventOptions.find((option) => option.value === selectedEventId)?.label ||
     "Team Retreat";
@@ -1850,7 +1965,11 @@ Thank you.`;
     setSelectedEventId(storedFlowSelection.selectedEventId);
     setSelectedOnedaBusinessIds(storedFlowSelection.selectedOnedaBusinessIds);
     setSelectedOnedaContactIds(storedFlowSelection.selectedOnedaContactIds);
-    setSelectedRecordIds(storedFlowSelection.selectedRecordIds);
+    setSelectedRecordIds(
+      storedFlowSelection.selectedRecordIds.filter(
+        (recordId) => recordId !== currentUserContactId,
+      ),
+    );
     setExclusionChoice(storedFlowSelection.exclusionChoice);
     setEventDate(storedFlowSelection.eventDate);
     setGroupName(storedFlowSelection.groupName);
@@ -1880,7 +1999,7 @@ Thank you.`;
     setNewColleagueForm(storedFlowSelection.addRecordDraft.form);
     hydratedFlowSelectionKeyRef.current = flowSelectionKey;
     setIsFlowSelectionHydrated(true);
-  }, [flowSelectionKey, storedFlowSelection]);
+  }, [currentUserContactId, flowSelectionKey, storedFlowSelection]);
 
   useEffect(() => {
     if (!selectedOnedaBusinessIds.length || !onedaBusinessOptions.length) {
@@ -2124,6 +2243,10 @@ Thank you.`;
       return;
     }
 
+    if (isCreatorSetupFlow && hasStoredSetupDraft) {
+      return;
+    }
+
     const isNewDrawNameEvent =
       hydratedDrawNameEventIdRef.current !== drawNameEventId;
     const nextEventTypeId = drawNameEvent.event.eventTypeId || "";
@@ -2178,6 +2301,7 @@ Thank you.`;
     drawNameEventResponse,
     eventDate,
     groupName,
+    hasStoredSetupDraft,
     open,
     storedFlowSelection.customBudget,
     storedFlowSelection.eventDate,
@@ -2318,16 +2442,6 @@ Thank you.`;
   ]);
 
   useEffect(() => {
-    if (!adminRecordId) {
-      return;
-    }
-
-    setSelectedRecordIds((current) =>
-      current.includes(adminRecordId) ? current : [adminRecordId, ...current],
-    );
-  }, [adminRecordId]);
-
-  useEffect(() => {
     if (currentStep !== "group-name") {
       return;
     }
@@ -2347,8 +2461,12 @@ Thank you.`;
 
   useEffect(() => {
     const fetchedParticipantContactIds = (
-      eventParticipantContactIdsResponse?.data ?? []
-    ).filter((contactId) => !deletedRecordIds.includes(contactId));
+      eventParticipantIdsResponse?.data ?? []
+    )
+      .map((participant) => participant.eventContactId?.trim() || "")
+      .filter(Boolean)
+      .filter((contactId) => contactId !== currentUserContactId)
+      .filter((contactId) => !deletedRecordIds.includes(contactId));
 
     if (
       hasHydratedRecordSelectionFromBackendRef.current ||
@@ -2361,7 +2479,7 @@ Thank you.`;
     setSelectedRecordIds((current) =>
       Array.from(new Set([...current, ...fetchedParticipantContactIds])),
     );
-  }, [deletedRecordIds, eventParticipantContactIdsResponse]);
+  }, [currentUserContactId, deletedRecordIds, eventParticipantIdsResponse]);
 
   useEffect(() => {
     if (currentStep === "record") {
@@ -2381,7 +2499,9 @@ Thank you.`;
       )
       .filter(
         (contactId): contactId is string =>
-          contactId !== null && !deletedRecordIds.includes(contactId),
+          contactId !== null &&
+          contactId !== currentUserContactId &&
+          !deletedRecordIds.includes(contactId),
       );
 
     if (!fetchedParticipantContactIds.length) {
@@ -2396,7 +2516,26 @@ Thank you.`;
     setSelectedRecordIds((current) =>
       Array.from(new Set([...current, ...fetchedParticipantContactIds])),
     );
-  }, [currentStep, deletedRecordIds, eventParticipantsResponse]);
+  }, [
+    currentStep,
+    currentUserContactId,
+    deletedRecordIds,
+    eventParticipantsResponse,
+  ]);
+
+  useEffect(() => {
+    if (!currentUserContactId || currentStep !== "record") {
+      return;
+    }
+
+    if (!selectedRecordIds.includes(currentUserContactId)) {
+      return;
+    }
+
+    setSelectedRecordIds((current) =>
+      current.filter((recordId) => recordId !== currentUserContactId),
+    );
+  }, [currentStep, currentUserContactId, selectedRecordIds]);
 
   useEffect(() => {
     if (
@@ -2511,131 +2650,28 @@ Thank you.`;
       onReplaceStep("event");
       return;
     }
-
-    if (currentStep === "event") {
-      void refetchAvailableEventTypes();
-
-      if (drawNameEventId) {
-        void refetchDrawNameEvent();
-      }
-
-      return;
-    }
-
-    if (currentStep === "record") {
-      if (hasEnsuredMyContact) {
-        void refetchContacts();
-      }
-
-      if (drawNameEventId) {
-        void refetchEventParticipantContactIds();
-      }
-
-      return;
-    }
-
-    if (currentStep === "review-records") {
-      if (drawNameEventId) {
-        void refetchEventParticipants();
-      }
-
-      return;
-    }
-
-    if (
-      currentStep === "exclusion-choice" ||
-      currentStep === "exclusion-record"
-    ) {
-      if (drawNameEventId) {
-        void refetchEventParticipants();
-      }
-
-      if (eventId) {
-        void refetchParticipantExclusions();
-      }
-
-      return;
-    }
-
-    if (
-      currentStep === "event-date" ||
-      currentStep === "group-name" ||
-      currentStep === "budget" ||
-      currentStep === "draw-ready"
-    ) {
-      if (drawNameEventId) {
-        void refetchDrawNameEvent();
-      }
-
-      return;
-    }
-
-    if (currentStep === "draw-spin") {
-      if (drawNameEventId) {
-        void refetchEventParticipants();
-      }
-
-      return;
-    }
-
-    if (currentStep === "draw-result") {
-      if (eventId) {
-        void refetchGiftRecipient();
-        void refetchEventParticipants();
-      }
-
-      return;
-    }
-
-    if (currentStep === "draw-invite") {
-      if (drawNameEventId) {
-        void refetchEventParticipants();
-      }
-
-      return;
-    }
-
-    if (
-      currentStep === "wishlist-gifts" ||
-      currentStep === "wishlist-notification"
-    ) {
-      if (eventId) {
-        void refetchMyParticipant();
-      }
-    }
-  }, [
-    currentStep,
-    drawNameEventId,
-    eventId,
-    hasEnsuredMyContact,
-    open,
-    refetchAvailableEventTypes,
-    refetchContacts,
-    refetchDrawNameEvent,
-    refetchEventParticipantContactIds,
-    refetchEventParticipants,
-    refetchGiftRecipient,
-    refetchMyParticipant,
-    refetchParticipantExclusions,
-    onReplaceStep,
-  ]);
+  }, [currentStep, drawNameEventId, eventId, open, onReplaceStep]);
 
   const handleCloseAndRedirect = React.useCallback(() => {
     setIsForceClosing(true);
     onClose();
   }, [onClose]);
 
-  const shouldConfirmCreateSetupDiscard =
-    isCreatorSetupFlow && !drawNameEventId;
+  const shouldConfirmCreateSetupDiscard = isCreatorSetupFlow;
 
   const handleRequestClose = React.useCallback(() => {
+    if (currentStep === "draw-invite") {
+      handleCloseAndRedirect();
+      return;
+    }
+
     if (shouldConfirmCreateSetupDiscard) {
       setIsDiscardCreateSetupConfirmationOpen(true);
       return;
     }
 
     handleCloseAndRedirect();
-  }, [handleCloseAndRedirect, shouldConfirmCreateSetupDiscard]);
+  }, [currentStep, handleCloseAndRedirect, shouldConfirmCreateSetupDiscard]);
 
   const handleConfirmDiscardCreateSetup = React.useCallback(() => {
     resetStoredFlowSelection(flowSelectionKey);
@@ -3734,13 +3770,8 @@ Thank you.`;
           markRecordSelectionLocallyOwned();
           setSelectedRecordIds(
             allRecordsSelected
-              ? lockedSelectedRecordIds
-              : Array.from(
-                  new Set([
-                    ...lockedSelectedRecordIds,
-                    ...recordOptions.map((record) => record.id),
-                  ]),
-                ),
+              ? []
+              : Array.from(new Set(recordOptions.map((record) => record.id))),
           );
         }}
       >
@@ -4153,7 +4184,6 @@ Thank you.`;
             items={recordOptions}
             selectedIds={selectedRecordIds}
             onSelectedIdsChange={handleSelectedRecordIdsChange}
-            lockedSelectedIds={lockedSelectedRecordIds}
             placeholder="Search for colleague"
             panelTitle="Search for colleague"
             searchPlaceholder=""
@@ -4164,8 +4194,8 @@ Thank you.`;
               ensureMyContactMutation.isPending ||
               isContactsLoading ||
               isContactsFetching ||
-              isEventParticipantContactIdsLoading ||
-              isEventParticipantContactIdsFetching
+              isEventParticipantIdsLoading ||
+              isEventParticipantIdsFetching
             }
             emptyStateText={
               isContactsError
@@ -4191,7 +4221,7 @@ Thank you.`;
 
         {ensureMyContactMutation.isError ||
         isContactsError ||
-        isEventParticipantContactIdsError ? (
+        isEventParticipantIdsError ? (
           <div className="flex justify-center">
             <button
               type="button"
@@ -4205,8 +4235,8 @@ Thank you.`;
                   void refetchContacts();
                 }
 
-                if (isEventParticipantContactIdsError) {
-                  void refetchEventParticipantContactIds();
+                if (isEventParticipantIdsError) {
+                  void refetchEventParticipantIds();
                 }
               }}
               className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
@@ -4425,7 +4455,6 @@ Thank you.`;
           updateDrawNameEventSetupMutation.isPending ||
           completeDrawNameEventMutation.isPending
         }
-        onInviteBack={() => onStepChange("draw-result")}
         onSendEmail={handleRequestSendEmailInvites}
         onShareFacebook={() =>
           shareInvite({

@@ -78,23 +78,21 @@ import { useCreateEventTypeMutation } from "@/features/event-types/hooks/useCrea
 import { useDeleteEventTypeMutation } from "@/features/event-types/hooks/useDeleteEventTypeMutation";
 import { useUpdateEventTypeMutation } from "@/features/event-types/hooks/useUpdateEventTypeMutation";
 import type { ParticipatedEventParticipant } from "@/features/events/types";
-import { useAssignBulkGiftsMutation } from "@/features/gifts/hooks/useAssignBulkGiftsMutation";
 import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
 import type { CreateBulkGiftItemPayload } from "@/features/gifts/types";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
+import { buildSignedInInviteUrl } from "@/lib/invite-links";
 import { useCompleteScheduledEventMessageSetupMutation } from "@/features/scheduled-event-messages/hooks/useCompleteScheduledEventMessageSetupMutation";
-import { useCreateScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useCreateScheduledEventMessageMutation";
 import { useDeleteScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useDeleteScheduledEventMessageMutation";
 import { useScheduledEventMessageQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageQuery";
 import { useScheduledEventMessageMetricsQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageMetricsQuery";
 import { useScheduledEventMessagesQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessagesQuery";
-import { useUpdateScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useUpdateScheduledEventMessageMutation";
+import { useSetupScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useSetupScheduledEventMessageMutation";
+import { useUpdateScheduledEventMessageSetupMutation } from "@/features/scheduled-event-messages/hooks/useUpdateScheduledEventMessageSetupMutation";
 import type {
-  ScheduledEventMessagePayload,
   ScheduledEventMessageRecord,
+  ScheduledEventMessageSetupPayload,
 } from "@/features/scheduled-event-messages/types";
-import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
-import type { EventParticipant } from "@/features/participants/types";
 import { cn } from "@/lib/utils";
 import {
   isScheduleMessageFlowStep,
@@ -323,6 +321,78 @@ function getScheduledMessageRecipients(row: ScheduledEventMessageRecord) {
     .filter((recipient) => recipient.name.trim());
 }
 
+function mapScheduledMessageParticipantsToRecordItems(
+  row: ScheduledEventMessageRecord,
+): SearchableRecordItem[] {
+  const participants = row.participants ?? [];
+
+  const mappedParticipants = participants
+    .map((participant) => {
+      const contact = participant.eventContact;
+      const firstName = contact?.firstName?.trim() || "";
+      const lastName = contact?.lastName?.trim() || "";
+      const email = contact?.email?.trim() || "";
+      const phoneNumber = contact?.phoneNumber?.trim() || "";
+      const contactId = contact?.id?.trim() || participant.eventContactId || "";
+      const participantId = participant.id?.trim() || "";
+      const recordId = contactId || participantId;
+
+      if (!recordId) {
+        return null;
+      }
+
+      return {
+        id: recordId,
+        name: `${firstName} ${lastName}`.trim() || email || "Selected contact",
+        email,
+        subtitle: email || phoneNumber || "Contact",
+        firstName,
+        lastName,
+        phoneNumber,
+        profileUrl: contact?.profileUrl?.trim() || null,
+        initials: getInitials(firstName, lastName),
+      } satisfies SearchableRecordItem;
+    })
+    .filter((record): record is SearchableRecordItem => Boolean(record));
+
+  if (mappedParticipants.length) {
+    return mappedParticipants;
+  }
+
+  const fallbackParticipant = getScheduledMessageParticipant(row);
+  const fallbackContact = fallbackParticipant?.eventContact;
+  const fallbackContactId =
+    fallbackContact?.id?.trim() || fallbackParticipant?.eventContactId || "";
+  const fallbackParticipantId =
+    fallbackParticipant?.id?.trim() || row.participantId || "";
+  const fallbackRecordId = fallbackContactId || fallbackParticipantId;
+
+  if (!fallbackRecordId) {
+    return [];
+  }
+
+  const firstName = fallbackContact?.firstName?.trim() || "";
+  const lastName = fallbackContact?.lastName?.trim() || "";
+  const email = fallbackContact?.email?.trim() || row.recipientEmail?.trim() || "";
+
+  return [
+    {
+      id: fallbackRecordId,
+      name:
+        `${firstName} ${lastName}`.trim() ||
+        email ||
+        row.recipientName ||
+        "Selected contact",
+      email,
+      subtitle: email || "Contact",
+      firstName,
+      lastName,
+      profileUrl: fallbackContact?.profileUrl?.trim() || null,
+      initials: getInitials(firstName || row.recipientName, lastName),
+    },
+  ];
+}
+
 function getRecordStatus(row: ScheduledEventMessageRecord): ScheduleStatus {
   if (row.status === "sent" || row.sentAt) {
     return "Past";
@@ -443,39 +513,6 @@ function mergeRecordItems(
   return Array.from(merged.values());
 }
 
-function getFirstParticipantFromBulkResponse(
-  data: EventParticipant[] | EventParticipant | null | undefined,
-  selectedContactIds: string[],
-) {
-  const participants = Array.isArray(data) ? data : data ? [data] : [];
-
-  return (
-    participants.find(
-      (participant) =>
-        participant.eventContactId &&
-        selectedContactIds.includes(participant.eventContactId),
-    ) ??
-    participants[0] ??
-    null
-  );
-}
-
-function getParticipantIdsFromBulkResponse(
-  data: EventParticipant[] | EventParticipant | null | undefined,
-) {
-  const participants = Array.isArray(data) ? data : data ? [data] : [];
-
-  return Array.from(
-    new Set(
-      participants
-        .map((participant) => participant.id?.trim())
-        .filter((participantId): participantId is string =>
-          Boolean(participantId),
-        ),
-    ),
-  );
-}
-
 function mapMarketplaceProductToGiftPayload(
   product: MarketplaceProduct,
 ): CreateBulkGiftItemPayload {
@@ -494,6 +531,36 @@ function mapMarketplaceProductToGiftPayload(
     sellerId: product.sellerId || undefined,
     productSlug: product.slug || undefined,
   };
+}
+
+function buildScheduledMessageGiftInvitePath(eventId: string) {
+  const trimmedEventId = eventId.trim();
+
+  if (!trimmedEventId) {
+    return "";
+  }
+
+  return `/dashboard/gifts?tab=received&eventId=${encodeURIComponent(
+    trimmedEventId,
+  )}`;
+}
+
+function buildScheduleParticipantClientRefs(
+  records: SearchableRecordItem[],
+  selectedIds: string[],
+) {
+  const uniqueOrderedIds = Array.from(
+    new Set(
+      selectedIds.filter(Boolean).concat(
+        records.map((record) => record.id).filter(Boolean),
+      ),
+    ),
+  );
+
+  return uniqueOrderedIds.map((contactId, index) => ({
+    clientRef: `p${index + 1}`,
+    contactId,
+  }));
 }
 
 function HeaderActionIconButton({
@@ -838,6 +905,11 @@ export default function ScheduleScreen() {
     useState<ScheduledEventMessageRecord | null>(null);
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
     useState(false);
+  const [scheduleSetupSaveMode, setScheduleSetupSaveMode] = useState<
+    "save" | "draft" | null
+  >(null);
+  const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] =
+    useState(false);
   const [isScheduleTimePopoverOpen, setIsScheduleTimePopoverOpen] =
     useState(false);
   const hydratedMessageIdRef = useRef<string | null>(null);
@@ -848,6 +920,7 @@ export default function ScheduleScreen() {
   const isFlowOpen = Boolean(currentStep);
   const isEditing = Boolean(editingMessageId);
   const isViewing = searchParams.get("view") === "true";
+  const hasStoredFlowSelection = Boolean(flowSelectionsByKey[flowSelectionKey]);
   const isInlineGiftSelectionStep =
     isFlowOpen && currentStep === "gift-selection";
   const greetingName = authUser?.firstName?.trim() || "there";
@@ -862,18 +935,28 @@ export default function ScheduleScreen() {
     isFetching: isMessagesFetching,
     isError: isMessagesError,
     refetch: refetchMessages,
-  } = useScheduledEventMessagesQuery({
-    page: currentPage,
-    per_page: PAGE_SIZE,
-    searchQuery: query,
-    eventTiming: getScheduleEventTiming(activeTab),
-  });
+  } = useScheduledEventMessagesQuery(
+    {
+      page: currentPage,
+      per_page: PAGE_SIZE,
+      searchQuery: query,
+      eventTiming: getScheduleEventTiming(activeTab),
+    },
+    {
+      enabled: !isFlowOpen,
+    },
+  );
   const { data: scheduleMetricsData } =
-    useScheduledEventMessageMetricsQuery();
-  const { data: editingMessageResponse, refetch: refetchEditingMessage } =
-    useScheduledEventMessageQuery(editingMessageId, {
-      enabled: isFlowOpen && Boolean(editingMessageId),
-    });
+    useScheduledEventMessageMetricsQuery(!isFlowOpen);
+  const { data: editingMessageResponse } = useScheduledEventMessageQuery(
+    editingMessageId,
+    {
+      enabled:
+        isFlowOpen &&
+        Boolean(editingMessageId) &&
+        (!hasStoredFlowSelection || isViewing),
+    },
+  );
   const scheduleMetrics = useMemo<ScheduleMetric[]>(
     () => [
       {
@@ -957,9 +1040,7 @@ export default function ScheduleScreen() {
       searchQuery: recordSearchValue,
     },
     {
-      enabled:
-        isFlowOpen &&
-        (currentStep === "record" || currentStep === "review-records"),
+      enabled: isFlowOpen && currentStep === "record",
     },
   );
   const {
@@ -1016,12 +1097,12 @@ export default function ScheduleScreen() {
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const createContactMutation = useCreateContactMutation();
   const createBulkContactsMutation = useCreateBulkContactsMutation();
-  const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
-  const createMessageMutation = useCreateScheduledEventMessageMutation();
-  const updateMessageMutation = useUpdateScheduledEventMessageMutation();
+  const setupScheduledEventMessageMutation =
+    useSetupScheduledEventMessageMutation();
+  const updateScheduledEventMessageSetupMutation =
+    useUpdateScheduledEventMessageSetupMutation();
   const deleteMessageMutation = useDeleteScheduledEventMessageMutation();
   const completeSetupMutation = useCompleteScheduledEventMessageSetupMutation();
-  const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
   const {
     data: caughtMyEyeGiftIdsResponse,
   } = useContactGiftCartParticipantGiftIdsQuery({
@@ -1091,11 +1172,6 @@ export default function ScheduleScreen() {
       ),
     [caughtMyEyeGiftIds, selectedGiftIds],
   );
-  const caughtMyEyeGiftHydrationKey = useMemo(
-    () => `${flowSelectionKey}:${caughtMyEyeGiftIds.join(",")}`,
-    [caughtMyEyeGiftIds, flowSelectionKey],
-  );
-  const caughtMyEyeGiftHydrationRef = useRef<string | null>(null);
   const selectedParticipantReviewItems = useMemo(
     () =>
       selectedParticipantRecords.map((item) => ({
@@ -1152,38 +1228,9 @@ export default function ScheduleScreen() {
   }, [currentStep, flowSelectionKey, setScheduleDraftFields]);
 
   useEffect(() => {
-    if (currentStep !== "gift-selection") {
-      return;
-    }
-
-    if (!caughtMyEyeGiftIds.length) {
-      return;
-    }
-
-    if (caughtMyEyeGiftHydrationRef.current === caughtMyEyeGiftHydrationKey) {
-      return;
-    }
-
-    caughtMyEyeGiftHydrationRef.current = caughtMyEyeGiftHydrationKey;
-
-    setSelectedGiftIds((current) =>
-      Array.from(new Set([...current, ...caughtMyEyeGiftIds])),
-    );
-  }, [
-    caughtMyEyeGiftHydrationKey,
-    caughtMyEyeGiftIds,
-    currentStep,
-    setSelectedGiftIds,
-  ]);
-
-  useEffect(() => {
     const record = editingMessageResponse?.data;
 
     if (!record || !isEditing) return;
-
-    if (selectedParticipantIds.length || selectedParticipantRecords.length) {
-      return;
-    }
 
     const hydrationKey = `${flowSelectionKey}:${record.id}`;
 
@@ -1194,49 +1241,38 @@ export default function ScheduleScreen() {
     hydratedMessageIdRef.current = hydrationKey;
 
     const recordParticipant = getScheduledMessageParticipant(record);
-    const participantContact = recordParticipant?.eventContact;
-    const participantContactId =
-      participantContact?.id ?? recordParticipant?.eventContactId ?? "";
-    const recordParticipantId = recordParticipant?.id ?? record.participantId ?? "";
-    const reviewRecordId = participantContactId || recordParticipantId || "";
+    const hydratedParticipantRecords =
+      mapScheduledMessageParticipantsToRecordItems(record);
+    const hydratedParticipantIds = hydratedParticipantRecords
+      .map((item) => item.id)
+      .filter(Boolean);
+    const hydratedRecipientParticipantIds =
+      record.participants
+        ?.map((participant) => participant.id?.trim())
+        .filter((participantId): participantId is string =>
+          Boolean(participantId),
+        ) ?? [];
+    const primaryParticipantId = hydratedRecipientParticipantIds[0] ?? "";
 
     setSelectedEventId(record.eventId);
     setSelectedEventTypeId(record.event.eventTypeId);
-    setSelectedRecipientParticipantId(recordParticipantId);
-
-    if (reviewRecordId) {
-      const selectedRecord: SearchableRecordItem = {
-        id: reviewRecordId,
-        name:
-          `${participantContact?.firstName ?? ""} ${participantContact?.lastName ?? ""}`.trim() ||
-          participantContact?.email ||
-          record.recipientName ||
-          "Selected contact",
-        email: participantContact?.email ?? record.recipientEmail ?? "",
-        subtitle: participantContact?.email ?? record.recipientEmail ?? "",
-        initials: getInitials(
-          participantContact?.firstName ?? record.recipientName,
-          participantContact?.lastName ?? "",
-        ),
-        profileUrl: participantContact?.profileUrl ?? null,
-      };
-
-      // Prefer the contact ID when it is available. If the API only returns
-      // participantId, it is still enough to render the confirmation because
-    // the participant has already been persisted on the server.
-    setSelectedParticipantIds([participantContactId || reviewRecordId]);
-    setSelectedParticipantRecords([selectedRecord]);
-    setSelectedRecipientParticipantIds(
-      record.participants
-        ?.map((participant) => participant.id)
-        .filter((participantId): participantId is string =>
-          Boolean(participantId),
-        ) ??
-        (recordParticipantId ? [recordParticipantId] : []),
+    setSelectedRecipientParticipantId(
+      primaryParticipantId || recordParticipant?.id || record.participantId || "",
     );
-    setCustomContactRecordItems((current) =>
-      mergeRecordItems(current, [selectedRecord]),
-    );
+
+    if (hydratedParticipantRecords.length) {
+      setSelectedParticipantIds(hydratedParticipantIds);
+      setSelectedParticipantRecords(hydratedParticipantRecords);
+      setSelectedRecipientParticipantIds(
+        hydratedRecipientParticipantIds.length
+          ? hydratedRecipientParticipantIds
+          : primaryParticipantId
+            ? [primaryParticipantId]
+            : [],
+      );
+      setCustomContactRecordItems((current) =>
+        mergeRecordItems(current, hydratedParticipantRecords),
+      );
     }
 
     const eventDateValue = toDateOnlyValue(record.event.eventDate);
@@ -1304,8 +1340,18 @@ export default function ScheduleScreen() {
     router.push(`/dashboard/schedule/flow/${step}?${params.toString()}`);
   };
 
-  const closeFlow = () => {
+  const resetAndCloseFlow = () => {
+    resetFlowSelection(flowSelectionKey);
     router.push("/dashboard/schedule");
+  };
+
+  const closeFlow = () => {
+    if (!isFlowOpen || currentStep === "success") {
+      resetAndCloseFlow();
+      return;
+    }
+
+    setIsDiscardConfirmationOpen(true);
   };
 
   const startFlow = (nextMode: "message" | "schedule") => {
@@ -1442,76 +1488,12 @@ export default function ScheduleScreen() {
     }
   };
 
-  const requireScheduleEventMessageId = () => {
-    if (!editingMessageId) {
-      toast.error("Please start this message event first.");
-      return null;
-    }
-
-    return editingMessageId;
-  };
-
-  const persistRecipientSelection = async (
-    contactIds: string[],
-    records: SearchableRecordItem[],
-    resolvedEventId?: string,
-  ) => {
-    const eventId = resolvedEventId || selectedEventId || routeEventId;
-
-    if (!eventId) {
-      toast.error("Unable to resolve this event right now.");
-      return null;
-    }
-
-    if (!contactIds.length || !records.length) {
-      toast.error("Please select at least one recipient.");
-      return null;
-    }
-
-    const participantsResponse =
-      await createParticipantsBulkMutation.mutateAsync({
-        eventId,
-        role: "participant",
-        contactIds,
-      });
-
-    const recipientParticipant = getFirstParticipantFromBulkResponse(
-      participantsResponse.data,
-      contactIds,
-    );
-    const recipientParticipantIds = getParticipantIdsFromBulkResponse(
-      participantsResponse.data,
-    );
-
-    if (!recipientParticipant) {
-      toast.error("Unable to resolve the selected recipient right now.");
-      return null;
-    }
-
-    setSelectedParticipantIds(contactIds);
-    setSelectedParticipantRecords(records);
-    setSelectedRecipientParticipantId(recipientParticipant.id);
-    setSelectedRecipientParticipantIds(
-      recipientParticipantIds.length
-        ? recipientParticipantIds
-        : [recipientParticipant.id],
-    );
-
-    // Refresh before navigation so the next route can rebuild its state
-    // from the server even when this component is remounted.
-    await refetchEditingMessage();
-
-    return recipientParticipant;
-  };
-
   const handleRecordNext = async () => {
     if (!selectedParticipantIds.length || !selectedParticipantRecords.length) {
       toast.error("Please select at least one recipient.");
       return;
     }
 
-    setSelectedRecipientParticipantId("");
-    setSelectedRecipientParticipantIds([]);
     updateRoute("review-records");
   };
 
@@ -1541,24 +1523,34 @@ export default function ScheduleScreen() {
         })),
       });
       const importedRecords = response.data.map(mapContactToRecordItem);
-      const importedRecord = importedRecords.at(0);
 
-      if (!importedRecord) {
+      if (!importedRecords.length) {
         toast.error("The selected contact could not be imported.");
         return;
       }
 
+      const mergedRecords = mergeRecordItems(
+        selectedParticipantRecords,
+        importedRecords,
+      );
+      const mergedIds = Array.from(
+        new Set([
+          ...selectedParticipantIds,
+          ...importedRecords.map((record) => record.id),
+        ]),
+      );
+
       setCustomContactRecordItems((current) =>
         mergeRecordItems(current, importedRecords),
       );
-      setSelectedParticipantIds([importedRecord.id]);
-      setSelectedParticipantRecords([importedRecord]);
+      setSelectedParticipantIds(mergedIds);
+      setSelectedParticipantRecords(mergedRecords);
       setSelectedRecipientParticipantId("");
       setSelectedRecipientParticipantIds([]);
       setRecordSearchValue("");
+      setSelectedOnedaContactIds([]);
 
       toast.success(response.message);
-      void refetchContacts();
       updateRoute("record");
     } catch (error) {
       toast.error(
@@ -1575,157 +1567,7 @@ export default function ScheduleScreen() {
       return;
     }
 
-    const resolvedEventTypeId =
-      selectedEventTypeOption?.value || selectedEventTypeId;
-    const eventTitle = form.eventName || selectedEventTypeOption?.label || "Event";
-    const draftEventDate = form.eventDate ? toIsoDateTime(form.eventDate) : "";
-    const selectedContactId = selectedParticipantIds[0] ?? "";
-    const existingRecord = editingMessageResponse?.data;
-    const existingContactId =
-      getScheduledMessageParticipant(existingRecord)?.eventContactId ||
-      getScheduledMessageParticipant(existingRecord)?.eventContact?.id ||
-      "";
-    const existingParticipantId =
-      getScheduledMessageParticipant(existingRecord)?.id ||
-      existingRecord?.participantId ||
-      "";
-
-    if (
-      existingParticipantId &&
-      (selectedContactId === existingContactId ||
-        selectedContactId === existingParticipantId)
-    ) {
-      setSelectedRecipientParticipantId(existingParticipantId);
-      updateRoute("compose");
-      return;
-    }
-
-    try {
-      let nextEditingMessageId = editingMessageId;
-      let nextEventId = selectedEventId || routeEventId;
-      let nextFlowKey = buildScheduleMessageFlowSelectionKey(
-        mode,
-        nextEditingMessageId,
-        nextEventId,
-      );
-
-      if (!nextEditingMessageId) {
-        if (!resolvedEventTypeId) {
-          toast.error("Please select an event type.");
-          return;
-        }
-
-        if (!form.eventDate) {
-          toast.error("Please choose the event date.");
-          return;
-        }
-
-        const createResponse = await createMessageMutation.mutateAsync({
-          event: {
-            title: eventTitle,
-            eventTypeId: resolvedEventTypeId,
-            eventDate: draftEventDate,
-          },
-          subject: form.subject.trim() || eventTitle,
-          ...(getPlainTextFromHtml(form.message)
-            ? { message: form.message }
-            : {}),
-          sendNow: mode === "message",
-          metadata: {
-            source: "dashboard",
-          },
-        });
-
-        nextEditingMessageId = createResponse.data.id;
-        nextEventId = createResponse.data.eventId;
-        setSelectedEventId(nextEventId);
-
-        nextFlowKey = buildScheduleMessageFlowSelectionKey(
-          mode,
-          nextEditingMessageId,
-          nextEventId,
-        );
-
-        setScheduleDraftFields(nextFlowKey, {
-          lastVisitedStep: "review-records",
-          selectedEventTypeId: resolvedEventTypeId,
-          selectedEventId: nextEventId,
-          form: {
-            eventName: createResponse.data.event.title || eventTitle,
-            subject: form.subject || eventTitle,
-            message: form.message,
-            giftUrl: form.giftUrl,
-            giftUrlExpiresAt: form.giftUrlExpiresAt,
-            eventDate: toDateOnlyValue(createResponse.data.event.eventDate),
-            scheduledAt: form.scheduledAt,
-          },
-        });
-
-        if (selectedParticipantIds.length) {
-          setStoredSelectedParticipantIds(nextFlowKey, selectedParticipantIds);
-        }
-
-        if (selectedParticipantRecords.length) {
-          setStoredSelectedParticipantRecords(
-            nextFlowKey,
-            selectedParticipantRecords,
-          );
-        }
-
-        if (selectedGiftIds.length) {
-          setStoredSelectedGiftIds(nextFlowKey, selectedGiftIds);
-        }
-
-        if (Object.keys(selectedGiftProductsById).length) {
-          setStoredSelectedGiftProductsById(
-            nextFlowKey,
-            selectedGiftProductsById,
-          );
-        }
-
-        if (customContactRecordItems.length) {
-          setStoredCustomContactRecordItems(
-            nextFlowKey,
-            customContactRecordItems,
-          );
-        }
-      }
-
-      const recipientParticipant = await persistRecipientSelection(
-        selectedParticipantIds,
-        selectedParticipantRecords,
-        nextEventId,
-      );
-
-      if (!recipientParticipant) {
-        return;
-      }
-
-      if (nextFlowKey !== flowSelectionKey) {
-        setScheduleDraftFields(nextFlowKey, {
-          selectedRecipientParticipantId: recipientParticipant.id,
-          selectedRecipientParticipantIds:
-            selectedRecipientParticipantIds.length > 0
-              ? selectedRecipientParticipantIds
-              : [recipientParticipant.id],
-        });
-        resetFlowSelection(flowSelectionKey);
-        updateRoute("compose", {
-          eventId: nextEventId,
-          scheduleEventMessageId: nextEditingMessageId,
-        });
-        return;
-      }
-
-      toast.success("Recipient saved successfully.");
-      updateRoute("compose");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save selected recipients right now.",
-      );
-    }
+    updateRoute("compose");
   };
 
   const handleEventTypeNext = () => {
@@ -1742,133 +1584,6 @@ export default function ScheduleScreen() {
       subject: current.subject || eventTitle,
     }));
     updateRoute("event-date");
-  };
-
-  const handleEventTypeSaveAndContinue = async () => {
-    if (!selectedEventTypeOption) {
-      toast.error("Please select an event type.");
-      return;
-    }
-
-    const eventTitle = form.eventName || selectedEventTypeOption.label;
-    const draftEventDate = form.eventDate
-      ? toIsoDateTime(form.eventDate)
-      : new Date().toISOString();
-
-    try {
-      if (editingMessageId) {
-        const response = await updateMessageMutation.mutateAsync({
-          id: editingMessageId,
-          payload: {
-            event: {
-              title: eventTitle,
-              eventTypeId: selectedEventTypeOption.value,
-              eventDate: draftEventDate,
-            },
-          },
-        });
-
-        setSelectedEventId(response.data.eventId);
-        setScheduleDraftFields(flowSelectionKey, {
-          selectedEventTypeId: selectedEventTypeOption.value,
-          selectedEventId: response.data.eventId,
-          form: {
-            eventName: response.data.event.title || eventTitle,
-            subject: form.subject || eventTitle,
-            message: form.message,
-            giftUrl: form.giftUrl,
-            giftUrlExpiresAt: form.giftUrlExpiresAt,
-            eventDate: toDateOnlyValue(response.data.event.eventDate),
-            scheduledAt: form.scheduledAt,
-          },
-        });
-        updateRoute("event-date", {
-          eventId: response.data.eventId,
-          scheduleEventMessageId: response.data.id,
-        });
-        return;
-      }
-
-      const response = await createMessageMutation.mutateAsync({
-        event: {
-          title: eventTitle,
-          eventTypeId: selectedEventTypeOption.value,
-          eventDate: draftEventDate,
-        },
-        subject: form.subject.trim() || eventTitle,
-        ...(getPlainTextFromHtml(form.message) ? { message: form.message } : {}),
-        sendNow: mode === "message",
-        metadata: {
-          source: "dashboard",
-        },
-      });
-
-      setSelectedEventId(response.data.eventId);
-      const nextFlowKey = buildScheduleMessageFlowSelectionKey(
-        mode,
-        response.data.id,
-        response.data.eventId,
-      );
-
-      setScheduleDraftFields(nextFlowKey, {
-        lastVisitedStep: "event-date",
-        selectedEventTypeId: selectedEventTypeOption.value,
-        selectedEventId: response.data.eventId,
-        form: {
-          eventName: response.data.event.title || eventTitle,
-          subject: form.subject || eventTitle,
-          message: form.message,
-          giftUrl: form.giftUrl,
-          giftUrlExpiresAt: form.giftUrlExpiresAt,
-          eventDate: toDateOnlyValue(response.data.event.eventDate),
-          scheduledAt: form.scheduledAt,
-        },
-      });
-
-      if (selectedParticipantIds.length) {
-        setStoredSelectedParticipantIds(nextFlowKey, selectedParticipantIds);
-      }
-
-      if (selectedParticipantRecords.length) {
-        setStoredSelectedParticipantRecords(
-          nextFlowKey,
-          selectedParticipantRecords,
-        );
-      }
-
-      if (selectedGiftIds.length) {
-        setStoredSelectedGiftIds(nextFlowKey, selectedGiftIds);
-      }
-
-      if (Object.keys(selectedGiftProductsById).length) {
-        setStoredSelectedGiftProductsById(
-          nextFlowKey,
-          selectedGiftProductsById,
-        );
-      }
-
-      if (customContactRecordItems.length) {
-        setStoredCustomContactRecordItems(
-          nextFlowKey,
-          customContactRecordItems,
-        );
-      }
-
-      if (flowSelectionKey !== nextFlowKey) {
-        resetFlowSelection(flowSelectionKey);
-      }
-
-      updateRoute("event-date", {
-        eventId: response.data.eventId,
-        scheduleEventMessageId: response.data.id,
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to start this message event right now.",
-      );
-    }
   };
 
   const handleEditRow = (row: ScheduledEventMessageRecord) => {
@@ -1910,62 +1625,69 @@ export default function ScheduleScreen() {
     );
   };
 
-  const handleSubmit = async () => {
-    const scheduleEventMessageId = requireScheduleEventMessageId();
-    if (!scheduleEventMessageId) return;
-
+  const handleSubmit = async (completeSetup = true) => {
     try {
-      const selectedProducts = getValidatedSelectedGiftProducts();
+      const payload = buildScheduledEventSetupPayload();
 
-      if (!selectedProducts) {
+      if (!payload) {
+        return;
+      }
+      const initialResponse = editingMessageId
+        ? await updateScheduledEventMessageSetupMutation.mutateAsync({
+            id: editingMessageId,
+            payload,
+          })
+        : await setupScheduledEventMessageMutation.mutateAsync(payload);
+
+      const finalizedPayload =
+        !editingMessageId && !payload.giftUrl
+          ? buildScheduledEventSetupPayload(initialResponse.data.eventId)
+          : null;
+
+      const response = finalizedPayload
+        ? await updateScheduledEventMessageSetupMutation.mutateAsync({
+            id: initialResponse.data.id,
+            payload: finalizedPayload,
+          })
+        : initialResponse;
+
+      setSelectedEventId(response.data.eventId);
+
+      const nextFlowKey = buildScheduleMessageFlowSelectionKey(
+        mode,
+        response.data.id,
+        response.data.eventId,
+      );
+
+      if (flowSelectionKey !== nextFlowKey) {
+        resetFlowSelection(flowSelectionKey);
+      }
+
+      if (completeSetup) {
+        await completeSetupMutation.mutateAsync(response.data.eventId);
+      }
+
+      if (completeSetup) {
+        toast.success(
+          mode === "message"
+            ? "Message sent successfully."
+            : "Message scheduled successfully.",
+        );
+        setScheduleSetupSaveMode(null);
+        setIsSubmitConfirmationOpen(false);
+        updateRoute("success", {
+          eventId: response.data.eventId,
+          scheduleEventMessageId: response.data.id,
+        });
         return;
       }
 
-      const recipientParticipantIds =
-        selectedRecipientParticipantIds.length > 0
-          ? selectedRecipientParticipantIds
-          : [
-              selectedRecipientParticipantId ||
-                getScheduledMessageParticipant(editingMessageResponse?.data)
-                  ?.id ||
-                editingMessageResponse?.data?.participantId ||
-                "",
-            ].filter(Boolean);
-      const resolvedEventId = selectedEventId || routeEventId;
-
-      if (selectedProducts.length) {
-        if (!resolvedEventId) {
-          toast.error("Unable to resolve this event right now.");
-          return;
-        }
-
-        if (!recipientParticipantIds.length) {
-          toast.error("Unable to resolve the selected recipients right now.");
-          return;
-        }
-
-        await assignBulkGiftsMutation.mutateAsync({
-          eventId: resolvedEventId,
-          recipientParticipantIds,
-          gifts: selectedProducts.map(mapMarketplaceProductToGiftPayload),
-        });
-      }
-
-      if (selectedEventId) {
-        await completeSetupMutation.mutateAsync(selectedEventId);
-      }
-
-      toast.success(
-        mode === "message"
-          ? "Message sent successfully."
-          : "Message scheduled successfully.",
-      );
+      toast.success("Message event saved as draft.");
+      setScheduleSetupSaveMode(null);
       setIsSubmitConfirmationOpen(false);
-      updateRoute("success", {
-        eventId: selectedEventId,
-        scheduleEventMessageId,
-      });
+      resetAndCloseFlow();
     } catch (error) {
+      setScheduleSetupSaveMode(null);
       toast.error(
         error instanceof Error
           ? error.message
@@ -2134,11 +1856,7 @@ export default function ScheduleScreen() {
       <FlowActionButtons
         onBack={closeFlow}
         onNext={handleEventTypeNext}
-        onSaveAndContinue={handleEventTypeSaveAndContinue}
         nextDisabled={!selectedEventTypeId}
-        isSaveAndContinuePending={
-          createMessageMutation.isPending || updateMessageMutation.isPending
-        }
         showBack={false}
         inlineActions
         stackSaveAndContinue={false}
@@ -2161,147 +1879,6 @@ export default function ScheduleScreen() {
       ),
     }));
     updateRoute("source");
-  };
-
-  const handleEventDateSaveAndContinue = async () => {
-    if (!form.eventDate) {
-      toast.error("Please choose the event date.");
-      return;
-    }
-
-    const resolvedEventTypeId =
-      selectedEventTypeOption?.value || selectedEventTypeId;
-
-    if (!resolvedEventTypeId) {
-      toast.error("Please select an event type.");
-      return;
-    }
-
-    const draftEventDate = toIsoDateTime(form.eventDate);
-    const eventTitle = form.eventName || selectedEventTypeOption?.label || "Event";
-
-    try {
-      if (editingMessageId) {
-        const response = await updateMessageMutation.mutateAsync({
-          id: editingMessageId,
-          payload: {
-            event: {
-              title: eventTitle,
-              eventTypeId: resolvedEventTypeId,
-              eventDate: draftEventDate,
-            },
-          },
-        });
-
-        setSelectedEventId(response.data.eventId);
-        setScheduleDraftFields(flowSelectionKey, {
-          selectedEventTypeId: resolvedEventTypeId,
-          selectedEventId: response.data.eventId,
-          form: {
-            ...form,
-            eventName: response.data.event.title || eventTitle,
-            eventDate: toDateOnlyValue(response.data.event.eventDate),
-          },
-        });
-        setForm((current) => ({
-          ...current,
-          scheduledAt: mergeDateAndTimeToDateTimeLocalValue(
-            new Date(`${current.eventDate}T00:00:00`),
-            getTimeFromDateTimeLocalValue(current.scheduledAt) ||
-              DEFAULT_SCHEDULE_TIME,
-          ),
-        }));
-        updateRoute("source", {
-          eventId: response.data.eventId,
-          scheduleEventMessageId: response.data.id,
-        });
-        return;
-      }
-
-      const response = await createMessageMutation.mutateAsync({
-        event: {
-          title: eventTitle,
-          eventTypeId: resolvedEventTypeId,
-          eventDate: draftEventDate,
-        },
-        subject: form.subject.trim() || eventTitle,
-        ...(getPlainTextFromHtml(form.message) ? { message: form.message } : {}),
-        sendNow: mode === "message",
-        metadata: {
-          source: "dashboard",
-        },
-      });
-
-      setSelectedEventId(response.data.eventId);
-      const nextFlowKey = buildScheduleMessageFlowSelectionKey(
-        mode,
-        response.data.id,
-        response.data.eventId,
-      );
-
-      setScheduleDraftFields(nextFlowKey, {
-        lastVisitedStep: "source",
-        selectedEventTypeId: resolvedEventTypeId,
-        selectedEventId: response.data.eventId,
-        form: {
-          ...form,
-          eventName: response.data.event.title || eventTitle,
-          eventDate: toDateOnlyValue(response.data.event.eventDate),
-        },
-      });
-      setForm((current) => ({
-        ...current,
-        scheduledAt: mergeDateAndTimeToDateTimeLocalValue(
-          new Date(`${current.eventDate}T00:00:00`),
-          getTimeFromDateTimeLocalValue(current.scheduledAt) ||
-            DEFAULT_SCHEDULE_TIME,
-        ),
-      }));
-
-      if (selectedParticipantIds.length) {
-        setStoredSelectedParticipantIds(nextFlowKey, selectedParticipantIds);
-      }
-
-      if (selectedParticipantRecords.length) {
-        setStoredSelectedParticipantRecords(
-          nextFlowKey,
-          selectedParticipantRecords,
-        );
-      }
-
-      if (selectedGiftIds.length) {
-        setStoredSelectedGiftIds(nextFlowKey, selectedGiftIds);
-      }
-
-      if (Object.keys(selectedGiftProductsById).length) {
-        setStoredSelectedGiftProductsById(
-          nextFlowKey,
-          selectedGiftProductsById,
-        );
-      }
-
-      if (customContactRecordItems.length) {
-        setStoredCustomContactRecordItems(
-          nextFlowKey,
-          customContactRecordItems,
-        );
-      }
-
-      if (flowSelectionKey !== nextFlowKey) {
-        resetFlowSelection(flowSelectionKey);
-      }
-
-      updateRoute("source", {
-        eventId: response.data.eventId,
-        scheduleEventMessageId: response.data.id,
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save this event date right now.",
-      );
-    }
   };
 
   const eventDateStep = (
@@ -2327,7 +1904,6 @@ export default function ScheduleScreen() {
       }}
       onBack={() => updateRoute("event")}
       onNext={handleEventDateNext}
-      onSaveAndContinue={handleEventDateSaveAndContinue}
       heading="What's the date?"
       headingAlign="left"
       showGoToEventNameLink={false}
@@ -2432,15 +2008,10 @@ export default function ScheduleScreen() {
                 onClick={handleRecordNext}
                 disabled={
                   !selectedParticipantIds.length ||
-                  !selectedParticipantRecords.length ||
-                  createParticipantsBulkMutation.isPending ||
-                  updateMessageMutation.isPending
+                  !selectedParticipantRecords.length
                 }
               >
-                {createParticipantsBulkMutation.isPending ||
-                updateMessageMutation.isPending
-                  ? "Saving..."
-                  : "Next"}
+                Next
               </ModalButton>
             </div>
             }
@@ -2491,10 +2062,10 @@ export default function ScheduleScreen() {
   const reviewRecordsStep = (
     <CustomColleagueReview
       greetingName="there"
-      prompt="Review the person you want to message."
+      prompt="Review the people you want to message."
       items={selectedParticipantReviewItems}
       onAddNew={() => updateRoute("record")}
-      onBack={() => updateRoute("source")}
+      onBack={() => updateRoute("record")}
       onNext={handleReviewRecordsNext}
       onDelete={(id) => {
         setSelectedParticipantIds((current) =>
@@ -2503,12 +2074,16 @@ export default function ScheduleScreen() {
         setSelectedParticipantRecords((current) =>
           current.filter((participant) => participant.id !== id),
         );
+        setSelectedRecipientParticipantIds((current) =>
+          current.filter((participantId) => participantId !== id),
+        );
+        setSelectedRecipientParticipantId((current) =>
+          current === id ? "" : current,
+        );
       }}
-      nextLabel="Save and Continue"
+      nextLabel="Next"
       nextDisabled={
-        !selectedParticipantReviewItems.length ||
-        createParticipantsBulkMutation.isPending ||
-        updateMessageMutation.isPending
+        !selectedParticipantReviewItems.length
       }
     />
   );
@@ -2594,8 +2169,7 @@ export default function ScheduleScreen() {
           items={onedaProfileOptions}
           selectedIds={selectedOnedaContactIds}
           onSelectedIdsChange={(ids) => {
-            const selectedId = ids.at(-1);
-            setSelectedOnedaContactIds(selectedId ? [selectedId] : []);
+            setSelectedOnedaContactIds(ids);
             setSelectedParticipantIds([]);
             setSelectedParticipantRecords([]);
             setSelectedRecipientParticipantId("");
@@ -2715,6 +2289,104 @@ export default function ScheduleScreen() {
 
     return selectedProducts;
   };
+
+  const buildScheduledEventSetupPayload = (
+    resolvedEventId?: string | null,
+  ): ScheduledEventMessageSetupPayload | null => {
+      const resolvedEventTypeId =
+        selectedEventTypeOption?.value || selectedEventTypeId;
+      const eventTitle = form.eventName || selectedEventTypeOption?.label || "Event";
+      const plainTextMessage = getPlainTextFromHtml(form.message);
+      const resolvedParticipantRefs = buildScheduleParticipantClientRefs(
+        selectedParticipantRecords,
+        selectedParticipantIds,
+      );
+      const selectedProducts = getValidatedSelectedGiftProducts();
+      const finalEventId =
+        resolvedEventId?.trim() ||
+        selectedEventId?.trim() ||
+        routeEventId?.trim() ||
+        "";
+      const giftRedirectPath = finalEventId
+        ? buildScheduledMessageGiftInvitePath(finalEventId)
+        : "";
+      const giftUrl = giftRedirectPath
+        ? buildSignedInInviteUrl(giftRedirectPath)
+        : "";
+
+      if (!resolvedEventTypeId) {
+        toast.error("Please select an event type.");
+        return null;
+      }
+
+      if (!form.eventDate) {
+        toast.error("Please choose the event date.");
+        return null;
+      }
+
+      if (!form.subject.trim() || !plainTextMessage) {
+        toast.error("Please add a subject and message.");
+        return null;
+      }
+
+      if (mode === "schedule" && !form.scheduledAt) {
+        toast.error("Please choose when this message should be sent.");
+        return null;
+      }
+
+      if (!resolvedParticipantRefs.length) {
+        toast.error("Please select at least one recipient.");
+        return null;
+      }
+
+      if (selectedProducts === null) {
+        return null;
+      }
+
+      const recipientRefs = resolvedParticipantRefs.map(
+        (participant) => participant.clientRef,
+      );
+
+      return {
+        event: {
+          title: eventTitle,
+          description: "",
+          eventTypeId: resolvedEventTypeId,
+          eventDate: toIsoDateTime(form.eventDate),
+        },
+        message: {
+          subject: form.subject.trim(),
+          message: form.message,
+          scheduledAt: toIsoDateTime(
+            form.scheduledAt ||
+              mergeDateAndTimeToDateTimeLocalValue(
+                new Date(`${form.eventDate}T00:00:00`),
+                DEFAULT_SCHEDULE_TIME,
+              ),
+          ),
+          sendNow: mode === "message",
+          metadata: {
+            source: "dashboard",
+          },
+        },
+        participants: resolvedParticipantRefs.map((participant) => ({
+          ...participant,
+          isNotified: true,
+        })),
+        giftAssignments: selectedProducts.length
+          ? [
+              {
+                recipientRefs,
+                gifts: selectedProducts.map(mapMarketplaceProductToGiftPayload),
+              },
+            ]
+          : [],
+        ...(giftUrl ? { giftUrl } : {}),
+        ...(form.giftUrlExpiresAt
+          ? { giftUrlExpiresAt: toIsoDateTime(form.giftUrlExpiresAt) }
+          : {}),
+      };
+    };
 
   const handleGiftSelectionNext = () => {
     const selectedProducts = getValidatedSelectedGiftProducts();
@@ -2885,10 +2557,7 @@ export default function ScheduleScreen() {
             <ModalButton onClick={closeFlow}>Close</ModalButton>
           ) : (
             <ModalButton
-              onClick={async () => {
-                const scheduleEventMessageId = requireScheduleEventMessageId();
-                if (!scheduleEventMessageId) return;
-
+              onClick={() => {
                 if (
                   !form.subject.trim() ||
                   !getPlainTextFromHtml(form.message)
@@ -2902,40 +2571,7 @@ export default function ScheduleScreen() {
                   return;
                 }
 
-                try {
-                  await updateMessageMutation.mutateAsync({
-                    id: scheduleEventMessageId,
-                    payload: {
-                      subject: form.subject.trim(),
-                      message: form.message,
-                      sendNow: mode === "message",
-                      ...(mode === "schedule"
-                        ? { scheduledAt: toIsoDateTime(form.scheduledAt) }
-                        : {}),
-                      ...(form.giftUrl.trim()
-                        ? { giftUrl: form.giftUrl.trim() }
-                        : {}),
-                      ...(form.giftUrlExpiresAt
-                        ? {
-                            giftUrlExpiresAt: toIsoDateTime(
-                              form.giftUrlExpiresAt,
-                            ),
-                          }
-                        : {}),
-                      metadata: {
-                        source: "dashboard",
-                      },
-                    },
-                  });
-
-                  updateRoute("gift-selection");
-                } catch (error) {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "Unable to save this message right now.",
-                  );
-                }
+                updateRoute("gift-selection");
               }}
               disabled={
                 !form.subject.trim() ||
@@ -2957,30 +2593,17 @@ export default function ScheduleScreen() {
       onSelectedIdsChange={setSelectedGiftIds}
       onSelectedProductToggle={handleGiftProductToggle}
       onViewProduct={(product) => {
-        const scheduleMessageId = requireScheduleEventMessageId();
-
-        if (!scheduleMessageId) {
-          return;
-        }
-
         router.push(
-          `/dashboard/schedule/${scheduleMessageId}/gift/${encodeURIComponent(
+          `/dashboard/gifts/product/${encodeURIComponent(
             product._id,
-          )}`,
+          )}?backHref=${encodeURIComponent(pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ""))}`,
         );
       }}
       caughtMyEyeProductIds={caughtMyEyeGiftIds}
       prioritizedProductIds={prioritizedGiftIds}
       onBack={() => updateRoute("compose")}
       onNext={handleGiftSelectionNext}
-      nextDisabled={assignBulkGiftsMutation.isPending}
-      nextLabel={
-        assignBulkGiftsMutation.isPending
-          ? "Saving..."
-          : selectedGiftIds.length
-            ? "Next"
-            : "Skip"
-      }
+      nextLabel={selectedGiftIds.length ? "Next" : "Skip"}
       disableContentScroll
       enableInfiniteScroll
     />
@@ -3198,21 +2821,36 @@ export default function ScheduleScreen() {
 
       <ConfirmationModal
         open={isSubmitConfirmationOpen}
-        onClose={() => setIsSubmitConfirmationOpen(false)}
-        onConfirm={handleSubmit}
+        onClose={() => {
+          setIsSubmitConfirmationOpen(false);
+          setScheduleSetupSaveMode(null);
+        }}
+        onConfirm={() => {
+          setScheduleSetupSaveMode("save");
+          void handleSubmit(true);
+        }}
+        onSecondaryConfirm={() => {
+          setScheduleSetupSaveMode("draft");
+          void handleSubmit(false);
+        }}
         action="save"
-        title={mode === "message" ? "Send Message" : "Schedule Message"}
-        description={
-          mode === "message"
-            ? "Are you sure you want to send this message now?"
-            : "Are you sure you want to schedule this message?"
-        }
-        confirmText={mode === "message" ? "Send" : "Schedule"}
+        title="Save Message Setup"
+        description="Save this setup as a draft, or save and complete it."
+        confirmText="Save"
+        secondaryConfirmText="Save as Draft"
         isLoading={
-          createMessageMutation.isPending ||
-          updateMessageMutation.isPending ||
-          completeSetupMutation.isPending ||
-          assignBulkGiftsMutation.isPending
+          scheduleSetupSaveMode === "save" &&
+          setupScheduledEventMessageMutation.isPending ||
+          scheduleSetupSaveMode === "save" &&
+            updateScheduledEventMessageSetupMutation.isPending ||
+          scheduleSetupSaveMode === "save" &&
+            completeSetupMutation.isPending
+        }
+        isSecondaryLoading={
+          scheduleSetupSaveMode === "draft" &&
+          setupScheduledEventMessageMutation.isPending ||
+          scheduleSetupSaveMode === "draft" &&
+            updateScheduledEventMessageSetupMutation.isPending
         }
         closeOnOverlayClick={false}
         closeOnEscape={false}
@@ -3227,6 +2865,21 @@ export default function ScheduleScreen() {
         description="Are you sure you want to delete this scheduled message?"
         confirmText="Delete"
         isLoading={deleteMessageMutation.isPending}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={isDiscardConfirmationOpen}
+        onClose={() => setIsDiscardConfirmationOpen(false)}
+        onConfirm={() => {
+          setIsDiscardConfirmationOpen(false);
+          resetAndCloseFlow();
+        }}
+        action="discard"
+        title="Discard setup?"
+        description="If you close this flow now, your current schedule setup changes will be lost."
+        confirmText="Discard"
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />

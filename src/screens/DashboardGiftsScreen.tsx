@@ -1373,6 +1373,7 @@ export default function DashboardGiftsScreen() {
   const giftEventName = flowSelection.eventName;
   const isGiftInviteStep = currentGiftFlowStep === "invite";
   const activeTabParam = searchParams.get("tab")?.trim().toLowerCase() ?? null;
+  const receivedEventIdParam = searchParams.get("eventId")?.trim() || "";
   const isBrowseGiftsFlow = searchParams.get("browse") === "true";
   const shouldReturnToGiftFlow =
     isBrowseGiftsFlow && searchParams.get("returnToGiftFlow") === "true";
@@ -1514,6 +1515,7 @@ export default function DashboardGiftsScreen() {
       page: currentPage,
       per_page: PAGE_SIZE,
       searchQuery: debouncedQuery,
+      eventId: receivedEventIdParam || undefined,
     },
     {
       enabled: isReceivedTab,
@@ -1789,8 +1791,22 @@ export default function DashboardGiftsScreen() {
       : "/dashboard/gifts?tab=events";
 
   const handleViewGiftRow = (row: GiftRow) => {
+    const params = new URLSearchParams({
+      tab: activeTab,
+    });
+
+    if (activeTab === "sent") {
+      if (row.eventId) {
+        params.set("eventId", row.eventId);
+      }
+
+      if (row.participantGiftId) {
+        params.set("participantGiftId", row.participantGiftId);
+      }
+    }
+
     router.push(
-      `/dashboard/gifts/item/${encodeURIComponent(row.id)}?tab=${encodeURIComponent(activeTab)}`,
+      `/dashboard/gifts/item/${encodeURIComponent(row.id)}?${params.toString()}`,
     );
   };
 

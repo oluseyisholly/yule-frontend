@@ -19,7 +19,7 @@ export type DrawNameInviteParticipant = {
 
 type DrawNameInviteStepProps = {
   title?: ReactNode;
-  onBack: () => void;
+  onBack?: (() => void) | undefined;
   onSendEmail: () => void;
   onShareFacebook: () => void;
   onShareWhatsApp: () => void;
@@ -99,7 +99,7 @@ export default function DrawNameInviteStep({
   });
 
   return (
-    <div className="space-y-8 pt-2 sm:space-y-12">
+    <div className="space-y-8 pt-2 sm:space-y-12 min-h-[300px]">
       <div className="space-y-4 text-center">
         <p className="text-[20px] font-normal leading-[1.35] text-[#434343] sm:text-[24px]">
           {title ?? (
@@ -241,13 +241,15 @@ export default function DrawNameInviteStep({
         </div>
       ) : null}
 
-      <div className="flex justify-center pt-2">
-        <BackButton
-          onClick={onBack}
-          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-          iconClassName="size-[24px]"
-        />
-      </div>
+      {onBack ? (
+        <div className="flex justify-center pt-2">
+          <BackButton
+            onClick={onBack}
+            className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            iconClassName="size-[24px]"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -168,7 +168,7 @@ export const useWishListFlowStore = create<WishListFlowStore>()(
     }),
     {
       name: "wishlist-flow-store",
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 );

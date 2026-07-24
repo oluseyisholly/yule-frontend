@@ -32,6 +32,8 @@ export const participantQueryKeys = {
     ] as const,
   me: () => [...participantQueryKeys.all, "me"] as const,
   eventMe: (eventId: string) => [...participantQueryKeys.me(), eventId] as const,
+  eventParticipantIds: (eventId: string) =>
+    [...participantQueryKeys.all, "event-participant-ids", eventId] as const,
   contactIds: () => [...participantQueryKeys.all, "contact-ids"] as const,
   drawNameEventContactIds: (drawNameEventId: string) =>
     [...participantQueryKeys.contactIds(), drawNameEventId] as const,

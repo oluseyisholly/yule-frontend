@@ -7,6 +7,7 @@ import type {
   WishlistEventGiftsParams,
   WishlistEventGiftsResponse,
   WishlistEventPatchPayload,
+  WishlistEventSetupPayload,
   WishlistEventsParams,
   WishlistEventsResponse,
   WishlistEventMutationResponse,
@@ -48,6 +49,23 @@ export async function updateWishlistEvent(
 ) {
   return patchApi<WishlistEventMutationResponse, WishlistEventPatchPayload>(
     `${WISHLIST_EVENTS_ENDPOINT}/${id}`,
+    payload,
+  );
+}
+
+export async function setupWishlistEvent(payload: WishlistEventSetupPayload) {
+  return postApi<WishlistEventMutationResponse, WishlistEventSetupPayload>(
+    `${WISHLIST_EVENTS_ENDPOINT}/setup`,
+    payload,
+  );
+}
+
+export async function updateWishlistEventSetup(
+  id: string,
+  payload: WishlistEventSetupPayload,
+) {
+  return patchApi<WishlistEventMutationResponse, WishlistEventSetupPayload>(
+    `${WISHLIST_EVENTS_ENDPOINT}/${id}/setup`,
     payload,
   );
 }

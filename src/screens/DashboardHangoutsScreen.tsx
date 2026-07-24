@@ -102,6 +102,7 @@ import type {
   MarketplaceCondition,
   MarketplaceProduct,
 } from "@/features/marketplace/types";
+import { useEventParticipantIdsQuery } from "@/features/participants/hooks/useEventParticipantIdsQuery";
 import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
 import { cn, shareInvite } from "@/lib/utils";
 import {
@@ -126,7 +127,7 @@ type HangoutStatusLabel = "Past" | "Upcoming";
 type HangoutActivityTab = "organizer" | "participant";
 
 const FLOW_BACK_TRIGGER_CLASS =
-  "flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]";
+  "flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]";
 
 type HangoutMetric = {
   value: string;
@@ -1018,6 +1019,10 @@ export default function DashboardHangoutsScreen() {
     isSavingHangoutSetupAndCompleting,
     setIsSavingHangoutSetupAndCompleting,
   ] = useState(false);
+  const [
+    isDiscardHangoutFlowConfirmationOpen,
+    setIsDiscardHangoutFlowConfirmationOpen,
+  ] = useState(false);
   const [isHangoutInviteEmailComposeOpen, setIsHangoutInviteEmailComposeOpen] =
     useState(false);
   const [ensuredCurrentContactId, setEnsuredCurrentContactId] = useState<
@@ -1099,6 +1104,55 @@ export default function DashboardHangoutsScreen() {
   const selectedListingsById = currentFlowSelection.selectedListingsById;
   const selectedParticipantContactIds =
     currentFlowSelection.selectedParticipantContactIds;
+  const hasStoredParticipantSelection = useMemo(
+    () => selectedParticipantContactIds.length > 0,
+    [selectedParticipantContactIds],
+  );
+  const hasStoredHangoutListingSelection = useMemo(
+    () =>
+      selectedListingIds.length > 0 ||
+      Object.keys(selectedListingsById).length > 0,
+    [selectedListingIds, selectedListingsById],
+  );
+  const hasStoredHangoutSetupDraft = useMemo(
+    () =>
+      Boolean(
+        selectedHangoutEventTypeId ||
+          hangoutEventName.trim() ||
+          selectedHangoutCheckInDate ||
+          selectedHangoutCheckOutDate ||
+          selectedHangoutGuestCount,
+      ),
+    [
+      hangoutEventName,
+      selectedHangoutCheckInDate,
+      selectedHangoutCheckOutDate,
+      selectedHangoutEventTypeId,
+      selectedHangoutGuestCount,
+    ],
+  );
+  const shouldHydrateHangoutSetupFromBackend =
+    isHangoutFlowOpen &&
+    mode === "edit" &&
+    Boolean(eventId) &&
+    ["event", "event-name", "check-in-date", "check-out-date"].includes(
+      effectiveHangoutFlowStep,
+    ) &&
+    !hasStoredHangoutSetupDraft;
+  const shouldHydrateHangoutListingFromBackend =
+    isHangoutFlowOpen &&
+    mode === "edit" &&
+    Boolean(eventId) &&
+    currentHangoutFlowStep === "hangout-selection" &&
+    !hasStoredHangoutListingSelection;
+  const shouldHydrateHangoutInviteFromBackend =
+    isHangoutFlowOpen &&
+    mode === "edit" &&
+    Boolean(eventId) &&
+    currentHangoutFlowStep === "invite" &&
+    (!hasStoredParticipantSelection ||
+      !hangoutEventId?.trim() ||
+      !hangoutEventName.trim());
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1155,7 +1209,9 @@ export default function DashboardHangoutsScreen() {
     enabled:
       isHangoutFlowOpen &&
       Boolean(eventId) &&
-      (mode === "edit" || currentHangoutFlowStep === "invite"),
+      (shouldHydrateHangoutSetupFromBackend ||
+        shouldHydrateHangoutListingFromBackend ||
+        shouldHydrateHangoutInviteFromBackend),
     staleTime: 5 * 60 * 1000,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -1247,7 +1303,8 @@ export default function DashboardHangoutsScreen() {
       enabled:
         isHangoutFlowOpen &&
         currentHangoutFlowStep === "hangout-selection" &&
-        Boolean(selectedMarketplaceListingId),
+        Boolean(selectedMarketplaceListingId) &&
+        shouldHydrateHangoutListingFromBackend,
     },
   );
   const {
@@ -1353,6 +1410,20 @@ export default function DashboardHangoutsScreen() {
       enabled: shouldEnableContactsQuery,
     },
   );
+  const {
+    data: eventParticipantIdsResponse,
+    isLoading: isEventParticipantIdsLoading,
+    isFetching: isEventParticipantIdsFetching,
+    isError: isEventParticipantIdsError,
+    refetch: refetchEventParticipantIds,
+  } = useEventParticipantIdsQuery(eventId, {
+    enabled:
+      isHangoutFlowOpen &&
+      mode === "edit" &&
+      currentHangoutFlowStep === "record" &&
+      Boolean(eventId) &&
+      !hasStoredParticipantSelection,
+  });
 
   const totalPages = Math.max(1, hangoutEventsResponse?.data.totalPages ?? 1);
 
@@ -1492,41 +1563,27 @@ export default function DashboardHangoutsScreen() {
     [contactRecordOptions, selectedParticipantContactIds],
   );
   const hangoutInviteParticipants = useMemo<DrawNameInviteParticipant[]>(() => {
-    const eventParticipants =
-      currentHangoutEventRecord?.event.participants?.filter(
-        (participant) =>
-          participant.role?.trim().toLowerCase() === "participant",
-      ) ?? [];
+    if (selectedParticipantContactIds.length) {
+      return selectedParticipantContactIds
+        .map((contactId) => {
+          const record = contactRecordOptions.find(
+            (item) => item.id === contactId,
+          );
 
-    if (eventParticipants.length) {
-      return eventParticipants
-        .map((participant) => {
-          const contact = participant.eventContact;
-          const name = toDisplayName(contact);
-
-          if (!contact || !name) {
+          if (!record) {
             return null;
           }
 
-          const firstInitial = contact.firstName?.trim().charAt(0) ?? "";
-          const lastInitial = contact.lastName?.trim().charAt(0) ?? "";
-          const initials =
-            `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
-            name.slice(0, 2).toUpperCase();
-          const { avatarBg, avatarColor } = getContactAvatarStyle(
-            contact.id || participant.eventContactId || participant.id,
-          );
-
           return {
-            id: contact.id || participant.eventContactId || participant.id,
-            participantId: participant.id,
-            name,
-            role: contact.email || "Pending invite",
-            initials: initials || "CT",
-            avatarBg: avatarBg || "#EFE6FD",
-            avatarColor: avatarColor || "#3300C9",
-            email: contact.email?.trim() || null,
-            profileUrl: contact.profileUrl?.trim() || null,
+            id: record.id,
+            participantId: record.id,
+            name: record.name,
+            role: record.email || record.subtitle || "Pending invite",
+            initials: record.initials || "CT",
+            avatarBg: record.avatarBg || "#EFE6FD",
+            avatarColor: record.avatarColor || "#3300C9",
+            email: record.email || null,
+            profileUrl: record.profileUrl || null,
             inviteUrl:
               hangoutInviteShareUrl ||
               (eventId ? `/dashboard/hangouts/${eventId}` : null),
@@ -1535,26 +1592,40 @@ export default function DashboardHangoutsScreen() {
         .filter(Boolean) as DrawNameInviteParticipant[];
     }
 
-    return selectedParticipantContactIds
-      .map((contactId) => {
-        const record = contactRecordOptions.find(
-          (item) => item.id === contactId,
-        );
+    const eventParticipants =
+      currentHangoutEventRecord?.event.participants?.filter(
+        (participant) =>
+          participant.role?.trim().toLowerCase() === "participant",
+      ) ?? [];
 
-        if (!record) {
+    return eventParticipants
+      .map((contactId) => {
+        const contact = contactId.eventContact;
+        const name = toDisplayName(contact);
+
+        if (!contact || !name) {
           return null;
         }
 
+        const firstInitial = contact.firstName?.trim().charAt(0) ?? "";
+        const lastInitial = contact.lastName?.trim().charAt(0) ?? "";
+        const initials =
+          `${firstInitial}${lastInitial}`.trim().toUpperCase() ||
+          name.slice(0, 2).toUpperCase();
+        const { avatarBg, avatarColor } = getContactAvatarStyle(
+          contact.id || contactId.eventContactId || contactId.id,
+        );
+
         return {
-          id: record.id,
-          participantId: record.id,
-          name: record.name,
-          role: record.email || record.subtitle || "Pending invite",
-          initials: record.initials || "CT",
-          avatarBg: record.avatarBg || "#EFE6FD",
-          avatarColor: record.avatarColor || "#3300C9",
-          email: record.email || null,
-          profileUrl: record.profileUrl || null,
+          id: contact.id || contactId.eventContactId || contactId.id,
+          participantId: contactId.id,
+          name,
+          role: contact.email || "Pending invite",
+          initials: initials || "CT",
+          avatarBg: avatarBg || "#EFE6FD",
+          avatarColor: avatarColor || "#3300C9",
+          email: contact.email?.trim() || null,
+          profileUrl: contact.profileUrl?.trim() || null,
           inviteUrl:
             hangoutInviteShareUrl ||
             (eventId ? `/dashboard/hangouts/${eventId}` : null),
@@ -1576,22 +1647,29 @@ export default function DashboardHangoutsScreen() {
         .filter(Boolean),
     [hangoutInviteParticipants],
   );
+  const resolvedHangoutInviteTitle = useMemo(
+    () =>
+      hangoutEventName?.trim() ||
+      selectedEventTypeOption?.label ||
+      currentHangoutEventRecord?.event.title?.trim() ||
+      "Hangout event",
+    [
+      currentHangoutEventRecord?.event.title,
+      hangoutEventName,
+      selectedEventTypeOption?.label,
+    ],
+  );
   const hangoutInviteShareMessage = useMemo(
     () =>
       buildInviteShareMessage(
-        currentHangoutEventRecord?.event.title?.trim() ||
-          hangoutEventName?.trim() ||
-          selectedEventTypeOption?.label ||
-          "this hangout",
+        resolvedHangoutInviteTitle || "this hangout",
         hangoutInviteShareUrl ||
           (eventId ? `/dashboard/hangouts/${eventId}` : ""),
       ),
     [
-      currentHangoutEventRecord?.event.title,
       eventId,
-      hangoutEventName,
-      selectedEventTypeOption?.label,
       hangoutInviteShareUrl,
+      resolvedHangoutInviteTitle,
     ],
   );
   const hangoutMetrics = useMemo<HangoutMetric[]>(
@@ -1732,7 +1810,8 @@ export default function DashboardHangoutsScreen() {
       !isHangoutFlowOpen ||
       mode !== "edit" ||
       !eventId ||
-      !currentHangoutEventRecord
+      !currentHangoutEventRecord ||
+      !shouldHydrateHangoutSetupFromBackend
     ) {
       return;
     }
@@ -1784,6 +1863,29 @@ export default function DashboardHangoutsScreen() {
     selectedHangoutGuestCount,
     selectedHangoutEventTypeId,
     setHangoutFlowDraftFields,
+    shouldHydrateHangoutSetupFromBackend,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldHydrateHangoutListingFromBackend ||
+      !selectedMarketplaceListing ||
+      !selectedMarketplaceListingId
+    ) {
+      return;
+    }
+
+    setStoredSelectedListingIds(flowSelectionKey, [selectedMarketplaceListingId]);
+    setSelectedListingsById(flowSelectionKey, {
+      [selectedMarketplaceListingId]: selectedMarketplaceListing,
+    });
+  }, [
+    flowSelectionKey,
+    selectedMarketplaceListing,
+    selectedMarketplaceListingId,
+    setSelectedListingsById,
+    setStoredSelectedListingIds,
+    shouldHydrateHangoutListingFromBackend,
   ]);
 
   useEffect(() => {
@@ -1821,18 +1923,25 @@ export default function DashboardHangoutsScreen() {
       return;
     }
 
-    if (!currentEventRow?.participantContactIds.length) {
+    const persistedParticipantContactIds = (
+      eventParticipantIdsResponse?.data ?? []
+    )
+      .map((participant) => participant.eventContactId?.trim() || "")
+      .filter(Boolean);
+
+    if (!persistedParticipantContactIds.length) {
       return;
     }
 
     setSelectedParticipantContactIds(
       flowSelectionKey,
-      currentEventRow.participantContactIds,
+      persistedParticipantContactIds,
     );
   }, [
-    currentEventRow,
     eventId,
+    eventParticipantIdsResponse,
     flowSelectionKey,
+    hasStoredParticipantSelection,
     isHangoutFlowOpen,
     mode,
     selectedParticipantContactIds.length,
@@ -2063,6 +2172,28 @@ export default function DashboardHangoutsScreen() {
   const handleOpenHangoutFlow = () => {
     resetHangoutFlowSelection(buildHangoutFlowSelectionKey("create", null));
     openHangoutFlowModal("event", "create", null);
+  };
+
+  const handleConfirmDiscardHangoutFlow = () => {
+    setIsDiscardHangoutFlowConfirmationOpen(false);
+    setIsCompleteHangoutEventConfirmationOpen(false);
+    resetHangoutFlowSelection(flowSelectionKey);
+    closeHangoutFlowModal();
+  };
+
+  const handleCloseActiveHangoutFlow = () => {
+    if (currentHangoutFlowStep === "invite") {
+      resetHangoutFlowSelection(flowSelectionKey);
+      setIsDiscardHangoutFlowConfirmationOpen(false);
+      }
+    else {
+      setIsDiscardHangoutFlowConfirmationOpen(true);
+      setIsCompleteHangoutEventConfirmationOpen(false);
+      return;
+    }
+
+    setIsCompleteHangoutEventConfirmationOpen(false);
+    closeHangoutFlowModal();
   };
 
   const openHangoutEventFlow = (
@@ -2739,7 +2870,6 @@ export default function DashboardHangoutsScreen() {
 
       toast.success(completeResponse.message);
       setIsCompleteHangoutEventConfirmationOpen(false);
-      resetHangoutFlowSelection(flowSelectionKey);
       setHangoutFlowStep("invite", mode, nextEventId, nextHangoutId);
     } catch (error) {
       toast.error(
@@ -2750,15 +2880,6 @@ export default function DashboardHangoutsScreen() {
     } finally {
       setIsSavingHangoutSetupAndCompleting(false);
     }
-  };
-
-  const handleHangoutInviteBack = () => {
-    setHangoutFlowStep(
-      "hangout-selection",
-      mode,
-      eventId,
-      hangoutEventId?.trim() || currentHangoutEventId || null,
-    );
   };
 
   const handleHangoutInviteSendEmail = () => {
@@ -2788,8 +2909,8 @@ export default function DashboardHangoutsScreen() {
     emails: string[];
   }) => {
     const resolvedHangoutId =
-      currentHangoutEventRecord?.id?.trim() ||
       hangoutEventId?.trim() ||
+      currentHangoutEventRecord?.id?.trim() ||
       null;
     const redirectUrl =
       hangoutInviteShareUrl || (eventId ? `/dashboard/hangouts/${eventId}` : "");
@@ -3267,9 +3388,21 @@ export default function DashboardHangoutsScreen() {
         closeOnEscape={false}
       />
 
+      <ConfirmationModal
+        open={isDiscardHangoutFlowConfirmationOpen}
+        onClose={() => setIsDiscardHangoutFlowConfirmationOpen(false)}
+        onConfirm={handleConfirmDiscardHangoutFlow}
+        action="delete"
+        title="Discard Hangout Setup"
+        description="If you close this flow now, the records and setup details you have entered locally will be lost."
+        confirmText="Discard"
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
       <ContentModal
         open={isHangoutFlowOpen && !isInlineHangoutSelectionStep}
-        onClose={closeHangoutFlowModal}
+        onClose={handleCloseActiveHangoutFlow}
         title="Plan Hangout"
         showHeader={false}
         closeOnOverlayClick={false}
@@ -3555,7 +3688,6 @@ export default function DashboardHangoutsScreen() {
                 message: hangoutInviteShareMessage,
               })
             }
-            onBack={handleHangoutInviteBack}
             onSendEmail={handleHangoutInviteSendEmail}
             onCopyLink={handleHangoutInviteCopyLink}
           />
@@ -3600,11 +3732,15 @@ export default function DashboardHangoutsScreen() {
                 disableLocalFiltering
                 isLoading={
                   ensureMyContactMutation.isPending ||
+                  isEventParticipantIdsLoading ||
+                  isEventParticipantIdsFetching ||
                   isContactsLoading ||
                   isContactsFetching
                 }
                 emptyStateText={
-                  isContactsError
+                  ensureMyContactMutation.isError ||
+                  isContactsError ||
+                  isEventParticipantIdsError
                     ? "Unable to load contacts."
                     : "No colleague found."
                 }
@@ -3635,7 +3771,9 @@ export default function DashboardHangoutsScreen() {
               />
             </div>
 
-            {ensureMyContactMutation.isError || isContactsError ? (
+            {ensureMyContactMutation.isError ||
+            isContactsError ||
+            isEventParticipantIdsError ? (
               <div className="flex justify-center">
                 <button
                   type="button"
@@ -3647,6 +3785,10 @@ export default function DashboardHangoutsScreen() {
 
                     if (isContactsError) {
                       void refetchContacts();
+                    }
+
+                    if (isEventParticipantIdsError) {
+                      void refetchEventParticipantIds();
                     }
                   }}
                   className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
@@ -3718,22 +3860,15 @@ export default function DashboardHangoutsScreen() {
       <EmailInviteComposeModal
         open={isHangoutInviteEmailComposeOpen}
         onClose={() => setIsHangoutInviteEmailComposeOpen(false)}
-        initialTitle={
-          currentHangoutEventRecord?.event.title?.trim() ||
-          hangoutEventName?.trim() ||
-          selectedEventTypeOption?.label ||
-          "Hangout event"
-        }
+        initialTitle={resolvedHangoutInviteTitle}
         initialBody={buildInviteShareMessage(
-          currentHangoutEventRecord?.event.title?.trim() ||
-            hangoutEventName?.trim() ||
-            selectedEventTypeOption?.label ||
-            "this hangout",
+          resolvedHangoutInviteTitle || "this hangout",
           hangoutInviteShareUrl,
         )}
         lockedEmails={hangoutInviteLockedEmails}
         onSubmit={handleConfirmSendHangoutInviteEmails}
         isSubmitting={sendEmailMutation.isPending}
+        hasBody={false}
       />
     </div>
   );

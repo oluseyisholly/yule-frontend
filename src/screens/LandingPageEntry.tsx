@@ -264,8 +264,8 @@ export default function LandingPageEntry() {
       <HomeScreen />
 
       {isSsoSigningIn || hasPendingAccessToken ? (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#120829]/55 px-6 backdrop-blur-[2px]">
-          <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-[28px] border border-white/15 bg-white px-8 py-8 text-center shadow-[0_24px_60px_rgba(18,8,41,0.28)]">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-white px-6">
+          <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-[28px] bg-white px-8 py-8 text-center">
             <Spinner className="size-10 text-[#3300C9]" />
             <div className="space-y-1">
               <p className="text-[18px] font-semibold text-[#1E1E1E]">

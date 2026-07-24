@@ -21,6 +21,37 @@ export type WishlistEventPatchPayload = Partial<
   event?: Partial<WishlistEventCreatePayload["event"]>;
 };
 
+export type WishlistSetupGiftPayload = {
+  participantGiftId: string;
+  title: string;
+  description: string;
+  amount: number;
+  currency: string;
+  imageUrl?: string;
+  categorySlug?: string;
+  subCategorySlug?: string;
+  condition?: string;
+  locationState?: string;
+  locationCity?: string;
+  sellerId?: string;
+  productSlug?: string;
+};
+
+export type WishlistEventSetupPayload = {
+  event: {
+    title: string;
+    description: string;
+    eventTypeId: string;
+    eventDate: string;
+  };
+  wishlist: {
+    allowMultipleItems: boolean;
+    eventDeadline: string;
+    visibility: WishlistEventVisibility;
+  };
+  gifts: WishlistSetupGiftPayload[];
+};
+
 export type WishlistEventParticipantActor = {
   id: string;
   firstName: string;

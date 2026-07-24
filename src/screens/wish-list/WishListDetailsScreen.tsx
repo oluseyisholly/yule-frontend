@@ -41,6 +41,7 @@ import {
 import { useDeleteWishlistEventMutation } from "@/features/wishlist-events/hooks/useDeleteWishlistEventMutation";
 import { useWishlistEventQuery } from "@/features/wishlist-events/hooks/useWishlistEventQuery";
 import { useWishlistEventGiftsQuery } from "@/features/wishlist-events/hooks/useWishlistEventGiftsQuery";
+import { useClaimedGiftsQuery } from "@/features/gifts/hooks/useClaimedGiftsQuery";
 import type {
   WishlistEventGiftRow,
   WishlistEventParticipant,
@@ -210,7 +211,7 @@ function mapParticipant(
   return {
     id: participant.id,
     name: fullName,
-    role: participant.role === "creator" ? "Admin" : "Participant",
+    role: participant.role === "creator" ? "admin" : "Participant",
     initials: toInitials(actor.firstName, actor.lastName),
     profileUrl: actor.profileUrl?.trim() || null,
     bg,
@@ -407,6 +408,23 @@ export default function WishListDetailsScreen({
       enabled: Boolean(wishlistEventId),
     },
   );
+  const {
+    data: claimedGiftsResponse,
+    isFetching: isClaimedGiftsFetching,
+    isLoading: isClaimedGiftsLoading,
+    isError: isClaimedGiftsError,
+    refetch: refetchClaimedGifts,
+  } = useClaimedGiftsQuery(
+    data?.data?.eventId ?? null,
+    {
+      page: currentGiftPage,
+      per_page: 10,
+      searchQuery: debouncedGiftSearchValue,
+    },
+    {
+      enabled: Boolean(data?.data?.eventId),
+    },
+  );
   const canManageDetail = useMemo(
     () =>
       canManageWishlistEvent(data?.data, {
@@ -469,13 +487,24 @@ export default function WishListDetailsScreen({
       status: formatStatus(record),
       eventDate: formatDate(record.event.eventDate),
       eventDeadline: formatDate(record.eventDeadline),
-      gifts: String(giftsResponse?.data?.total ?? record.items?.length ?? 0),
+      gifts: String(
+        (canManageDetail
+          ? giftsResponse?.data?.total
+          : claimedGiftsResponse?.data?.total) ??
+          record.items?.length ??
+          0,
+      ),
       totalParticipants: String(participants.length),
       participants,
       participantsById,
       eventId: record.eventId,
     };
-  }, [data, giftsResponse?.data?.total]);
+  }, [
+    canManageDetail,
+    claimedGiftsResponse?.data?.total,
+    data,
+    giftsResponse?.data?.total,
+  ]);
 
   const sourceFlowSelection =
     editFlowSelection?.lastVisitedStep ? editFlowSelection : createFlowSelection;
@@ -486,14 +515,26 @@ export default function WishListDetailsScreen({
       : "event";
   const isOngoingWishlist = detail?.status === "Ongoing";
   const canClaimWishlist = isParticipantDetail && !canManageDetail && isOngoingWishlist;
+  const activeGiftPageResponse = canManageDetail
+    ? giftsResponse?.data
+    : claimedGiftsResponse?.data;
+  const isActiveGiftsLoading = canManageDetail
+    ? isGiftsLoading
+    : isClaimedGiftsLoading;
+  const isActiveGiftsFetching = canManageDetail
+    ? isGiftsFetching
+    : isClaimedGiftsFetching;
+  const isActiveGiftsError = canManageDetail
+    ? isGiftsError
+    : isClaimedGiftsError;
 
   const giftRows = useMemo(
     () =>
       buildGiftRows(
-        giftsResponse?.data?.data ?? [],
+        activeGiftPageResponse?.data ?? [],
         detail?.participantsById ?? new Map(),
       ),
-    [detail?.participantsById, giftsResponse],
+    [activeGiftPageResponse?.data, detail?.participantsById],
   );
 
   useEffect(() => {
@@ -615,22 +656,19 @@ export default function WishListDetailsScreen({
         cellClassName: "px-3 py-3",
         render: (row) => <GiftNameCell gift={row} />,
       },
-      {
-        id: "category",
-        header: "Category",
-        headerClassName: "min-w-[120px] px-3 py-2 text-left",
-        cellClassName: "px-3 py-3",
-        accessor: "categoryLabel",
-      },
-      {
-        id: "sponsor",
-        header: "Sponsor",
-        headerClassName: "min-w-[170px] px-3 py-2 text-left",
-        cellClassName: "px-3 py-3",
-        render: (row) => (
-          <AssignedParticipantCell participant={row.assignedParticipant} />
-        ),
-      },
+      ...(canManageDetail
+        ? [
+            {
+              id: "sponsor",
+              header: "Sponsor",
+              headerClassName: "min-w-[170px] px-3 py-2 text-left",
+              cellClassName: "px-3 py-3",
+              render: (row: GiftRow) => (
+                <AssignedParticipantCell participant={row.assignedParticipant} />
+              ),
+            },
+          ]
+        : []),
       {
         id: "amount",
         header: "Amount",
@@ -688,19 +726,26 @@ export default function WishListDetailsScreen({
       "border-y border-[#F0EEFF] bg-white text-[12px] text-[#434343] transition-colors first:border-l first:rounded-l-[12px] last:border-r last:rounded-r-[12px] group-hover:bg-[#F4F0FF]",
     rowClassName: (row) =>
       cn("transition-colors", selectedGiftIds.includes(row.id) ? "" : "group"),
-    emptyState: isGiftsLoading || isGiftsFetching ? (
+    emptyState: isActiveGiftsLoading || isActiveGiftsFetching ? (
       <TableLoadingState rows={5} />
     ) : (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <p className="text-sm text-[#7D7D7D]">
-          {isGiftsError
+          {isActiveGiftsError
             ? "Unable to load wishlist gifts."
             : "No gift items found."}
         </p>
-        {isGiftsError ? (
+        {isActiveGiftsError ? (
           <button
             type="button"
-            onClick={() => refetchGifts()}
+            onClick={() => {
+              if (canManageDetail) {
+                void refetchGifts();
+                return;
+              }
+
+              void refetchClaimedGifts();
+            }}
             className="mt-3 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
           >
             Retry

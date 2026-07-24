@@ -70,12 +70,13 @@ import { useCompleteWishlistEventMutation } from "@/features/wishlist-events/hoo
 import { useWishlistEventClaimedGiftIdsQuery } from "@/features/wishlist-events/hooks/useWishlistEventClaimedGiftIdsQuery";
 import { useWishlistEventGiftsQuery } from "@/features/wishlist-events/hooks/useWishlistEventGiftsQuery";
 import { useWishlistEventQuery } from "@/features/wishlist-events/hooks/useWishlistEventQuery";
+import { useSetupWishlistEventMutation } from "@/features/wishlist-events/hooks/useSetupWishlistEventMutation";
 import { useUpdateWishlistEventMutation } from "@/features/wishlist-events/hooks/useUpdateWishlistEventMutation";
+import { useUpdateWishlistEventSetupMutation } from "@/features/wishlist-events/hooks/useUpdateWishlistEventSetupMutation";
 import { useClaimGiftMutation } from "@/features/gifts/hooks/useClaimGiftMutation";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
 import { useParticipantGiftSelectionsQuery } from "@/features/gifts/hooks/useParticipantGiftSelectionsQuery";
-import { useCreateBulkGiftsMutation } from "@/features/gifts/hooks/useCreateBulkGiftsMutation";
 import type { ParticipantGiftSelection } from "@/features/gifts/types";
 import type { ContactGiftCartItem } from "@/features/gifts/types";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
@@ -84,6 +85,7 @@ import { useMyParticipantQuery } from "@/features/participants/hooks/useMyPartic
 import type {
   WishlistEventParticipant,
   WishlistEventRecord,
+  WishlistEventSetupPayload,
 } from "@/features/wishlist-events/types";
 import { cn, shareInvite } from "@/lib/utils";
 import { buildSignedInInviteUrl, buildInviteShareMessage } from "@/lib/invite-links";
@@ -843,6 +845,12 @@ export default function WishListScreen() {
     isCompleteWishlistConfirmationOpen,
     setIsCompleteWishlistConfirmationOpen,
   ] = useState(false);
+  const [
+    isDiscardWishlistFlowConfirmationOpen,
+    setIsDiscardWishlistFlowConfirmationOpen,
+  ] = useState(false);
+  const [isSavingWishlistSetupAsDraft, setIsSavingWishlistSetupAsDraft] =
+    useState(false);
   const [participantClaimSelectedGiftIds, setParticipantClaimSelectedGiftIds] =
     useState<string[]>([]);
   const [pendingDeleteRow, setPendingDeleteRow] = useState<WishListRow | null>(
@@ -851,6 +859,24 @@ export default function WishListScreen() {
   const [wishlistStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
   ]);
+  const wishlistStats = useDerivedWishListStats();
+  const wishlistGiftSelectionBackHref = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (mode) {
+      params.set("mode", mode);
+    }
+    if (eventId) {
+      params.set("eventId", eventId);
+    }
+    if (wishlistEventId) {
+      params.set("wishlistEventId", wishlistEventId);
+    }
+
+    const query = params.toString();
+
+    return `/dashboard/wish-list/flow/gift-selection${query ? `?${query}` : ""}`;
+  }, [eventId, mode, wishlistEventId]);
 
   const {
     data: availableEventTypesResponse,
@@ -874,9 +900,10 @@ export default function WishListScreen() {
   const claimGiftMutation = useClaimGiftMutation();
   const deleteWishlistEventMutation = useDeleteWishlistEventMutation();
   const completeWishlistEventMutation = useCompleteWishlistEventMutation();
+  const setupWishlistEventMutation = useSetupWishlistEventMutation();
   const updateWishlistEventMutation = useUpdateWishlistEventMutation();
+  const updateWishlistEventSetupMutation = useUpdateWishlistEventSetupMutation();
   const sendEmailMutation = useSendEmailMutation();
-  const createBulkGiftsMutation = useCreateBulkGiftsMutation();
   const {
     data: wishlistEventsResponse,
     isError: isWishlistEventsError,
@@ -950,8 +977,7 @@ export default function WishListScreen() {
     activeWishlistEventRecord &&
     !canManageActiveWishlist,
   );
-  const isWishlistInlineGiftSelectionStep =
-    isWishlistGiftSelectionStep && !isParticipantClaimWishlistStep;
+  const isWishlistInlineGiftSelectionStep = isWishlistGiftSelectionStep;
   const {
     data: participantGiftSelectionsResponse,
     isLoading: isParticipantGiftSelectionsLoading,
@@ -1603,6 +1629,27 @@ export default function WishListScreen() {
     }
   };
 
+  const handleConfirmDiscardWishlistFlow = () => {
+    setIsDiscardWishlistFlowConfirmationOpen(false);
+    setIsCompleteWishlistConfirmationOpen(false);
+    resetWishListFlowSelection(flowSelectionKey);
+    closeModal();
+  };
+
+  const handleCloseActiveWishlistFlow = () => {
+    if (currentStep === "invite") {
+      resetWishListFlowSelection(flowSelectionKey);
+      setIsDiscardWishlistFlowConfirmationOpen(false);
+    } else {
+      setIsDiscardWishlistFlowConfirmationOpen(true);
+      setIsCompleteWishlistConfirmationOpen(false);
+      return;
+    }
+
+    setIsCompleteWishlistConfirmationOpen(false);
+    closeModal();
+  };
+
   const createWishListDraftEvent = async (
     nextStep: WishListModalStep,
     options?: {
@@ -1983,27 +2030,31 @@ export default function WishListScreen() {
     );
   };
 
-  const resolveWishlistGiftSelectionContext = async () => {
-    if (!eventId || !wishlistEventId) {
-      toast.error(
-        "Please save and continue from a previous step before selecting gifts.",
-      );
+  const buildWishlistSetupPayload = (): WishlistEventSetupPayload | null => {
+    if (!selectedEventTypeId) {
+      toast.error("Please select an event first.");
       return null;
     }
 
-    let resolvedParticipantId = currentParticipantId;
-
-    if (!resolvedParticipantId) {
-      const refreshedParticipantResponse = await refetchMyParticipant();
-      resolvedParticipantId =
-        refreshedParticipantResponse.data?.data?.id ?? null;
-    }
-
-    if (!resolvedParticipantId) {
-      toast.error("Unable to resolve your participant record right now.");
+    if (!selectedWishListDate) {
+      toast.error("Please select an event date.");
       return null;
     }
 
+    if (!selectedWishListDeadline) {
+      toast.error("Please select a gift deadline.");
+      return null;
+    }
+
+    if (isDateLaterThan(selectedWishListDeadline, selectedWishListDate)) {
+      toast.error("Gift deadline cannot be later than the event date.");
+      return null;
+    }
+
+    const resolvedTitle =
+      wishListSuggestedName.trim() ||
+      selectedEventTypeOption?.label ||
+      "Untitled event";
     const resolvedSelectedProducts =
       selectedWishlistGiftProductsForStep.length > 0
         ? selectedWishlistGiftProductsForStep
@@ -2034,8 +2085,133 @@ export default function WishListScreen() {
     }
 
     return {
-      resolvedEventId: eventId,
-      resolvedParticipantId,
+      event: {
+        title: resolvedTitle,
+        description: "",
+        eventTypeId: selectedEventTypeId,
+        eventDate: toIsoDate(selectedWishListDate),
+      },
+      wishlist: {
+        allowMultipleItems: true,
+        visibility: "private",
+        eventDeadline: toWishlistDeadlineIsoDate(selectedWishListDeadline),
+      },
+      gifts: resolvedSelectedProducts.map((product) => ({
+        participantGiftId: product._id,
+        title: product.title,
+        description: product.description ?? "",
+        amount: product.amount,
+        currency: "NGN",
+        imageUrl: product.images[0] || undefined,
+        categorySlug: product.categorySlug || undefined,
+        subCategorySlug: product.subCategorySlug || undefined,
+        condition: product.condition || undefined,
+        locationState: product.location?.state || undefined,
+        locationCity: product.location?.city || undefined,
+        sellerId: product.sellerId || undefined,
+        productSlug: product.slug || undefined,
+      })),
+    };
+  };
+
+  const persistWishlistSetup = async () => {
+    const payload = buildWishlistSetupPayload();
+
+    if (!payload) {
+      return null;
+    }
+
+    try {
+      const response =
+        wishlistEventId && eventId
+          ? await updateWishlistEventSetupMutation.mutateAsync({
+              id: wishlistEventId,
+              payload,
+            })
+          : await setupWishlistEventMutation.mutateAsync(payload);
+
+      const nextWishlistEventId = response.data.id;
+      const nextEventId = response.data.eventId;
+      const nextFlowKey = buildWishListFlowSelectionKey(
+        mode,
+        nextWishlistEventId,
+        nextEventId,
+      );
+      const resolvedTitle =
+        wishListSuggestedName.trim() ||
+        selectedEventTypeOption?.label ||
+        "Untitled event";
+
+      setWishListDraftFields(nextFlowKey, {
+        lastVisitedStep: "gift-selection",
+        selectedEventTypeId,
+        eventName: resolvedTitle,
+        eventDate: selectedWishListDate,
+        eventDeadline: selectedWishListDeadline,
+        celebrationType: selectedCelebrationType,
+      });
+
+      if (selectedWishlistGiftIds.length) {
+        setStoredSelectedWishlistGiftIds(nextFlowKey, selectedWishlistGiftIds);
+      }
+
+      if (Object.keys(selectedWishlistGiftProductsById).length) {
+        setStoredSelectedWishlistGiftProductsById(
+          nextFlowKey,
+          selectedWishlistGiftProductsById,
+        );
+      }
+
+      if (flowSelectionKey !== nextFlowKey) {
+        resetWishListFlowSelection(flowSelectionKey);
+      }
+
+      return {
+        resolvedEventId: nextEventId,
+        resolvedWishlistEventId: nextWishlistEventId,
+        message: response.message,
+      };
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save this wish list right now.",
+      );
+      return null;
+    }
+  };
+
+  const resolveWishlistGiftSelectionContext = async () => {
+    const resolvedSelectedProducts =
+      selectedWishlistGiftProductsForStep.length > 0
+        ? selectedWishlistGiftProductsForStep
+        : selectedWishlistGiftIdsForStep
+            .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
+            .filter(
+              (product): product is MarketplaceProduct => Boolean(product),
+            );
+
+    if (!resolvedSelectedProducts.length) {
+      toast.error("Please select at least one gift before continuing.");
+      return null;
+    }
+
+    const hasIncompleteGiftDetails = resolvedSelectedProducts.some(
+      (product) =>
+        !product.title?.trim() ||
+        product.title.trim() === "Selected gift" ||
+        !Number.isFinite(product.amount) ||
+        product.amount <= 0,
+    );
+
+    if (hasIncompleteGiftDetails) {
+      toast.error(
+        "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
+      );
+      return null;
+    }
+
+    return {
       selectedProducts: resolvedSelectedProducts,
     };
   };
@@ -2050,12 +2226,25 @@ export default function WishListScreen() {
     setIsCompleteWishlistConfirmationOpen(true);
   };
 
-  const handleConfirmCompleteWishlistEvent = async () => {
-    if (!wishlistEventId) {
-      toast.error("Unable to resolve this wish list right now.");
-      return;
-    }
+  const handleConfirmSaveWishlistSetupAsDraft = async () => {
+    setIsSavingWishlistSetupAsDraft(true);
 
+    try {
+      const setupResponse = await persistWishlistSetup();
+
+      if (!setupResponse) {
+        return;
+      }
+
+      toast.success(setupResponse.message || "Wish list saved as draft.");
+      setIsCompleteWishlistConfirmationOpen(false);
+      closeModal();
+    } finally {
+      setIsSavingWishlistSetupAsDraft(false);
+    }
+  };
+
+  const handleConfirmCompleteWishlistEvent = async () => {
     const selectionContext = await resolveWishlistGiftSelectionContext();
 
     if (!selectionContext) {
@@ -2063,31 +2252,24 @@ export default function WishListScreen() {
     }
 
     try {
-      await createBulkGiftsMutation.mutateAsync({
-        eventId: selectionContext.resolvedEventId,
-        recipientParticipantId: selectionContext.resolvedParticipantId,
-        gifts: selectionContext.selectedProducts.map((product) => ({
-          participantGiftId: product._id,
-          title: product.title,
-          description: product.description ?? "",
-          amount: product.amount,
-          currency: "NGN",
-          imageUrl: product.images[0] || undefined,
-          categorySlug: product.categorySlug || undefined,
-          subCategorySlug: product.subCategorySlug || undefined,
-          condition: product.condition || undefined,
-          locationState: product.location?.state || undefined,
-          locationCity: product.location?.city || undefined,
-          sellerId: product.sellerId || undefined,
-          productSlug: product.slug || undefined,
-        })),
-      });
+      const setupResponse = await persistWishlistSetup();
+
+      if (!setupResponse) {
+        return;
+      }
 
       const completeResponse =
-        await completeWishlistEventMutation.mutateAsync(wishlistEventId);
+        await completeWishlistEventMutation.mutateAsync(
+          setupResponse.resolvedWishlistEventId,
+        );
       toast.success(completeResponse.message);
       setIsCompleteWishlistConfirmationOpen(false);
-      setCurrentStep("invite", mode, eventId, wishlistEventId);
+      setCurrentStep(
+        "invite",
+        mode,
+        setupResponse.resolvedEventId,
+        setupResponse.resolvedWishlistEventId,
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2095,10 +2277,6 @@ export default function WishListScreen() {
           : "Unable to complete this wish list right now.",
       );
     }
-  };
-
-  const handleWishlistInviteBack = () => {
-    setCurrentStep("gift-selection", mode, eventId, wishlistEventId);
   };
 
   const handleWishlistInviteSendEmail = () => {
@@ -2305,69 +2483,140 @@ export default function WishListScreen() {
       <div className="space-y-6">
         <div className="mx-auto w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8">
           <div className="min-h-0">
-            <WishlistGiftSelectionStep
-              selectedIds={selectedWishlistGiftIdsForStep}
-              onSelectedIdsChange={(ids) =>
-                setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
-              }
-              onSelectedProductToggle={handleWishlistGiftProductToggle}
-              onBack={() =>
-                setCurrentStep(
-                  "celebration-type",
-                  mode,
-                  eventId,
-                  wishlistEventId,
-                )
-              }
-              onNext={handleWishListGiftSelectionNext}
-              onRetryInitialSelection={() => {
-                void refetchMyParticipant();
-                void refetchParticipantGiftSelections();
-                void refetchCaughtMyEyeGiftIds();
-                void refetchCartItems();
-              }}
-              isInitialSelectionLoading={
-                isParticipantGiftSelectionsLoading ||
-                isParticipantGiftSelectionsFetching ||
-                isCaughtMyEyeGiftIdsLoading ||
-                isCaughtMyEyeGiftIdsFetching ||
-                isCartItemsLoading ||
-                isCartItemsFetching ||
-                isMyParticipantLoading ||
-                isMyParticipantFetching
-              }
-              isInitialSelectionError={
-                isParticipantGiftSelectionsError ||
-                isCaughtMyEyeGiftIdsError ||
-                isCartItemsError
-              }
-              enableInfiniteScroll
-              caughtMyEyeProductIds={caughtMyEyeWishlistGiftIds}
-              prioritizedProductIds={prioritizedWishlistGiftProductIds}
-              deferProductsUntilInitialSelectionResolved={
-                isParticipantGiftSelectionsLoading ||
-                isParticipantGiftSelectionsFetching ||
-                isCaughtMyEyeGiftIdsLoading ||
-                isCaughtMyEyeGiftIdsFetching ||
-                isCartItemsLoading ||
-                isCartItemsFetching ||
-                isMyParticipantLoading ||
-                isMyParticipantFetching
-              }
-              disableContentScroll
-              nextDisabled={
-                !selectedWishlistGiftIdsForStep.length ||
-                createBulkGiftsMutation.isPending ||
-                completeWishlistEventMutation.isPending ||
-                isMyParticipantLoading ||
-                isMyParticipantFetching
-              }
-              nextLabel={
-                createBulkGiftsMutation.isPending ? "Saving..." : "Next"
-              }
-            />
+            {isParticipantClaimWishlistStep ? (
+              <WishlistClaimGiftSelectionStep
+                title={
+                  activeWishlistEventRecord?.event.title?.trim() ||
+                  wishListSuggestedName ||
+                  selectedEventTypeOption?.label ||
+                  "Wishlist Gifts"
+                }
+                allowMultipleItems={
+                  activeWishlistEventRecord?.allowMultipleItems ?? true
+                }
+                gifts={participantClaimWishlistGiftsResponse?.data?.data ?? []}
+                claimedGiftIds={participantClaimedGiftIdsResponse?.data ?? []}
+                selectedIds={participantClaimSelectedGiftIds}
+                onSelectedIdsChange={setParticipantClaimSelectedGiftIds}
+                onClaim={handleParticipantClaimWishlistGifts}
+                claimDisabled={
+                  !participantClaimSelectedGiftIds.length ||
+                  claimGiftMutation.isPending ||
+                  isParticipantClaimWishlistGiftsLoading ||
+                  isParticipantClaimedGiftIdsLoading
+                }
+                claimLabel={
+                  claimGiftMutation.isPending ? "Claiming..." : "Claim Gift"
+                }
+                isLoading={
+                  isParticipantClaimWishlistGiftsLoading ||
+                  isParticipantClaimedGiftIdsLoading
+                }
+                isError={
+                  isActiveWishlistEventError ||
+                  isParticipantClaimWishlistGiftsError ||
+                  isParticipantClaimedGiftIdsError
+                }
+                onRetry={() => {
+                  void refetchActiveWishlistEvent();
+                  void refetchParticipantClaimWishlistGifts();
+                  void refetchParticipantClaimedGiftIds();
+                }}
+              />
+            ) : (
+              <WishlistGiftSelectionStep
+                selectedIds={selectedWishlistGiftIdsForStep}
+                onSelectedIdsChange={(ids) =>
+                  setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
+                }
+                onSelectedProductToggle={handleWishlistGiftProductToggle}
+                onViewProduct={(product) =>
+                  router.push(
+                    `/dashboard/gifts/product/${encodeURIComponent(product._id)}?backHref=${encodeURIComponent(wishlistGiftSelectionBackHref)}`,
+                  )
+                }
+                onBack={() =>
+                  setCurrentStep(
+                    "celebration-type",
+                    mode,
+                    eventId,
+                    wishlistEventId,
+                  )
+                }
+                onNext={handleWishListGiftSelectionNext}
+                onRetryInitialSelection={() => {
+                  void refetchMyParticipant();
+                  void refetchParticipantGiftSelections();
+                  void refetchCaughtMyEyeGiftIds();
+                  void refetchCartItems();
+                }}
+                isInitialSelectionLoading={
+                  isParticipantGiftSelectionsLoading ||
+                  isParticipantGiftSelectionsFetching ||
+                  isCaughtMyEyeGiftIdsLoading ||
+                  isCaughtMyEyeGiftIdsFetching ||
+                  isCartItemsLoading ||
+                  isCartItemsFetching ||
+                  isMyParticipantLoading ||
+                  isMyParticipantFetching
+                }
+                isInitialSelectionError={
+                  isParticipantGiftSelectionsError ||
+                  isCaughtMyEyeGiftIdsError ||
+                  isCartItemsError
+                }
+                enableInfiniteScroll
+                caughtMyEyeProductIds={caughtMyEyeWishlistGiftIds}
+                prioritizedProductIds={prioritizedWishlistGiftProductIds}
+                deferProductsUntilInitialSelectionResolved={
+                  isParticipantGiftSelectionsLoading ||
+                  isParticipantGiftSelectionsFetching ||
+                  isCaughtMyEyeGiftIdsLoading ||
+                  isCaughtMyEyeGiftIdsFetching ||
+                  isCartItemsLoading ||
+                  isCartItemsFetching ||
+                  isMyParticipantLoading ||
+                  isMyParticipantFetching
+                }
+                disableContentScroll
+                nextDisabled={
+                  !selectedWishlistGiftIdsForStep.length ||
+                  setupWishlistEventMutation.isPending ||
+                  updateWishlistEventSetupMutation.isPending ||
+                  completeWishlistEventMutation.isPending ||
+                  isMyParticipantLoading ||
+                  isMyParticipantFetching
+                }
+                nextLabel={
+                  setupWishlistEventMutation.isPending ||
+                  updateWishlistEventSetupMutation.isPending
+                    ? "Saving..."
+                    : "Next"
+                }
+              />
+            )}
           </div>
         </div>
+
+        <ConfirmationModal
+          open={isCompleteWishlistConfirmationOpen}
+          onClose={() => setIsCompleteWishlistConfirmationOpen(false)}
+          onConfirm={handleConfirmCompleteWishlistEvent}
+          onSecondaryConfirm={handleConfirmSaveWishlistSetupAsDraft}
+          action="save"
+          title="Complete Wish List"
+          description="Are you sure you are ready to complete this wish list and continue to the share step?"
+          confirmText="Yes, Continue"
+          secondaryConfirmText="Save as Draft"
+          isLoading={
+            setupWishlistEventMutation.isPending ||
+            updateWishlistEventSetupMutation.isPending ||
+            completeWishlistEventMutation.isPending
+          }
+          isSecondaryLoading={isSavingWishlistSetupAsDraft}
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
       </div>
     );
   }
@@ -2408,7 +2657,7 @@ export default function WishListScreen() {
         <div className="sm:hidden">
           <div className="overflow-hidden" ref={wishlistStatsEmblaRef}>
             <div className="flex gap-3">
-              {useDerivedWishListStats().map((stat) => (
+              {wishlistStats.map((stat) => (
                 <div key={stat.label} className="min-w-0 flex-[0_0_100%]">
                   <WishListStatCard {...stat} />
                 </div>
@@ -2419,7 +2668,7 @@ export default function WishListScreen() {
 
         {/* Grid for tablet and above */}
         <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {useDerivedWishListStats().map((stat) => (
+          {wishlistStats.map((stat) => (
             <WishListStatCard key={stat.label} {...stat} />
           ))}
         </div>
@@ -2503,7 +2752,7 @@ export default function WishListScreen() {
 
       <ContentModal
         open={isOpen}
-        onClose={closeModal}
+        onClose={handleCloseActiveWishlistFlow}
         title="Create Wish List"
         showHeader={false}
         closeOnOverlayClick={false}
@@ -2568,19 +2817,12 @@ export default function WishListScreen() {
             <FlowActionButtons
               showBack={false}
               onNext={handleWishListEventNext}
-              onSaveAndContinue={handleWishListEventSaveAndContinue}
-              stackSaveAndContinue={false}
               nextDisabled={
                 !selectedEventTypeId ||
                 createWishlistEventMutation.isPending ||
                 updateWishlistEventMutation.isPending
               }
-              isSaveAndContinuePending={
-                createWishlistEventMutation.isPending ||
-                updateWishlistEventMutation.isPending
-              }
               nextClassName="!w-fit min-w-[96px] px-6"
-              saveClassName="!w-fit min-w-[140px] px-6"
             />
           </div>
         ) : currentStep === "event-name" ? (
@@ -2595,17 +2837,11 @@ export default function WishListScreen() {
               setCurrentStep("gift-deadline", mode, eventId, wishlistEventId)
             }
             onNext={handleWishListEventNameNext}
-            onSaveAndContinue={handleSaveWishListDetails}
             title="Below is a suggestion of a name for your event."
             description="Feel free to edit as you see fit."
             placeholder="Write event name"
             nextLabel="Next"
-            saveAndContinueLabel="Save & Continue"
             nextDisabled={
-              createWishlistEventMutation.isPending ||
-              updateWishlistEventMutation.isPending
-            }
-            isSaveAndContinuePending={
               createWishlistEventMutation.isPending ||
               updateWishlistEventMutation.isPending
             }
@@ -2736,15 +2972,20 @@ export default function WishListScreen() {
               }}
             />
           ) : (
-            <WishlistGiftSelectionStep
-              selectedIds={selectedWishlistGiftIdsForStep}
-              onSelectedIdsChange={(ids) =>
-                setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
-              }
-              onSelectedProductToggle={handleWishlistGiftProductToggle}
-              onBack={() =>
-                setCurrentStep(
-                  "celebration-type",
+              <WishlistGiftSelectionStep
+                selectedIds={selectedWishlistGiftIdsForStep}
+                onSelectedIdsChange={(ids) =>
+                  setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
+                }
+                onSelectedProductToggle={handleWishlistGiftProductToggle}
+                onViewProduct={(product) =>
+                  router.push(
+                    `/dashboard/gifts/product/${encodeURIComponent(product._id)}?backHref=${encodeURIComponent(wishlistGiftSelectionBackHref)}`,
+                  )
+                }
+                onBack={() =>
+                  setCurrentStep(
+                    "celebration-type",
                   mode,
                   eventId,
                   wishlistEventId,
@@ -2773,12 +3014,16 @@ export default function WishListScreen() {
               }
               nextDisabled={
                 !selectedWishlistGiftIdsForStep.length ||
-                createBulkGiftsMutation.isPending ||
+                setupWishlistEventMutation.isPending ||
+                updateWishlistEventSetupMutation.isPending ||
                 isMyParticipantLoading ||
                 isMyParticipantFetching
               }
               nextLabel={
-                createBulkGiftsMutation.isPending ? "Saving..." : "Next"
+                setupWishlistEventMutation.isPending ||
+                updateWishlistEventSetupMutation.isPending
+                  ? "Saving..."
+                  : "Next"
               }
             />
           )
@@ -2815,7 +3060,6 @@ export default function WishListScreen() {
                 ),
               })
             }
-            onBack={handleWishlistInviteBack}
             onSendEmail={handleWishlistInviteSendEmail}
             onCopyLink={handleWishlistInviteCopyLink}
           />
@@ -2834,16 +3078,10 @@ export default function WishListScreen() {
                   setCurrentStep("event", mode, eventId, wishlistEventId)
                 }
                 onNext={handleWishListEventDateNext}
-                onSaveAndContinue={handleWishListEventDateSaveAndContinue}
                 heading="What's the date?"
                 headingAlign="left"
                 showGoToEventNameLink={false}
                 nextLabel="Next"
-                saveAndContinueLabel="Save & Continue"
-                isSaveAndContinuePending={
-                  createWishlistEventMutation.isPending ||
-                  updateWishlistEventMutation.isPending
-                }
               />
             ) : (
               <EventDateStep
@@ -2858,16 +3096,10 @@ export default function WishListScreen() {
                   setCurrentStep("event-date", mode, eventId, wishlistEventId)
                 }
                 onNext={handleWishListDeadlineNext}
-                onSaveAndContinue={handleWishListDeadlineSaveAndContinue}
                 heading="Gift Deadline"
                 headingAlign="left"
                 showGoToEventNameLink={false}
                 nextLabel="Next"
-                saveAndContinueLabel="Save & Continue"
-                isSaveAndContinuePending={
-                  createWishlistEventMutation.isPending ||
-                  updateWishlistEventMutation.isPending
-                }
               />
             )}
           </>
@@ -2916,14 +3148,31 @@ export default function WishListScreen() {
         open={isCompleteWishlistConfirmationOpen}
         onClose={() => setIsCompleteWishlistConfirmationOpen(false)}
         onConfirm={handleConfirmCompleteWishlistEvent}
+        onSecondaryConfirm={handleConfirmSaveWishlistSetupAsDraft}
         action="save"
         title="Complete Wish List"
         description="Are you sure you are ready to complete this wish list and continue to the share step?"
         confirmText="Yes, Continue"
+        secondaryConfirmText="Save as Draft"
         isLoading={
-          createBulkGiftsMutation.isPending ||
+          setupWishlistEventMutation.isPending ||
+          updateWishlistEventSetupMutation.isPending ||
           completeWishlistEventMutation.isPending
         }
+        isSecondaryLoading={isSavingWishlistSetupAsDraft}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={isDiscardWishlistFlowConfirmationOpen}
+        onClose={() => setIsDiscardWishlistFlowConfirmationOpen(false)}
+        onConfirm={handleConfirmDiscardWishlistFlow}
+        action="delete"
+        title="Discard Wish List Setup"
+        description="If you close this flow now, the records and setup details you have entered locally will be lost."
+        confirmText="Discard"
+        cancelText="Keep Editing"
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
