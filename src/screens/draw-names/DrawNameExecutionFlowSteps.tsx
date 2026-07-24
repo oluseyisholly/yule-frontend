@@ -45,7 +45,7 @@ type DrawNameExecutionFlowStepsProps = {
   onResultPrimaryAction: () => void;
   resultPrimaryActionLabel: string;
   isResultPrimaryActionPending: boolean;
-  onInviteBack: () => void;
+  onInviteBack?: () => void;
   onSendEmail: () => void;
   onShareFacebook: () => void;
   onShareWhatsApp: () => void;

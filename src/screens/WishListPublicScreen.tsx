@@ -97,7 +97,9 @@ function formatVisibility(value?: string | null) {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
-function getAvailabilityStyles(availability: WishListItem["availability"]) {
+function getAvailabilityStyles(
+  availability: WishlistGiftCardItem["availability"],
+) {
   if (availability === "Claimed") {
     return "bg-[#FDE9E7] text-[#D94C3F]";
   }
