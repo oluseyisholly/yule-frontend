@@ -248,42 +248,41 @@ function ScheduleGiftCard({
   const overflowCount = Math.max((gift.recipientCount ?? people.length) - 2, 0);
 
   return (
-    <article className="flex min-h-full flex-col rounded-[18px] border border-[#F0EEFF] bg-white p-3 shadow-[0_8px_24px_rgba(29,18,68,0.04)]">
-      <div className="relative h-[150px] overflow-hidden rounded-[14px] bg-[#F6F2FF]">
+    <article className="group flex min-h-full flex-col gap-3 rounded-[16px] border border-[#EEEAF7] bg-[#FCFBFF] p-3 transition-all hover:border-[#D8CEF8] hover:shadow-[0_10px_28px_rgba(51,0,201,0.08)]">
+      <div className="relative h-[130px] overflow-hidden rounded-[12px] bg-[#F4F2FA]">
         {gift.imageUrl ? (
           <img
             src={gift.imageUrl}
             alt={gift.title || "Assigned gift"}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm font-medium text-[#3300C9]">
-            Gift
+          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A8892]">
+            No image
           </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col pt-3">
-        <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-1 flex-col">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="truncate text-[14px] font-semibold text-[#1E1E1E]">
+            <h3 className="truncate text-[15px] font-semibold text-[#1E1E1E]">
               {gift.title?.trim() || "Selected gift"}
             </h3>
-            <p className="mt-1 text-[11px] font-medium text-[#FF6600]">
-              {formatCategoryLabel(gift.condition || gift.categorySlug)}
+            <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#7D7D7D]">
+              {gift.description?.trim() ||
+                "No description available for this gift yet."}
             </p>
           </div>
-          <p className="shrink-0 text-[13px] font-semibold text-[#1E1E1E]">
-            {formatCurrency(gift.amount, gift.currency?.trim() || "NGN")}
-          </p>
+          <span className="shrink-0 rounded-full border border-[#E8DDFE] bg-white px-2 py-1 text-[10px] font-medium text-[#3300C9]">
+            {formatCategoryLabel(gift.condition || gift.categorySlug)}
+          </span>
         </div>
 
-        <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#7D7D7D]">
-          {gift.description?.trim() ||
-            "No description available for this gift yet."}
-        </p>
-
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-[16px] font-semibold text-[#3300C9]">
+            {formatCurrency(gift.amount, gift.currency?.trim() || "NGN")}
+          </span>
           <div className="flex min-w-0 items-center -space-x-2">
             {visiblePeople.map((person, index) => {
               const name =
@@ -310,7 +309,9 @@ function ScheduleGiftCard({
               </span>
             ) : null}
           </div>
+        </div>
 
+        <div className="mt-3 flex items-center justify-end">
           <Link
             href={
               giftId
@@ -319,11 +320,11 @@ function ScheduleGiftCard({
             }
             aria-disabled={!giftId}
             className={cn(
-              "inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#3300C9] px-4 text-[12px] font-medium text-white transition-colors hover:bg-[#2D00B4]",
+              "rounded-full bg-[#F3EFFB] px-3 py-1 text-[11px] font-medium text-[#3300C9] transition-colors hover:bg-[#ECE6FB]",
               !giftId && "pointer-events-none opacity-50",
             )}
           >
-            View Gift
+            View gift
           </Link>
         </div>
       </div>

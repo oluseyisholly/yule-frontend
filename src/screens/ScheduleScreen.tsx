@@ -2606,7 +2606,6 @@ export default function ScheduleScreen() {
       onBack={() => updateRoute("compose")}
       onNext={handleGiftSelectionNext}
       nextLabel={selectedGiftIds.length ? "Next" : "Skip"}
-      disableContentScroll
       enableInfiniteScroll
     />
   );
