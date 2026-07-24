@@ -361,9 +361,6 @@ export default function ScheduledEventMessageGiftViewScreen({
       onDelete={() => {
         toast("Deleting selected gifts is not available yet.");
       }}
-      onMessageVendor={() => {
-        toast("Vendor messaging is not available yet.");
-      }}
       onReportItem={() => {
         toast("Reporting gifts is not available yet.");
       }}

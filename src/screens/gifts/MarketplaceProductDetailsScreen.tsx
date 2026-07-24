@@ -113,9 +113,6 @@ export default function MarketplaceProductDetailsScreen({
             : "Add to Favourites"
         }
         addToCartDisabled={createContactGiftCartItemMutation.isPending}
-        onMessageVendor={() =>
-          toast("Vendor messaging is not available yet.")
-        }
         onReportItem={() => toast("Thanks. We will review this item.")}
         onShareProduct={() => toast.success("Product link copied.")}
       />

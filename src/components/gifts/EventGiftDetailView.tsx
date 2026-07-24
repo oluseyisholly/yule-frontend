@@ -15,6 +15,7 @@ import locationIcon from "@/assets/icons/location.svg";
 import verifiedIcon from "@/assets/icons/verified.svg";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import { cn } from "@/lib/utils";
+import VendorChatPopover from "@/components/messages/VendorChatPopover";
 
 type EventGiftDetailStatus =
   | "Completed"
@@ -52,8 +53,7 @@ type EventGiftDetailViewProps = {
   onStatusAction?: () => void;
   statusActionLabel?: string;
   statusActionDisabled?: boolean;
-  onMessageVendor: () => void;
-  onReportItem: () => void;
+onReportItem: () => void;
   onShareProduct: () => void;
   showHeader?: boolean;
 };
@@ -209,11 +209,11 @@ export default function EventGiftDetailView({
   onStatusAction,
   statusActionLabel = "Mark as Fulfilled",
   statusActionDisabled = false,
-  onMessageVendor,
-  onReportItem,
+onReportItem,
   onShareProduct,
 }: EventGiftDetailViewProps) {
-  const [selectedGiftImageIndex, setSelectedGiftImageIndex] = useState(0);
+const [selectedGiftImageIndex, setSelectedGiftImageIndex] = useState(0);
+ const [isVendorChatOpen, setIsVendorChatOpen] = useState(false);
 
   const selectedGiftImages = useMemo(
     () => product.images?.filter((image) => Boolean(image?.trim())) ?? [],
@@ -433,7 +433,7 @@ export default function EventGiftDetailView({
                       onAddToCart &&
                         "border-[#3300C9] bg-white text-[#3300C9] hover:bg-[#F6F2FF] hover:text-[#3300C9]",
                     )}
-                    onClick={onMessageVendor}
+ onClick={() => setIsVendorChatOpen(true)}
                   >
                     Message Vendor
                   </Button>
@@ -500,7 +500,13 @@ export default function EventGiftDetailView({
             </div>
           </div>
         </div>
-      </section>
-    </div>
+</section>
+
+ <VendorChatPopover
+ open={isVendorChatOpen}
+ onOpenChange={setIsVendorChatOpen}
+ productTitle={product.title}
+ />
+</div>
   );
 }

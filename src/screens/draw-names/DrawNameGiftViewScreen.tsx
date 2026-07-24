@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import BackLink, { BackIcon } from "@/components/BackLink";
 import Button from "@/components/Button";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
+import VendorChatPopover from "@/components/messages/VendorChatPopover";
 import DetailHeader from "@/components/DetailHeader";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import {
@@ -432,7 +433,8 @@ export default function DrawNameGiftViewScreen({
   const router = useRouter();
   const authUser = useAuthStore((state) => state.user);
   const currentContactId = useAuthStore((state) => state.currentContactId);
-  const [selectedGiftImageIndex, setSelectedGiftImageIndex] = useState(0);
+const [selectedGiftImageIndex, setSelectedGiftImageIndex] = useState(0);
+ const [isVendorChatOpen, setIsVendorChatOpen] = useState(false);
   const { data, isLoading, isError, refetch } =
     useDrawNameEventQuery(drawNameEventId);
   const drawNameEvent = data?.data ?? null;
@@ -756,9 +758,6 @@ export default function DrawNameGiftViewScreen({
         onDelete={() => {
           toast("Deleting selected gifts is not available yet.");
         }}
-        onMessageVendor={() => {
-          toast("Vendor messaging is not available yet.");
-        }}
         onReportItem={() => {
           toast("Reporting gifts is not available yet.");
         }}
@@ -1009,9 +1008,7 @@ export default function DrawNameGiftViewScreen({
                     <Button
                       type="button"
                       className="w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:w-auto"
-                      onClick={() => {
-                        toast("Vendor messaging is not available yet.");
-                      }}
+ onClick={() => setIsVendorChatOpen(true)}
                     >
                       Message Vendor
                     </Button>
@@ -1105,7 +1102,13 @@ export default function DrawNameGiftViewScreen({
             </>
           )}
         </div>
-      </section>
-    </div>
+</section>
+
+ <VendorChatPopover
+ open={isVendorChatOpen}
+ onOpenChange={setIsVendorChatOpen}
+ productTitle={selectedGiftDetailProduct?.title}
+ />
+</div>
   );
 }

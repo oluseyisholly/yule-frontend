@@ -3109,9 +3109,6 @@ export default function DashboardHangoutsScreen() {
           product={viewingHangoutProduct}
           hideDeleteAction
           onDelete={() => undefined}
-          onMessageVendor={() =>
-            toast("Vendor messaging is not available yet.")
-          }
           onReportItem={() => toast("Thanks. We will review this option.")}
           onShareProduct={() => toast.success("Link copied.")}
         />

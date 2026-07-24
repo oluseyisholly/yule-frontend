@@ -280,8 +280,8 @@ export default function GiftItemDetailsScreen({
   const backHref = `/dashboard/gifts?tab=${tab}`;
   const giftId = giftItemId.trim();
   const updateGiftFulfillmentMutation = useUpdateGiftFulfillmentMutation();
-  const [isFulfillmentConfirmOpen, setIsFulfillmentConfirmOpen] =
-    useState(false);
+const [isFulfillmentConfirmOpen, setIsFulfillmentConfirmOpen] =
+useState(false);
 
   const {
     data: giftResponse,
@@ -647,9 +647,6 @@ export default function GiftItemDetailsScreen({
             : undefined
         }
         statusActionDisabled={updateGiftFulfillmentMutation.isPending}
-        onMessageVendor={() => {
-          toast("Vendor messaging is not available yet.");
-        }}
         onReportItem={() => {
           toast("Reporting gifts is not available yet.");
         }}
@@ -676,10 +673,10 @@ export default function GiftItemDetailsScreen({
         confirmText={
           gift?.isFulfilled ? "Mark as Not Fulfilled" : "Mark as Fulfilled"
         }
-        isLoading={updateGiftFulfillmentMutation.isPending}
-      />
+isLoading={updateGiftFulfillmentMutation.isPending}
+/>
 
-      {tab === "sent" ? (
+{tab === "sent" ? (
         <SentGiftRecipients
           people={sentGiftPeople}
           recipientCount={sentGiftRecipientCount}

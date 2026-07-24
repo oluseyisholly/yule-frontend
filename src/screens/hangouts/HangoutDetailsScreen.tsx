@@ -15,6 +15,7 @@ import {
 import Button from "@/components/Button";
 import { BackIcon } from "@/components/BackLink";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
+import VendorChatPopover from "@/components/messages/VendorChatPopover";
 import UserAvatar from "@/components/UserAvatar";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { Calendar } from "@/components/ui/calender";
@@ -519,7 +520,8 @@ export default function HangoutDetailsScreen({
   const [editableCheckInDate, setEditableCheckInDate] = useState("");
   const [editableCheckOutDate, setEditableCheckOutDate] = useState("");
   const [isCheckInCalendarOpen, setIsCheckInCalendarOpen] = useState(false);
-  const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
+const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
+ const [isVendorChatOpen, setIsVendorChatOpen] = useState(false);
   const [pendingFulfillmentState, setPendingFulfillmentState] = useState<
     boolean | null
   >(null);
@@ -1006,9 +1008,7 @@ export default function HangoutDetailsScreen({
               {canManage && (
                 <Button
                   type="button"
-                  onClick={() =>
-                    toast("Vendor messaging will be connected next.")
-                  }
+ onClick={() => setIsVendorChatOpen(true)}
                   className="h-[44px] w-full rounded-[15px] px-6 py-3 text-xs font-medium sm:h-auto"
                 >
                   Message Vendor
@@ -1047,7 +1047,7 @@ export default function HangoutDetailsScreen({
         </div>
       </section>
 
-      <ConfirmationModal
+<ConfirmationModal
         open={pendingFulfillmentState !== null}
         onClose={() => setPendingFulfillmentState(null)}
         onConfirm={handleConfirmToggleHangoutFulfillment}
@@ -1067,8 +1067,14 @@ export default function HangoutDetailsScreen({
             ? "Mark as Fulfilled"
             : "Mark as Not Fulfilled"
         }
-        isLoading={updateHangoutFulfillmentMutation.isPending}
-      />
-    </div>
+isLoading={updateHangoutFulfillmentMutation.isPending}
+/>
+
+ <VendorChatPopover
+ open={isVendorChatOpen}
+ onOpenChange={setIsVendorChatOpen}
+ productTitle={marketplaceProduct?.title || pageTitle}
+ />
+</div>
   );
 }

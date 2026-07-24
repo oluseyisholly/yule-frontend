@@ -171,7 +171,6 @@ export default function ContactGiftCartItemDetailsScreen({
         showInlineDeleteAction
         inlineDeleteActionLabel="Delete"
         onDelete={() => setIsDeleteModalOpen(true)}
-        onMessageVendor={() => toast("Vendor messaging is not available yet.")}
         onReportItem={() => toast("Thanks. We will review this item.")}
         onShareProduct={() => toast.success("Product link copied.")}
       />
