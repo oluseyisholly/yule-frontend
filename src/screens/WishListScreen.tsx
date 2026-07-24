@@ -88,7 +88,10 @@ import type {
   WishlistEventSetupPayload,
 } from "@/features/wishlist-events/types";
 import { cn, shareInvite } from "@/lib/utils";
-import { buildSignedInInviteUrl, buildInviteShareMessage } from "@/lib/invite-links";
+import {
+  buildSignedInInviteUrl,
+  buildInviteShareMessage,
+} from "@/lib/invite-links";
 import {
   isWishListModalStep,
   type WishListModalStep,
@@ -839,8 +842,10 @@ export default function WishListScreen() {
     useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<WishListActivityTab>("organizer");
-  const [isWishlistInviteEmailComposeOpen, setIsWishlistInviteEmailComposeOpen] =
-    useState(false);
+  const [
+    isWishlistInviteEmailComposeOpen,
+    setIsWishlistInviteEmailComposeOpen,
+  ] = useState(false);
   const [
     isCompleteWishlistConfirmationOpen,
     setIsCompleteWishlistConfirmationOpen,
@@ -902,7 +907,8 @@ export default function WishListScreen() {
   const completeWishlistEventMutation = useCompleteWishlistEventMutation();
   const setupWishlistEventMutation = useSetupWishlistEventMutation();
   const updateWishlistEventMutation = useUpdateWishlistEventMutation();
-  const updateWishlistEventSetupMutation = useUpdateWishlistEventSetupMutation();
+  const updateWishlistEventSetupMutation =
+    useUpdateWishlistEventSetupMutation();
   const sendEmailMutation = useSendEmailMutation();
   const {
     data: wishlistEventsResponse,
@@ -1017,10 +1023,8 @@ export default function WishListScreen() {
     isError: isCaughtMyEyeGiftIdsError,
     refetch: refetchCaughtMyEyeGiftIds,
   } = useContactGiftCartParticipantGiftIdsQuery({
-      enabled:
-        isOpen &&
-        isWishlistGiftSelectionStep &&
-        !isParticipantClaimWishlistStep,
+    enabled:
+      isOpen && isWishlistGiftSelectionStep && !isParticipantClaimWishlistStep,
   });
   const {
     data: participantClaimWishlistGiftsResponse,
@@ -1063,7 +1067,7 @@ export default function WishListScreen() {
     () =>
       wishlistEventId
         ? buildSignedInInviteUrl(`/wishlist/${wishlistEventId}`)
-        : publicWishlistLink ?? "",
+        : (publicWishlistLink ?? ""),
     [publicWishlistLink, wishlistEventId],
   );
 
@@ -1103,13 +1107,14 @@ export default function WishListScreen() {
   );
   const caughtMyEyeWishlistGiftIds = useMemo(
     () =>
-      caughtMyEyeGiftIdsResponse?.data.participantGiftIds?.filter(Boolean) ?? [],
+      caughtMyEyeGiftIdsResponse?.data.participantGiftIds?.filter(Boolean) ??
+      [],
     [caughtMyEyeGiftIdsResponse],
   );
   const selectedWishlistGiftProductsForStep = useMemo(() => {
-    const storedProducts = Object.values(selectedWishlistGiftProductsById).filter(
-      (product): product is MarketplaceProduct => Boolean(product),
-    );
+    const storedProducts = Object.values(
+      selectedWishlistGiftProductsById,
+    ).filter((product): product is MarketplaceProduct => Boolean(product));
 
     if (storedProducts.length > 0) {
       return storedProducts;
@@ -1125,7 +1130,9 @@ export default function WishListScreen() {
     ];
 
     return Array.from(
-      new Map(derivedProducts.map((product) => [product._id, product])).values(),
+      new Map(
+        derivedProducts.map((product) => [product._id, product]),
+      ).values(),
     );
   }, [
     caughtMyEyeCartProducts,
@@ -1274,10 +1281,7 @@ export default function WishListScreen() {
         );
 
       if (!selectedIdsAreEqual) {
-        setStoredSelectedWishlistGiftIds(
-          flowSelectionKey,
-          mergedSelectedIds,
-        );
+        setStoredSelectedWishlistGiftIds(flowSelectionKey, mergedSelectedIds);
       }
     }
 
@@ -2060,8 +2064,8 @@ export default function WishListScreen() {
         ? selectedWishlistGiftProductsForStep
         : selectedWishlistGiftIdsForStep
             .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
-            .filter(
-              (product): product is MarketplaceProduct => Boolean(product),
+            .filter((product): product is MarketplaceProduct =>
+              Boolean(product),
             );
 
     if (!resolvedSelectedProducts.length) {
@@ -2187,8 +2191,8 @@ export default function WishListScreen() {
         ? selectedWishlistGiftProductsForStep
         : selectedWishlistGiftIdsForStep
             .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
-            .filter(
-              (product): product is MarketplaceProduct => Boolean(product),
+            .filter((product): product is MarketplaceProduct =>
+              Boolean(product),
             );
 
     if (!resolvedSelectedProducts.length) {
@@ -2258,10 +2262,9 @@ export default function WishListScreen() {
         return;
       }
 
-      const completeResponse =
-        await completeWishlistEventMutation.mutateAsync(
-          setupResponse.resolvedWishlistEventId,
-        );
+      const completeResponse = await completeWishlistEventMutation.mutateAsync(
+        setupResponse.resolvedWishlistEventId,
+      );
       toast.success(completeResponse.message);
       setIsCompleteWishlistConfirmationOpen(false);
       setCurrentStep(
@@ -2910,7 +2913,7 @@ export default function WishListScreen() {
               />
             </div>
           </div>
-        ) : currentStep === "gift-selection" ? (
+        ) : isWishlistGiftSelectionStep ? (
           isActiveWishlistEventLoading && mode === "edit" && wishlistEventId ? (
             <ModalPanelSkeleton className="min-h-[320px]" />
           ) : isActiveWishlistEventError &&
@@ -2972,20 +2975,20 @@ export default function WishListScreen() {
               }}
             />
           ) : (
-              <WishlistGiftSelectionStep
-                selectedIds={selectedWishlistGiftIdsForStep}
-                onSelectedIdsChange={(ids) =>
-                  setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
-                }
-                onSelectedProductToggle={handleWishlistGiftProductToggle}
-                onViewProduct={(product) =>
-                  router.push(
-                    `/dashboard/gifts/product/${encodeURIComponent(product._id)}?backHref=${encodeURIComponent(wishlistGiftSelectionBackHref)}`,
-                  )
-                }
-                onBack={() =>
-                  setCurrentStep(
-                    "celebration-type",
+            <WishlistGiftSelectionStep
+              selectedIds={selectedWishlistGiftIdsForStep}
+              onSelectedIdsChange={(ids) =>
+                setStoredSelectedWishlistGiftIds(flowSelectionKey, ids)
+              }
+              onSelectedProductToggle={handleWishlistGiftProductToggle}
+              onViewProduct={(product) =>
+                router.push(
+                  `/dashboard/gifts/product/${encodeURIComponent(product._id)}?backHref=${encodeURIComponent(wishlistGiftSelectionBackHref)}`,
+                )
+              }
+              onBack={() =>
+                setCurrentStep(
+                  "celebration-type",
                   mode,
                   eventId,
                   wishlistEventId,
@@ -3029,11 +3032,7 @@ export default function WishListScreen() {
           )
         ) : currentStep === "invite" ? (
           <DrawNameInviteStep
-            title={
-              <>
-                Invite friends or colleagues to feature in wishlist.
-              </>
-            }
+            title={<>Invite friends or colleagues to feature in wishlist.</>}
             onShareFacebook={() =>
               shareInvite({
                 platform: "facebook",
