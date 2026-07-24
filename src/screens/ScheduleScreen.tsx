@@ -332,7 +332,6 @@ function mapScheduledMessageParticipantsToRecordItems(
       const firstName = contact?.firstName?.trim() || "";
       const lastName = contact?.lastName?.trim() || "";
       const email = contact?.email?.trim() || "";
-      const phoneNumber = contact?.phoneNumber?.trim() || "";
       const contactId = contact?.id?.trim() || participant.eventContactId || "";
       const participantId = participant.id?.trim() || "";
       const recordId = contactId || participantId;
@@ -341,17 +340,16 @@ function mapScheduledMessageParticipantsToRecordItems(
         return null;
       }
 
-      return {
-        id: recordId,
-        name: `${firstName} ${lastName}`.trim() || email || "Selected contact",
-        email,
-        subtitle: email || phoneNumber || "Contact",
-        firstName,
-        lastName,
-        phoneNumber,
-        profileUrl: contact?.profileUrl?.trim() || null,
-        initials: getInitials(firstName, lastName),
-      } satisfies SearchableRecordItem;
+        return {
+          id: recordId,
+          name: `${firstName} ${lastName}`.trim() || email || "Selected contact",
+          email,
+          subtitle: email || "Contact",
+          firstName,
+          lastName,
+          profileUrl: contact?.profileUrl?.trim() || null,
+          initials: getInitials(firstName, lastName),
+        } satisfies SearchableRecordItem;
     })
     .filter((record): record is SearchableRecordItem => Boolean(record));
 
