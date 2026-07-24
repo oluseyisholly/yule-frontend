@@ -2072,11 +2072,15 @@ export default function ScheduleScreen() {
         setSelectedParticipantRecords((current) =>
           current.filter((participant) => participant.id !== id),
         );
-        setSelectedRecipientParticipantIds((current) =>
-          current.filter((participantId) => participantId !== id),
+        setSelectedRecipientParticipantIds(
+          selectedRecipientParticipantIds.filter(
+            (participantId) => participantId !== id,
+          ),
         );
-        setSelectedRecipientParticipantId((current) =>
-          current === id ? "" : current,
+        setSelectedRecipientParticipantId(
+          selectedRecipientParticipantId === id
+            ? ""
+            : selectedRecipientParticipantId,
         );
       }}
       nextLabel="Next"
