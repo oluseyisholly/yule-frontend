@@ -1794,6 +1794,10 @@ export default function DashboardGiftsScreen() {
     const params = new URLSearchParams({
       tab: activeTab,
     });
+    const routeGiftId =
+      activeTab === "sent"
+        ? row.participantGiftId?.trim() || row.id
+        : row.id;
 
     if (activeTab === "sent") {
       if (row.eventId) {
@@ -1806,7 +1810,7 @@ export default function DashboardGiftsScreen() {
     }
 
     router.push(
-      `/dashboard/gifts/item/${encodeURIComponent(row.id)}?${params.toString()}`,
+      `/dashboard/gifts/item/${encodeURIComponent(routeGiftId)}?${params.toString()}`,
     );
   };
 
