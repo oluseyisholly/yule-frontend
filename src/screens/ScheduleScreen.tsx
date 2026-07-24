@@ -326,32 +326,32 @@ function mapScheduledMessageParticipantsToRecordItems(
 ): SearchableRecordItem[] {
   const participants = row.participants ?? [];
 
-  const mappedParticipants = participants
-    .map((participant) => {
-      const contact = participant.eventContact;
-      const firstName = contact?.firstName?.trim() || "";
-      const lastName = contact?.lastName?.trim() || "";
-      const email = contact?.email?.trim() || "";
-      const contactId = contact?.id?.trim() || participant.eventContactId || "";
-      const participantId = participant.id?.trim() || "";
-      const recordId = contactId || participantId;
+  const mappedParticipants: SearchableRecordItem[] = [];
 
-      if (!recordId) {
-        return null;
-      }
+  participants.forEach((participant) => {
+    const contact = participant.eventContact;
+    const firstName = contact?.firstName?.trim() || "";
+    const lastName = contact?.lastName?.trim() || "";
+    const email = contact?.email?.trim() || "";
+    const contactId = contact?.id?.trim() || participant.eventContactId || "";
+    const participantId = participant.id?.trim() || "";
+    const recordId = contactId || participantId;
 
-        return {
-          id: recordId,
-          name: `${firstName} ${lastName}`.trim() || email || "Selected contact",
-          email,
-          subtitle: email || "Contact",
-          firstName,
-          lastName,
-          profileUrl: contact?.profileUrl?.trim() || null,
-          initials: getInitials(firstName, lastName),
-        } satisfies SearchableRecordItem;
-    })
-    .filter((record): record is SearchableRecordItem => Boolean(record));
+    if (!recordId) {
+      return;
+    }
+
+    mappedParticipants.push({
+      id: recordId,
+      name: `${firstName} ${lastName}`.trim() || email || "Selected contact",
+      email,
+      subtitle: email || "Contact",
+      firstName,
+      lastName,
+      profileUrl: contact?.profileUrl?.trim() || null,
+      initials: getInitials(firstName, lastName),
+    });
+  });
 
   if (mappedParticipants.length) {
     return mappedParticipants;
