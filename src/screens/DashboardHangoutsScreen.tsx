@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
@@ -124,10 +124,20 @@ import {
 
 type ViewMode = "list" | "grid";
 type HangoutStatusLabel = "Past" | "Upcoming";
-type HangoutActivityTab = "organizer" | "participant";
+type HangoutActivityTab = "organizer" | "participant" | "sponsored";
 
 const FLOW_BACK_TRIGGER_CLASS =
   "flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]";
+
+function normalizeHangoutActivityTab(
+  value: string | null | undefined,
+): HangoutActivityTab {
+  if (value === "participant" || value === "sponsored") {
+    return value;
+  }
+
+  return "organizer";
+}
 
 type HangoutMetric = {
   value: string;
@@ -983,11 +993,15 @@ function toHangoutEventRow(
 
 export default function DashboardHangoutsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<HangoutActivityTab>("organizer");
+  const [activeTab, setActiveTab] = useState<HangoutActivityTab>(() =>
+    normalizeHangoutActivityTab(searchParams?.get("tab")),
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [recordSearchValue, setRecordSearchValue] = useState("");
   const [debouncedRecordSearchValue, setDebouncedRecordSearchValue] =
@@ -1170,6 +1184,30 @@ export default function DashboardHangoutsScreen() {
     setCurrentPage(1);
     setSelectedIds([]);
   }, [activeTab]);
+
+  useEffect(() => {
+    const nextTab = normalizeHangoutActivityTab(searchParams?.get("tab"));
+
+    setActiveTab((currentTab) =>
+      currentTab === nextTab ? currentTab : nextTab,
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
+    const currentTab = normalizeHangoutActivityTab(searchParams?.get("tab"));
+
+    if (currentTab === activeTab) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams?.toString() ?? "");
+    nextParams.set("tab", activeTab);
+    const nextQuery = nextParams.toString();
+
+    router.replace(`${pathname}${nextQuery ? `?${nextQuery}` : ""}`, {
+      scroll: false,
+    });
+  }, [activeTab, pathname, router, searchParams]);
 
   const {
     data: availableEventTypesResponse,
@@ -3223,6 +3261,18 @@ export default function DashboardHangoutsScreen() {
                 )}
               >
                 Participant
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("sponsored")}
+                className={cn(
+                  "border-b-2 pb-2 text-sm font-medium transition-colors",
+                  activeTab === "sponsored"
+                    ? "border-[#3300C9] text-[#3300C9]"
+                    : "border-transparent text-[#9A97A5] hover:text-[#5A4CB8]",
+                )}
+              >
+                Sponsored
               </button>
             </div>
           </div>

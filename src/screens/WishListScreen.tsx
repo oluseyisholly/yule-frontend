@@ -33,6 +33,7 @@ import OverlaySelect, {
 } from "@/components/OverlaySelect";
 import WishlistClaimGiftSelectionStep from "@/components/WishlistClaimGiftSelectionStep";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
+import type { WishlistGiftCardItem } from "@/components/WishlistGiftItemCard";
 import FilterIcon from "@/components/icons/FilterIcon";
 import Pagination from "@/components/Pagination";
 import FlowActionButtons from "@/components/FlowActionButtons";
@@ -69,11 +70,13 @@ import { useDeleteWishlistEventMutation } from "@/features/wishlist-events/hooks
 import { useCompleteWishlistEventMutation } from "@/features/wishlist-events/hooks/useCompleteWishlistEventMutation";
 import { useWishlistEventClaimedGiftIdsQuery } from "@/features/wishlist-events/hooks/useWishlistEventClaimedGiftIdsQuery";
 import { useWishlistEventGiftsQuery } from "@/features/wishlist-events/hooks/useWishlistEventGiftsQuery";
+import { useWishlistEventHangoutQuery } from "@/features/wishlist-events/hooks/useWishlistEventHangoutQuery";
 import { useWishlistEventQuery } from "@/features/wishlist-events/hooks/useWishlistEventQuery";
 import { useSetupWishlistEventMutation } from "@/features/wishlist-events/hooks/useSetupWishlistEventMutation";
 import { useUpdateWishlistEventMutation } from "@/features/wishlist-events/hooks/useUpdateWishlistEventMutation";
 import { useUpdateWishlistEventSetupMutation } from "@/features/wishlist-events/hooks/useUpdateWishlistEventSetupMutation";
 import { useClaimGiftMutation } from "@/features/gifts/hooks/useClaimGiftMutation";
+import { useClaimHangoutEventMutation } from "@/features/hangout-events/hooks/useClaimHangoutEventMutation";
 import { useContactGiftCartItemsQuery } from "@/features/gifts/hooks/useContactGiftCartItemsQuery";
 import { useContactGiftCartParticipantGiftIdsQuery } from "@/features/gifts/hooks/useContactGiftCartParticipantGiftIdsQuery";
 import { useParticipantGiftSelectionsQuery } from "@/features/gifts/hooks/useParticipantGiftSelectionsQuery";
@@ -89,7 +92,6 @@ import type {
 } from "@/features/wishlist-events/types";
 import { cn, shareInvite } from "@/lib/utils";
 import {
-  buildSignedInInviteUrl,
   buildInviteShareMessage,
 } from "@/lib/invite-links";
 import {
@@ -103,6 +105,7 @@ import {
   EMPTY_WISHLIST_FLOW_SELECTION,
   useWishListFlowStore,
 } from "@/stores/wishlist-flow-store";
+import featureImg1 from "@/assets/icons/featureImg1.svg";
 
 type WishListStatus = "Completed" | "Draft" | "Ongoing" | string;
 
@@ -263,6 +266,39 @@ function formatWishListEventDate(value?: string | null) {
     month: "2-digit",
     year: "numeric",
   }).format(date);
+}
+
+function formatWishlistHangoutDateLabel(value?: string | null) {
+  if (!value) {
+    return "Date not available";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date not available";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatCurrency(value?: string | number | null) {
+  const numericValue =
+    typeof value === "number" ? value : Number(value?.toString() ?? 0);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return "Price on request";
+  }
+
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(numericValue);
 }
 
 function toDateInputValue(value?: string | null) {
@@ -516,6 +552,42 @@ function getParticipantDisplayName(participant: WishlistEventParticipant) {
   );
 }
 
+function getWishlistHangoutParticipantSummary(
+  participants: WishlistEventParticipant[] = [],
+) {
+  if (!participants.length) {
+    return "";
+  }
+
+  const names = participants
+    .map((participant) => getParticipantDisplayName(participant))
+    .filter(Boolean);
+
+  if (!names.length) {
+    return "";
+  }
+
+  if (names.length === 1) {
+    return `Participant: ${names[0]}`;
+  }
+
+  return `Participants: ${names.join(", ")}`;
+}
+
+function mapWishlistHangoutParticipants(
+  participants: WishlistEventParticipant[] = [],
+) {
+  return participants.map((participant) => {
+    const actor = participant.eventContact ?? participant.user;
+
+    return {
+      id: participant.id,
+      name: getParticipantDisplayName(participant),
+      profileUrl: actor?.profileUrl?.trim() || null,
+    };
+  });
+}
+
 function mapWishlistParticipants(
   participants: WishlistEventParticipant[] = [],
 ) {
@@ -566,6 +638,69 @@ function mapWishlistRecordToRow(
   };
 }
 
+function mapWishlistHangoutEventToMarketplaceProduct(
+  record: WishlistEventRecord | null | undefined,
+): MarketplaceProduct | null {
+  const hangoutEvent = record?.hangoutEvent;
+  const hangoutRowId =
+    hangoutEvent?.id?.trim() || record?.hangoutEventId?.trim() || "";
+  const hangoutProductId =
+    hangoutEvent?.hangoutEventId?.trim() || hangoutRowId;
+
+  if (!hangoutEvent || !hangoutRowId || !hangoutProductId) {
+    return null;
+  }
+
+  const amountValue =
+    typeof hangoutEvent.amount === "number"
+      ? hangoutEvent.amount
+      : Number(hangoutEvent.amount ?? 0);
+
+  return {
+    _id: hangoutProductId,
+    title:
+      hangoutEvent.eventCenterName?.trim() ||
+      hangoutEvent.event.title?.trim() ||
+      "Selected hangout",
+    description: hangoutEvent.event.description?.trim() || "",
+    amount: Number.isFinite(amountValue) ? amountValue : 0,
+    images: hangoutEvent.imageUrl?.trim() ? [hangoutEvent.imageUrl.trim()] : [],
+    location: {
+      state: hangoutEvent.location?.trim() || "",
+      city: "",
+    },
+    slug: hangoutProductId,
+  };
+}
+
+function mapWishlistMarketplaceProductToCardItem(
+  product: MarketplaceProduct,
+  options: {
+    availability?: "Available" | "Claimed";
+    isDisabled?: boolean;
+  } = {},
+): WishlistGiftCardItem {
+  const location = [product.location?.city, product.location?.state]
+    .filter((value) => value?.trim())
+    .join(", ");
+
+  return {
+    id: product._id,
+    productId: product._id,
+    title: product.title?.trim() || "Selected Item",
+    imageUrl: product.images?.[0]?.trim() || "",
+    fallbackImage: featureImg1,
+    condition: product.condition?.trim() || "Available",
+    price: formatCurrency(product.amount),
+    location: location || "Location not specified",
+    availability: options.availability ?? "Available",
+    isDisabled: options.isDisabled ?? false,
+    note:
+      product.description?.trim() ||
+      "A thoughtful option selected for this wishlist.",
+  };
+}
+
 function hasWishListFlowDraft(
   selection:
     | {
@@ -575,6 +710,8 @@ function hasWishListFlowDraft(
         eventDeadline: string;
         eventName: string;
         celebrationType: WishListCelebrationType;
+        checkInDate?: string;
+        checkOutDate?: string;
       }
     | undefined
     | null,
@@ -589,7 +726,9 @@ function hasWishListFlowDraft(
     selection.eventDate ||
     selection.eventDeadline ||
     selection.eventName ||
-    selection.celebrationType,
+    selection.celebrationType ||
+    selection.checkInDate ||
+    selection.checkOutDate,
   );
 }
 
@@ -831,6 +970,12 @@ export default function WishListScreen() {
   const setStoredSelectedWishlistGiftProductsById = useWishListFlowStore(
     (state) => state.setSelectedWishlistGiftProductsById,
   );
+  const setStoredSelectedHangoutIds = useWishListFlowStore(
+    (state) => state.setSelectedHangoutIds,
+  );
+  const setStoredSelectedHangoutProductsById = useWishListFlowStore(
+    (state) => state.setSelectedHangoutProductsById,
+  );
   const resetWishListFlowSelection = useWishListFlowStore(
     (state) => state.resetFlowSelection,
   );
@@ -855,6 +1000,10 @@ export default function WishListScreen() {
     setIsDiscardWishlistFlowConfirmationOpen,
   ] = useState(false);
   const [isSavingWishlistSetupAsDraft, setIsSavingWishlistSetupAsDraft] =
+    useState(false);
+  const [isClaimWishlistConfirmationOpen, setIsClaimWishlistConfirmationOpen] =
+    useState(false);
+  const [isClaimHangoutConfirmationOpen, setIsClaimHangoutConfirmationOpen] =
     useState(false);
   const [participantClaimSelectedGiftIds, setParticipantClaimSelectedGiftIds] =
     useState<string[]>([]);
@@ -882,6 +1031,23 @@ export default function WishListScreen() {
 
     return `/dashboard/wish-list/flow/gift-selection${query ? `?${query}` : ""}`;
   }, [eventId, mode, wishlistEventId]);
+  const wishlistHangoutSelectionBackHref = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (mode) {
+      params.set("mode", mode);
+    }
+    if (eventId) {
+      params.set("eventId", eventId);
+    }
+    if (wishlistEventId) {
+      params.set("wishlistEventId", wishlistEventId);
+    }
+
+    const query = params.toString();
+
+    return `/dashboard/wish-list/flow/hangout-selection${query ? `?${query}` : ""}`;
+  }, [eventId, mode, wishlistEventId]);
 
   const {
     data: availableEventTypesResponse,
@@ -903,6 +1069,7 @@ export default function WishListScreen() {
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const createWishlistEventMutation = useCreateWishlistEventMutation();
   const claimGiftMutation = useClaimGiftMutation();
+  const claimHangoutEventMutation = useClaimHangoutEventMutation();
   const deleteWishlistEventMutation = useDeleteWishlistEventMutation();
   const completeWishlistEventMutation = useCompleteWishlistEventMutation();
   const setupWishlistEventMutation = useSetupWishlistEventMutation();
@@ -942,19 +1109,42 @@ export default function WishListScreen() {
   const selectedWishListDeadline = flowSelection.eventDeadline;
   const wishListSuggestedName = flowSelection.eventName;
   const selectedCelebrationType = flowSelection.celebrationType;
+  const selectedWishlistCheckInDate = flowSelection.checkInDate;
+  const selectedWishlistCheckOutDate = flowSelection.checkOutDate;
   const selectedWishlistGiftIds = flowSelection.selectedWishlistGiftIds;
   const selectedWishlistGiftProductsById =
     flowSelection.selectedWishlistGiftProductsById;
+  const selectedHangoutIds = flowSelection.selectedHangoutIds;
+  const selectedHangoutProductsById = flowSelection.selectedHangoutProductsById;
   const greetingName = authUser?.firstName?.trim() || "Susan";
   const isWishlistGiftSelectionStep = currentStep === "gift-selection";
+  const isWishlistHangoutSelectionStep = currentStep === "hangout-selection";
   const isWishlistInviteStep = currentStep === "invite";
   const {
     data: activeWishlistEventResponse,
     isLoading: isActiveWishlistEventLoading,
+    isFetching: isActiveWishlistEventFetching,
     isError: isActiveWishlistEventError,
     refetch: refetchActiveWishlistEvent,
   } = useWishlistEventQuery(wishlistEventId, {
-    enabled: isOpen && isWishlistGiftSelectionStep && Boolean(wishlistEventId),
+    enabled:
+      isOpen &&
+      Boolean(wishlistEventId) &&
+      (isWishlistGiftSelectionStep ||
+        isWishlistHangoutSelectionStep ||
+        isWishlistInviteStep),
+  });
+  const {
+    data: activeWishlistHangoutResponse,
+    isFetching: isActiveWishlistHangoutFetching,
+    refetch: refetchActiveWishlistHangout,
+  } = useWishlistEventHangoutQuery(wishlistEventId, {
+    enabled:
+      isOpen &&
+      Boolean(wishlistEventId) &&
+      (isWishlistGiftSelectionStep ||
+        isWishlistHangoutSelectionStep ||
+        isWishlistInviteStep),
   });
   const {
     data: myParticipantResponse,
@@ -969,6 +1159,48 @@ export default function WishListScreen() {
   });
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
   const activeWishlistEventRecord = activeWishlistEventResponse?.data ?? null;
+  const activeWishlistHangoutRecord =
+    activeWishlistHangoutResponse?.data ?? activeWishlistEventRecord?.hangoutEvent ?? null;
+  const participantClaimHangoutCardItem = useMemo(() => {
+    const mappedHangoutProduct =
+      mapWishlistHangoutEventToMarketplaceProduct(
+        activeWishlistEventRecord
+          ? {
+              ...activeWishlistEventRecord,
+              hangoutEvent: activeWishlistHangoutRecord,
+            }
+          : null,
+      );
+
+    if (!mappedHangoutProduct) {
+      return null;
+    }
+
+    return mapWishlistMarketplaceProductToCardItem(mappedHangoutProduct, {
+      availability: activeWishlistHangoutRecord?.payerParticipant
+        ? "Claimed"
+        : "Available",
+      isDisabled: Boolean(activeWishlistHangoutRecord?.payerParticipant),
+    });
+  }, [activeWishlistEventRecord, activeWishlistHangoutRecord]);
+  const participantClaimHangoutViewHref = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    if (activeWishlistHangoutRecord?.eventId?.trim()) {
+      return `/dashboard/hangouts/${encodeURIComponent(activeWishlistHangoutRecord.eventId.trim())}?backHref=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    }
+
+    if (participantClaimHangoutCardItem?.productId?.trim()) {
+      return `/dashboard/hangouts/${encodeURIComponent(participantClaimHangoutCardItem.productId.trim())}?productId=${encodeURIComponent(participantClaimHangoutCardItem.productId.trim())}&backHref=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    }
+
+    return null;
+  }, [
+    activeWishlistHangoutRecord?.eventId,
+    participantClaimHangoutCardItem?.productId,
+  ]);
   const canManageActiveWishlist = useMemo(
     () =>
       canManageWishlistEvent(activeWishlistEventRecord, {
@@ -983,7 +1215,19 @@ export default function WishListScreen() {
     activeWishlistEventRecord &&
     !canManageActiveWishlist,
   );
+  const isResolvingWishlistSelectionView = Boolean(
+    (isWishlistGiftSelectionStep || isWishlistHangoutSelectionStep) &&
+      wishlistEventId &&
+      (isActiveWishlistEventLoading ||
+        isActiveWishlistEventFetching ||
+        (!activeWishlistEventRecord && !isActiveWishlistEventError) ||
+        (isWishlistGiftSelectionStep &&
+          isParticipantClaimWishlistStep &&
+          isActiveWishlistHangoutFetching)),
+  );
   const isWishlistInlineGiftSelectionStep = isWishlistGiftSelectionStep;
+  const isWishlistInlineHangoutSelectionStep =
+    isWishlistHangoutSelectionStep;
   const {
     data: participantGiftSelectionsResponse,
     isLoading: isParticipantGiftSelectionsLoading,
@@ -993,7 +1237,9 @@ export default function WishListScreen() {
   } = useParticipantGiftSelectionsQuery(currentParticipantId, eventId, {
     enabled:
       isOpen &&
-      isWishlistGiftSelectionStep &&
+      (isWishlistGiftSelectionStep ||
+        isWishlistHangoutSelectionStep ||
+        isWishlistInviteStep) &&
       !isParticipantClaimWishlistStep &&
       Boolean(currentParticipantId) &&
       Boolean(eventId),
@@ -1012,7 +1258,7 @@ export default function WishListScreen() {
     {
       enabled:
         isOpen &&
-        isWishlistGiftSelectionStep &&
+        (isWishlistGiftSelectionStep || isWishlistHangoutSelectionStep) &&
         !isParticipantClaimWishlistStep,
     },
   );
@@ -1024,7 +1270,9 @@ export default function WishListScreen() {
     refetch: refetchCaughtMyEyeGiftIds,
   } = useContactGiftCartParticipantGiftIdsQuery({
     enabled:
-      isOpen && isWishlistGiftSelectionStep && !isParticipantClaimWishlistStep,
+      isOpen &&
+      (isWishlistGiftSelectionStep || isWishlistHangoutSelectionStep) &&
+      !isParticipantClaimWishlistStep,
   });
   const {
     data: participantClaimWishlistGiftsResponse,
@@ -1064,11 +1312,8 @@ export default function WishListScreen() {
     ).toString();
   }, [wishlistEventId]);
   const wishlistInviteShareUrl = useMemo(
-    () =>
-      wishlistEventId
-        ? buildSignedInInviteUrl(`/wishlist/${wishlistEventId}`)
-        : (publicWishlistLink ?? ""),
-    [publicWishlistLink, wishlistEventId],
+    () => publicWishlistLink ?? "",
+    [publicWishlistLink],
   );
 
   const eventTypeOptions = useMemo<OverlaySelectOption[]>(
@@ -1172,6 +1417,57 @@ export default function WishListScreen() {
       selectedWishlistGiftIds,
     ],
   );
+  const selectedHangoutProductsForStep = useMemo(() => {
+    const storedProducts = Object.values(selectedHangoutProductsById).filter(
+      (product): product is MarketplaceProduct => Boolean(product),
+    );
+
+    if (storedProducts.length > 0) {
+      return storedProducts;
+    }
+
+    return caughtMyEyeCartProducts;
+  }, [caughtMyEyeCartProducts, selectedHangoutProductsById]);
+  const selectedHangoutIdsForStep = useMemo(() => {
+    const explicitIds = selectedHangoutIds.filter(Boolean);
+
+    if (explicitIds.length > 0) {
+      return explicitIds;
+    }
+
+    const storedIds = Object.keys(selectedHangoutProductsById).filter(Boolean);
+
+    if (storedIds.length > 0) {
+      return storedIds;
+    }
+
+    return [];
+  }, [selectedHangoutIds, selectedHangoutProductsById]);
+  const selectedWishlistHangoutProductLookup = useMemo(
+    () =>
+      new Map(
+        [
+          ...caughtMyEyeCartProducts,
+          ...Object.values(selectedHangoutProductsById).filter(
+            (product): product is MarketplaceProduct => Boolean(product),
+          ),
+        ].map((product) => [product._id, product]),
+      ),
+    [caughtMyEyeCartProducts, selectedHangoutProductsById],
+  );
+  const prioritizedWishlistHangoutProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...selectedHangoutIds,
+            ...caughtMyEyeWishlistGiftIds,
+            ...caughtMyEyeCartProducts.map((product) => product._id),
+          ].filter(Boolean),
+        ),
+      ),
+    [caughtMyEyeWishlistGiftIds, caughtMyEyeCartProducts, selectedHangoutIds],
+  );
   const wishListRows = useMemo(
     () =>
       (wishlistEventsResponse?.data?.data ?? []).map((record) =>
@@ -1243,8 +1539,88 @@ export default function WishListScreen() {
   }, [currentStep, flowSelectionKey, isOpen, setWishListDraftFields]);
 
   useEffect(() => {
+    if (!isOpen || mode !== "create") {
+      return;
+    }
+
+    if (currentStep === "check-out-date" && !selectedWishlistCheckInDate) {
+      setCurrentStep("check-in-date", mode, eventId, wishlistEventId);
+      return;
+    }
+
+    if (currentStep === "hangout-selection") {
+      if (!selectedEventTypeId) {
+        setCurrentStep("event", mode, eventId, wishlistEventId);
+        return;
+      }
+
+      if (!selectedWishListDate) {
+        setCurrentStep("event-date", mode, eventId, wishlistEventId);
+        return;
+      }
+
+      if (!selectedWishListDeadline) {
+        setCurrentStep("gift-deadline", mode, eventId, wishlistEventId);
+        return;
+      }
+
+      if (
+        selectedCelebrationType !== "hangouts" &&
+        selectedCelebrationType !== "both"
+      ) {
+        setCurrentStep("celebration-type", mode, eventId, wishlistEventId);
+        return;
+      }
+
+      if (!selectedWishlistCheckInDate) {
+        setCurrentStep("check-in-date", mode, eventId, wishlistEventId);
+        return;
+      }
+
+      if (!selectedWishlistCheckOutDate) {
+        setCurrentStep("check-out-date", mode, eventId, wishlistEventId);
+      }
+    }
+  }, [
+    currentStep,
+    eventId,
+    isOpen,
+    mode,
+    selectedCelebrationType,
+    selectedEventTypeId,
+    selectedWishListDate,
+    selectedWishListDeadline,
+    selectedWishlistCheckInDate,
+    selectedWishlistCheckOutDate,
+    setCurrentStep,
+    wishlistEventId,
+  ]);
+
+  useEffect(() => {
     if (
-      currentStep !== "gift-selection" ||
+      !isOpen ||
+      currentStep !== "check-in-date" ||
+      !selectedWishListDate ||
+      Boolean(selectedWishlistCheckInDate)
+    ) {
+      return;
+    }
+
+    setWishListDraftFields(flowSelectionKey, {
+      checkInDate: selectedWishListDate,
+    });
+  }, [
+    currentStep,
+    flowSelectionKey,
+    isOpen,
+    selectedWishListDate,
+    selectedWishlistCheckInDate,
+    setWishListDraftFields,
+  ]);
+
+  useEffect(() => {
+    if (
+      !["gift-selection", "hangout-selection", "invite"].includes(currentStep) ||
       isParticipantClaimWishlistStep ||
       (!participantGiftSelectionsResponse &&
         !caughtMyEyeGiftIdsResponse &&
@@ -1351,17 +1727,17 @@ export default function WishListScreen() {
     caughtMyEyeCartProducts,
     caughtMyEyeWishlistGiftIds,
     caughtMyEyeGiftIdsResponse,
-    flowSelectionKey,
-    isParticipantClaimWishlistStep,
-    isCartItemsFetching,
-    isCartItemsLoading,
-    participantGiftSelections,
-    participantGiftSelectionsResponse,
-    selectedWishlistGiftIds,
-    selectedWishlistGiftProductsById,
-    setStoredSelectedWishlistGiftIds,
-    setStoredSelectedWishlistGiftProductsById,
-  ]);
+      flowSelectionKey,
+      isParticipantClaimWishlistStep,
+      isCartItemsFetching,
+      isCartItemsLoading,
+      participantGiftSelections,
+      participantGiftSelectionsResponse,
+      selectedWishlistGiftIds,
+      selectedWishlistGiftProductsById,
+      setStoredSelectedWishlistGiftIds,
+      setStoredSelectedWishlistGiftProductsById,
+    ]);
 
   useEffect(() => {
     if (
@@ -1401,7 +1777,29 @@ export default function WishListScreen() {
           eventDeadline: createFlowSelection.eventDeadline,
           eventName: createFlowSelection.eventName,
           celebrationType: createFlowSelection.celebrationType,
+          checkInDate: createFlowSelection.checkInDate,
+          checkOutDate: createFlowSelection.checkOutDate,
         });
+
+        if (
+          createFlowSelection.selectedHangoutIds.length &&
+          !flowSelection.selectedHangoutIds.length
+        ) {
+          setStoredSelectedHangoutIds(
+            flowSelectionKey,
+            createFlowSelection.selectedHangoutIds,
+          );
+        }
+
+        if (
+          Object.keys(createFlowSelection.selectedHangoutProductsById).length &&
+          !Object.keys(flowSelection.selectedHangoutProductsById).length
+        ) {
+          setStoredSelectedHangoutProductsById(
+            flowSelectionKey,
+            createFlowSelection.selectedHangoutProductsById,
+          );
+        }
       }
 
       return;
@@ -1417,6 +1815,8 @@ export default function WishListScreen() {
       eventDeadline?: string;
       eventName?: string;
       celebrationType?: Exclude<WishListCelebrationType, "">;
+      checkInDate?: string;
+      checkOutDate?: string;
     } = {};
 
     if (!flowSelection.selectedEventTypeId) {
@@ -1458,6 +1858,54 @@ export default function WishListScreen() {
       nextFields.celebrationType = sourceSelection.celebrationType;
     }
 
+    if (
+      !nextFields.celebrationType &&
+      !flowSelection.celebrationType &&
+      activeWishlistEventRecord
+    ) {
+      const hasHangout = Boolean(activeWishlistEventRecord.hangoutEventId);
+      const hasGifts =
+        selectedWishlistGiftIds.length > 0 ||
+        Object.keys(selectedWishlistGiftProductsById).length > 0 ||
+        participantGiftSelections.length > 0;
+
+      if (hasHangout && hasGifts) {
+        nextFields.celebrationType = "both";
+      } else if (hasHangout) {
+        nextFields.celebrationType = "hangouts";
+      } else if (hasGifts) {
+        nextFields.celebrationType = "gifts";
+      }
+    }
+
+    if (!flowSelection.checkInDate && sourceSelection.checkInDate) {
+      nextFields.checkInDate = sourceSelection.checkInDate;
+    }
+
+    if (
+      !nextFields.checkInDate &&
+      !flowSelection.checkInDate &&
+      activeWishlistEventRecord?.hangoutEvent?.checkInDate
+    ) {
+      nextFields.checkInDate = toDateInputValue(
+        activeWishlistEventRecord.hangoutEvent.checkInDate,
+      );
+    }
+
+    if (!flowSelection.checkOutDate && sourceSelection.checkOutDate) {
+      nextFields.checkOutDate = sourceSelection.checkOutDate;
+    }
+
+    if (
+      !nextFields.checkOutDate &&
+      !flowSelection.checkOutDate &&
+      activeWishlistEventRecord?.hangoutEvent?.checkOutDate
+    ) {
+      nextFields.checkOutDate = toDateInputValue(
+        activeWishlistEventRecord.hangoutEvent.checkOutDate,
+      );
+    }
+
     if (!flowSelection.lastVisitedStep) {
       nextFields.lastVisitedStep =
         sourceSelection.lastVisitedStep &&
@@ -1469,13 +1917,60 @@ export default function WishListScreen() {
     if (Object.keys(nextFields).length > 0) {
       setWishListDraftFields(flowSelectionKey, nextFields);
     }
+
+    if (
+      !flowSelection.selectedHangoutIds.length &&
+      createFlowSelection.selectedHangoutIds.length
+    ) {
+      setStoredSelectedHangoutIds(
+        flowSelectionKey,
+        createFlowSelection.selectedHangoutIds,
+      );
+    }
+
+    if (
+      !Object.keys(flowSelection.selectedHangoutProductsById).length &&
+      Object.keys(createFlowSelection.selectedHangoutProductsById).length
+    ) {
+      setStoredSelectedHangoutProductsById(
+        flowSelectionKey,
+        createFlowSelection.selectedHangoutProductsById,
+      );
+    }
+
+    const mappedHangoutProduct =
+      mapWishlistHangoutEventToMarketplaceProduct(activeWishlistEventRecord);
+
+    if (
+      mappedHangoutProduct &&
+      !flowSelection.selectedHangoutIds.length &&
+      !createFlowSelection.selectedHangoutIds.length
+    ) {
+      setStoredSelectedHangoutIds(flowSelectionKey, [mappedHangoutProduct._id]);
+    }
+
+    if (
+      mappedHangoutProduct &&
+      !Object.keys(flowSelection.selectedHangoutProductsById).length &&
+      !Object.keys(createFlowSelection.selectedHangoutProductsById).length
+    ) {
+      setStoredSelectedHangoutProductsById(flowSelectionKey, {
+        [mappedHangoutProduct._id]: mappedHangoutProduct,
+      });
+    }
   }, [
+    activeWishlistEventRecord,
     eventId,
     flowSelection,
     flowSelectionKey,
     flowSelectionsByKey,
     isOpen,
     mode,
+    participantGiftSelections,
+    selectedWishlistGiftIds,
+    selectedWishlistGiftProductsById,
+    setStoredSelectedHangoutIds,
+    setStoredSelectedHangoutProductsById,
     setWishListDraftFields,
     wishListRows,
     wishlistEventId,
@@ -1521,6 +2016,8 @@ export default function WishListScreen() {
       eventDeadline: sourceSelection.eventDeadline || row.eventDeadlineValue,
       eventName: sourceSelection.eventName || row.titleValue,
       celebrationType: sourceSelection.celebrationType,
+      checkInDate: sourceSelection.checkInDate,
+      checkOutDate: sourceSelection.checkOutDate,
     });
     if (
       !existingEditSelection.selectedWishlistGiftIds.length &&
@@ -1540,6 +2037,24 @@ export default function WishListScreen() {
       setStoredSelectedWishlistGiftProductsById(
         editFlowKey,
         existingCreateSelection.selectedWishlistGiftProductsById,
+      );
+    }
+    if (
+      !existingEditSelection.selectedHangoutIds.length &&
+      existingCreateSelection.selectedHangoutIds.length
+    ) {
+      setStoredSelectedHangoutIds(
+        editFlowKey,
+        existingCreateSelection.selectedHangoutIds,
+      );
+    }
+    if (
+      !Object.keys(existingEditSelection.selectedHangoutProductsById).length &&
+      Object.keys(existingCreateSelection.selectedHangoutProductsById).length
+    ) {
+      setStoredSelectedHangoutProductsById(
+        editFlowKey,
+        existingCreateSelection.selectedHangoutProductsById,
       );
     }
     openModal(nextStep, "edit", row.eventId, row.wishlistEventId);
@@ -1854,7 +2369,7 @@ export default function WishListScreen() {
       });
     }
 
-    setCurrentStep("event-name", mode, eventId, wishlistEventId);
+    setCurrentStep("celebration-type", mode, eventId, wishlistEventId);
   };
 
   const handleWishListDeadlineSaveAndContinue = async () => {
@@ -1888,7 +2403,7 @@ export default function WishListScreen() {
           eventDate: selectedWishListDate,
           eventDeadline: selectedWishListDeadline,
         });
-        setCurrentStep("event-name", mode, eventId, wishlistEventId);
+        setCurrentStep("celebration-type", mode, eventId, wishlistEventId);
       } catch (error) {
         toast.error(
           error instanceof Error
@@ -1900,7 +2415,7 @@ export default function WishListScreen() {
       return;
     }
 
-    await createWishListDraftEvent("event-name", {
+    await createWishListDraftEvent("celebration-type", {
       eventDate: selectedWishListDate || undefined,
       eventDeadline: selectedWishListDeadline,
     });
@@ -1979,7 +2494,40 @@ export default function WishListScreen() {
       return;
     }
 
-    setCurrentStep("gift-selection", mode, eventId, wishlistEventId);
+    setCurrentStep(
+      selectedCelebrationType === "hangouts"
+        ? "check-in-date"
+        : "gift-selection",
+      mode,
+      eventId,
+      wishlistEventId,
+    );
+  };
+
+  const handleWishlistCheckInDateNext = () => {
+    if (!selectedWishlistCheckInDate) {
+      toast.error("Please select a check-in date.");
+      return;
+    }
+
+    setCurrentStep("check-out-date", mode, eventId, wishlistEventId);
+  };
+
+  const handleWishlistCheckOutDateNext = () => {
+    if (!selectedWishlistCheckOutDate) {
+      toast.error("Please select a check-out date.");
+      return;
+    }
+
+    if (
+      selectedWishlistCheckInDate &&
+      selectedWishlistCheckOutDate <= selectedWishlistCheckInDate
+    ) {
+      toast.error("Check-out date must be after check-in date.");
+      return;
+    }
+
+    setCurrentStep("hangout-selection", mode, eventId, wishlistEventId);
   };
 
   const handleParticipantClaimWishlistGifts = async () => {
@@ -2010,6 +2558,32 @@ export default function WishListScreen() {
     }
   };
 
+  const handleParticipantClaimWishlistHangout = async () => {
+    const hangoutId =
+      activeWishlistHangoutRecord?.id?.trim() ||
+      activeWishlistEventRecord?.hangoutEventId?.trim() ||
+      "";
+
+    if (!hangoutId) {
+      toast.error("Unable to resolve this wishlist hangout right now.");
+      return;
+    }
+
+    if (activeWishlistHangoutRecord?.payerParticipant) {
+      toast.error("This hangout has already been claimed.");
+      return;
+    }
+
+    try {
+      const response = await claimHangoutEventMutation.mutateAsync(hangoutId);
+      toast.success(response.message || "Hangout claimed successfully.");
+      void refetchActiveWishlistEvent();
+      void refetchActiveWishlistHangout();
+    } catch {
+      // Errors are already surfaced by the API layer.
+    }
+  };
+
   const handleWishlistGiftProductToggle = (
     product: MarketplaceProduct,
     checked: boolean,
@@ -2032,6 +2606,24 @@ export default function WishListScreen() {
       flowSelectionKey,
       nextProductsById,
     );
+  };
+
+  const handleWishlistHangoutProductToggle = (
+    product: MarketplaceProduct,
+    checked: boolean,
+  ) => {
+    if (checked) {
+      setStoredSelectedHangoutProductsById(flowSelectionKey, {
+        [product._id]: product,
+      });
+      return;
+    }
+
+    if (!(product._id in selectedHangoutProductsById)) {
+      return;
+    }
+
+    setStoredSelectedHangoutProductsById(flowSelectionKey, {});
   };
 
   const buildWishlistSetupPayload = (): WishlistEventSetupPayload | null => {
@@ -2059,36 +2651,7 @@ export default function WishListScreen() {
       wishListSuggestedName.trim() ||
       selectedEventTypeOption?.label ||
       "Untitled event";
-    const resolvedSelectedProducts =
-      selectedWishlistGiftProductsForStep.length > 0
-        ? selectedWishlistGiftProductsForStep
-        : selectedWishlistGiftIdsForStep
-            .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
-            .filter((product): product is MarketplaceProduct =>
-              Boolean(product),
-            );
-
-    if (!resolvedSelectedProducts.length) {
-      toast.error("Please select at least one gift before continuing.");
-      return null;
-    }
-
-    const hasIncompleteGiftDetails = resolvedSelectedProducts.some(
-      (product) =>
-        !product.title?.trim() ||
-        product.title.trim() === "Selected gift" ||
-        !Number.isFinite(product.amount) ||
-        product.amount <= 0,
-    );
-
-    if (hasIncompleteGiftDetails) {
-      toast.error(
-        "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
-      );
-      return null;
-    }
-
-    return {
+    const basePayload = {
       event: {
         title: resolvedTitle,
         description: "",
@@ -2100,7 +2663,102 @@ export default function WishListScreen() {
         visibility: "private",
         eventDeadline: toWishlistDeadlineIsoDate(selectedWishListDeadline),
       },
-      gifts: resolvedSelectedProducts.map((product) => ({
+    };
+
+    const includesHangout =
+      selectedCelebrationType === "hangouts" ||
+      selectedCelebrationType === "both";
+    const includesGifts =
+      selectedCelebrationType === "gifts" ||
+      selectedCelebrationType === "both";
+
+    let hangoutPayload:
+      | WishlistEventSetupPayload["hangout"]
+      | undefined;
+
+    if (includesHangout) {
+      if (!selectedWishlistCheckInDate) {
+        toast.error("Please select a check-in date.");
+        return null;
+      }
+
+      if (!selectedWishlistCheckOutDate) {
+        toast.error("Please select a check-out date.");
+        return null;
+      }
+
+      if (selectedWishlistCheckOutDate <= selectedWishlistCheckInDate) {
+        toast.error("Check-out date must be after check-in date.");
+        return null;
+      }
+
+      const selectedProduct = selectedHangoutIdsForStep
+        .map(
+          (selectedId) =>
+            selectedWishlistHangoutProductLookup.get(selectedId) ?? null,
+        )
+        .find((product): product is MarketplaceProduct => Boolean(product));
+
+      if (!selectedProduct) {
+        toast.error("Please select a hangout option before continuing.");
+        return null;
+      }
+
+      const location = [
+        selectedProduct.location?.city,
+        selectedProduct.location?.state,
+        selectedProduct.location?.lga,
+      ]
+        .map((value) => value?.trim())
+        .filter(Boolean)
+        .join(", ");
+
+      hangoutPayload = {
+        ...(location ? { location } : {}),
+        eventCenterName: selectedProduct.title || undefined,
+        checkInDate: toIsoDate(selectedWishlistCheckInDate),
+        checkOutDate: toIsoDate(selectedWishlistCheckOutDate),
+        amount:
+          typeof selectedProduct.amount === "number"
+            ? selectedProduct.amount
+            : undefined,
+        imageUrl: selectedProduct.images[0] || undefined,
+      };
+    }
+
+    let giftsPayload: WishlistEventSetupPayload["gifts"] = [];
+
+    if (includesGifts) {
+      const resolvedSelectedProducts =
+      selectedWishlistGiftProductsForStep.length > 0
+        ? selectedWishlistGiftProductsForStep
+        : selectedWishlistGiftIdsForStep
+            .map((selectedId) => selectedWishlistGiftProductsById[selectedId])
+            .filter((product): product is MarketplaceProduct =>
+              Boolean(product),
+            );
+
+      if (!resolvedSelectedProducts.length) {
+        toast.error("Please select at least one gift before continuing.");
+        return null;
+      }
+
+      const hasIncompleteGiftDetails = resolvedSelectedProducts.some(
+        (product) =>
+          !product.title?.trim() ||
+          product.title.trim() === "Selected gift" ||
+          !Number.isFinite(product.amount) ||
+          product.amount <= 0,
+      );
+
+      if (hasIncompleteGiftDetails) {
+        toast.error(
+          "Some selected gifts are not fully loaded yet. Please reselect them before continuing.",
+        );
+        return null;
+      }
+
+      giftsPayload = resolvedSelectedProducts.map((product) => ({
         participantGiftId: product._id,
         title: product.title,
         description: product.description ?? "",
@@ -2114,7 +2772,13 @@ export default function WishListScreen() {
         locationCity: product.location?.city || undefined,
         sellerId: product.sellerId || undefined,
         productSlug: product.slug || undefined,
-      })),
+      }));
+    }
+
+    return {
+      ...basePayload,
+      ...(hangoutPayload ? { hangout: hangoutPayload } : {}),
+      gifts: giftsPayload,
     };
   };
 
@@ -2147,12 +2811,18 @@ export default function WishListScreen() {
         "Untitled event";
 
       setWishListDraftFields(nextFlowKey, {
-        lastVisitedStep: "gift-selection",
+        lastVisitedStep:
+          selectedCelebrationType === "hangouts" ||
+          selectedCelebrationType === "both"
+            ? "hangout-selection"
+            : "gift-selection",
         selectedEventTypeId,
         eventName: resolvedTitle,
         eventDate: selectedWishListDate,
         eventDeadline: selectedWishListDeadline,
         celebrationType: selectedCelebrationType,
+        checkInDate: selectedWishlistCheckInDate,
+        checkOutDate: selectedWishlistCheckOutDate,
       });
 
       if (selectedWishlistGiftIds.length) {
@@ -2163,6 +2833,17 @@ export default function WishListScreen() {
         setStoredSelectedWishlistGiftProductsById(
           nextFlowKey,
           selectedWishlistGiftProductsById,
+        );
+      }
+
+      if (selectedHangoutIds.length) {
+        setStoredSelectedHangoutIds(nextFlowKey, selectedHangoutIds);
+      }
+
+      if (Object.keys(selectedHangoutProductsById).length) {
+        setStoredSelectedHangoutProductsById(
+          nextFlowKey,
+          selectedHangoutProductsById,
         );
       }
 
@@ -2227,6 +2908,27 @@ export default function WishListScreen() {
       return;
     }
 
+    if (selectedCelebrationType === "both") {
+      setCurrentStep("check-in-date", mode, eventId, wishlistEventId);
+      return;
+    }
+
+    setIsCompleteWishlistConfirmationOpen(true);
+  };
+
+  const handleWishListHangoutSelectionNext = () => {
+    const selectedProduct = selectedHangoutIdsForStep
+      .map(
+        (selectedId) =>
+          selectedWishlistHangoutProductLookup.get(selectedId) ?? null,
+      )
+      .find((product): product is MarketplaceProduct => Boolean(product));
+
+    if (!selectedProduct) {
+      toast.error("Please select a hangout option before continuing.");
+      return;
+    }
+
     setIsCompleteWishlistConfirmationOpen(true);
   };
 
@@ -2249,10 +2951,12 @@ export default function WishListScreen() {
   };
 
   const handleConfirmCompleteWishlistEvent = async () => {
-    const selectionContext = await resolveWishlistGiftSelectionContext();
+    if (selectedCelebrationType !== "hangouts") {
+      const selectionContext = await resolveWishlistGiftSelectionContext();
 
-    if (!selectionContext) {
-      return;
+      if (!selectionContext) {
+        return;
+      }
     }
 
     try {
@@ -2481,12 +3185,71 @@ export default function WishListScreen() {
     emptyRowClassName: "bg-white",
   };
 
-  if (isWishlistInlineGiftSelectionStep) {
+  if (
+    isWishlistInlineGiftSelectionStep ||
+    isWishlistInlineHangoutSelectionStep
+  ) {
     return (
       <div className="space-y-6">
         <div className="mx-auto w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:px-8">
           <div className="min-h-0">
-            {isParticipantClaimWishlistStep ? (
+            {isResolvingWishlistSelectionView ? (
+              <ModalPanelSkeleton className="min-h-[320px]" />
+            ) : isWishlistInlineHangoutSelectionStep ? (
+              <WishlistGiftSelectionStep
+                title="Choose your hangout"
+                description="Pick the hangout you want to pair with this wishlist."
+                selectedIds={selectedHangoutIdsForStep}
+                selectionMode="single"
+                onSelectedIdsChange={(ids) =>
+                  setStoredSelectedHangoutIds(flowSelectionKey, ids)
+                }
+                onSelectedProductToggle={handleWishlistHangoutProductToggle}
+                onViewProduct={(product) =>
+                  router.push(
+                    `/dashboard/hangouts/${encodeURIComponent(product._id)}?productId=${encodeURIComponent(product._id)}&backHref=${encodeURIComponent(wishlistHangoutSelectionBackHref)}`,
+                  )
+                }
+                onBack={() =>
+                  setCurrentStep(
+                    "check-out-date",
+                    mode,
+                    eventId,
+                    wishlistEventId,
+                  )
+                }
+                onNext={handleWishListHangoutSelectionNext}
+                onRetryInitialSelection={() => {
+                  void refetchCaughtMyEyeGiftIds();
+                  void refetchCartItems();
+                }}
+                isInitialSelectionLoading={
+                  isCaughtMyEyeGiftIdsLoading ||
+                  isCaughtMyEyeGiftIdsFetching ||
+                  isCartItemsLoading ||
+                  isCartItemsFetching
+                }
+                isInitialSelectionError={
+                  isCaughtMyEyeGiftIdsError || isCartItemsError
+                }
+                enableInfiniteScroll
+                caughtMyEyeProductIds={caughtMyEyeWishlistGiftIds}
+                prioritizedProductIds={prioritizedWishlistHangoutProductIds}
+                disableContentScroll
+                nextDisabled={
+                  !selectedHangoutIdsForStep.length ||
+                  setupWishlistEventMutation.isPending ||
+                  updateWishlistEventSetupMutation.isPending ||
+                  completeWishlistEventMutation.isPending
+                }
+                nextLabel={
+                  setupWishlistEventMutation.isPending ||
+                  updateWishlistEventSetupMutation.isPending
+                    ? "Saving..."
+                    : "Next"
+                }
+              />
+            ) : isParticipantClaimWishlistStep ? (
               <WishlistClaimGiftSelectionStep
                 title={
                   activeWishlistEventRecord?.event.title?.trim() ||
@@ -2497,11 +3260,31 @@ export default function WishListScreen() {
                 allowMultipleItems={
                   activeWishlistEventRecord?.allowMultipleItems ?? true
                 }
+                hangoutItem={participantClaimHangoutCardItem}
+                hangoutViewHref={participantClaimHangoutViewHref}
+                hangoutDateLabel={formatWishlistHangoutDateLabel(
+                  activeWishlistHangoutRecord?.checkInDate,
+                )}
+                hangoutParticipants={mapWishlistHangoutParticipants(
+                  activeWishlistHangoutRecord?.event?.participants ?? [],
+                )}
+                onClaimHangout={() => setIsClaimHangoutConfirmationOpen(true)}
+                claimHangoutDisabled={
+                  claimHangoutEventMutation.isPending ||
+                  Boolean(activeWishlistEventRecord?.hangoutEvent?.payerParticipant)
+                }
+                claimHangoutLabel={
+                  claimHangoutEventMutation.isPending
+                    ? "Claiming..."
+                    : activeWishlistEventRecord?.hangoutEvent?.payerParticipant
+                      ? "Claimed"
+                      : "Claim Hangout"
+                }
                 gifts={participantClaimWishlistGiftsResponse?.data?.data ?? []}
                 claimedGiftIds={participantClaimedGiftIdsResponse?.data ?? []}
                 selectedIds={participantClaimSelectedGiftIds}
                 onSelectedIdsChange={setParticipantClaimSelectedGiftIds}
-                onClaim={handleParticipantClaimWishlistGifts}
+                onClaim={() => setIsClaimWishlistConfirmationOpen(true)}
                 claimDisabled={
                   !participantClaimSelectedGiftIds.length ||
                   claimGiftMutation.isPending ||
@@ -2617,6 +3400,38 @@ export default function WishListScreen() {
             completeWishlistEventMutation.isPending
           }
           isSecondaryLoading={isSavingWishlistSetupAsDraft}
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+
+        <ConfirmationModal
+          open={isClaimWishlistConfirmationOpen}
+          onClose={() => setIsClaimWishlistConfirmationOpen(false)}
+          onConfirm={async () => {
+            await handleParticipantClaimWishlistGifts();
+            setIsClaimWishlistConfirmationOpen(false);
+          }}
+          action="save"
+          title="Claim Wishlist Gifts"
+          description="Are you sure you want to claim the selected wishlist gift items?"
+          confirmText="Yes, Claim"
+          isLoading={claimGiftMutation.isPending}
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+
+        <ConfirmationModal
+          open={isClaimHangoutConfirmationOpen}
+          onClose={() => setIsClaimHangoutConfirmationOpen(false)}
+          onConfirm={async () => {
+            await handleParticipantClaimWishlistHangout();
+            setIsClaimHangoutConfirmationOpen(false);
+          }}
+          action="save"
+          title="Claim Hangout"
+          description="Are you sure you want to claim this wishlist hangout?"
+          confirmText="Yes, Claim"
+          isLoading={claimHangoutEventMutation.isPending}
           closeOnOverlayClick={false}
           closeOnEscape={false}
         />
@@ -2759,15 +3574,19 @@ export default function WishListScreen() {
         title="Create Wish List"
         showHeader={false}
         closeOnOverlayClick={false}
-        bodyScrollable={!isWishlistGiftSelectionStep && !isWishlistInviteStep}
+        bodyScrollable={
+          !isWishlistGiftSelectionStep &&
+          !isWishlistHangoutSelectionStep &&
+          !isWishlistInviteStep
+        }
         dialogClassName={cn(
           "rounded-[18px] bg-white sm:rounded-[20px]",
-          isWishlistGiftSelectionStep
+          isWishlistGiftSelectionStep || isWishlistHangoutSelectionStep
             ? "max-h-[calc(100vh-1.5rem)] max-w-[1240px]"
             : "max-w-[536px]",
         )}
         bodyClassName={cn(
-          isWishlistGiftSelectionStep
+          isWishlistGiftSelectionStep || isWishlistHangoutSelectionStep
             ? "!max-h-[calc(100vh-1.5rem)] flex h-[calc(100vh-1.5rem)] min-h-0 px-4 py-4 sm:px-8 sm:py-8 lg:px-10"
             : "px-4 py-6 sm:px-8 sm:py-10 lg:px-10",
         )}
@@ -2869,7 +3688,7 @@ export default function WishListScreen() {
 
             <div className="space-y-3">
               {wishListCelebrationTypeOptions.map((option) => {
-                const isOptionDisabled = option.value !== "gifts";
+                const isOptionDisabled = false;
                 const isSelected =
                   !isOptionDisabled && selectedCelebrationType === option.value;
 
@@ -2905,16 +3724,27 @@ export default function WishListScreen() {
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <FlowActionButtons
                 onBack={() =>
-                  setCurrentStep("event-name", mode, eventId, wishlistEventId)
+                  setCurrentStep(
+                    "gift-deadline",
+                    mode,
+                    eventId,
+                    wishlistEventId,
+                  )
                 }
                 onNext={handleWishListCelebrationTypeNext}
-                nextDisabled={selectedCelebrationType !== "gifts"}
+                nextDisabled={
+                  selectedCelebrationType !== "gifts" &&
+                  selectedCelebrationType !== "hangouts" &&
+                  selectedCelebrationType !== "both"
+                }
                 nextClassName="!w-fit min-w-[96px] px-6"
               />
             </div>
           </div>
         ) : isWishlistGiftSelectionStep ? (
-          isActiveWishlistEventLoading && mode === "edit" && wishlistEventId ? (
+          isResolvingWishlistSelectionView ? (
+            <ModalPanelSkeleton className="min-h-[320px]" />
+          ) : isActiveWishlistEventLoading && mode === "edit" && wishlistEventId ? (
             <ModalPanelSkeleton className="min-h-[320px]" />
           ) : isActiveWishlistEventError &&
             mode === "edit" &&
@@ -2945,11 +3775,31 @@ export default function WishListScreen() {
               allowMultipleItems={
                 activeWishlistEventRecord?.allowMultipleItems ?? true
               }
+              hangoutItem={participantClaimHangoutCardItem}
+              hangoutViewHref={participantClaimHangoutViewHref}
+              hangoutDateLabel={formatWishlistHangoutDateLabel(
+                activeWishlistHangoutRecord?.checkInDate,
+              )}
+              hangoutParticipants={mapWishlistHangoutParticipants(
+                activeWishlistHangoutRecord?.event?.participants ?? [],
+              )}
+              onClaimHangout={() => setIsClaimHangoutConfirmationOpen(true)}
+              claimHangoutDisabled={
+                claimHangoutEventMutation.isPending ||
+                Boolean(activeWishlistEventRecord?.hangoutEvent?.payerParticipant)
+              }
+              claimHangoutLabel={
+                claimHangoutEventMutation.isPending
+                  ? "Claiming..."
+                  : activeWishlistEventRecord?.hangoutEvent?.payerParticipant
+                    ? "Claimed"
+                    : "Claim Hangout"
+              }
               gifts={participantClaimWishlistGiftsResponse?.data?.data ?? []}
               claimedGiftIds={participantClaimedGiftIdsResponse?.data ?? []}
               selectedIds={participantClaimSelectedGiftIds}
               onSelectedIdsChange={setParticipantClaimSelectedGiftIds}
-              onClaim={handleParticipantClaimWishlistGifts}
+              onClaim={() => setIsClaimWishlistConfirmationOpen(true)}
               claimDisabled={
                 !participantClaimSelectedGiftIds.length ||
                 claimGiftMutation.isPending ||
@@ -3082,6 +3932,52 @@ export default function WishListScreen() {
                 showGoToEventNameLink={false}
                 nextLabel="Next"
               />
+            ) : currentStep === "check-in-date" ? (
+              <EventDateStep
+                eventName="Check-in Date"
+                value={selectedWishlistCheckInDate}
+                onChange={(value) =>
+                  setWishListDraftFields(flowSelectionKey, {
+                    checkInDate: value,
+                  })
+                }
+                onBack={() =>
+                  setCurrentStep(
+                    "celebration-type",
+                    mode,
+                    eventId,
+                    wishlistEventId,
+                  )
+                }
+                onNext={handleWishlistCheckInDateNext}
+                heading="Check-in Date"
+                headingAlign="left"
+                showGoToEventNameLink={false}
+                nextLabel="Next"
+              />
+            ) : currentStep === "check-out-date" ? (
+              <EventDateStep
+                eventName="Check-out Date"
+                value={selectedWishlistCheckOutDate}
+                onChange={(value) =>
+                  setWishListDraftFields(flowSelectionKey, {
+                    checkOutDate: value,
+                  })
+                }
+                onBack={() =>
+                  setCurrentStep(
+                    "check-in-date",
+                    mode,
+                    eventId,
+                    wishlistEventId,
+                  )
+                }
+                onNext={handleWishlistCheckOutDateNext}
+                heading="Check-out Date"
+                headingAlign="left"
+                showGoToEventNameLink={false}
+                nextLabel="Next"
+              />
             ) : (
               <EventDateStep
                 eventName="Gift Deadline"
@@ -3124,6 +4020,7 @@ export default function WishListScreen() {
         lockedEmails={[]}
         onSubmit={handleConfirmSendWishlistInviteEmails}
         isSubmitting={sendEmailMutation.isPending}
+        hasBody={false}
       />
 
       <ConfirmationModal
@@ -3159,6 +4056,38 @@ export default function WishListScreen() {
           completeWishlistEventMutation.isPending
         }
         isSecondaryLoading={isSavingWishlistSetupAsDraft}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={isClaimWishlistConfirmationOpen}
+        onClose={() => setIsClaimWishlistConfirmationOpen(false)}
+        onConfirm={async () => {
+          await handleParticipantClaimWishlistGifts();
+          setIsClaimWishlistConfirmationOpen(false);
+        }}
+        action="save"
+        title="Claim Wishlist Gifts"
+        description="Are you sure you want to claim the selected wishlist gift items?"
+        confirmText="Yes, Claim"
+        isLoading={claimGiftMutation.isPending}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={isClaimHangoutConfirmationOpen}
+        onClose={() => setIsClaimHangoutConfirmationOpen(false)}
+        onConfirm={async () => {
+          await handleParticipantClaimWishlistHangout();
+          setIsClaimHangoutConfirmationOpen(false);
+        }}
+        action="save"
+        title="Claim Hangout"
+        description="Are you sure you want to claim this wishlist hangout?"
+        confirmText="Yes, Claim"
+        isLoading={claimHangoutEventMutation.isPending}
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />

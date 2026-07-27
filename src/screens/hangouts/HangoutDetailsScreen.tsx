@@ -35,6 +35,8 @@ import { useAuthStore } from "@/stores/auth-store";
 
 type HangoutDetailsScreenProps = {
   hangoutId: string;
+  marketplaceProductId?: string;
+  backHref?: string;
 };
 
 type HangoutParticipantBubble = {
@@ -502,6 +504,8 @@ function toDisplayName(
 
 export default function HangoutDetailsScreen({
   hangoutId,
+  marketplaceProductId,
+  backHref,
 }: HangoutDetailsScreenProps) {
   const authUser = useAuthStore((state) => state.user);
 
@@ -512,7 +516,7 @@ export default function HangoutDetailsScreen({
     isFetching,
     isError,
     refetch,
-  } = useHangoutEventQuery(hangoutId);
+  } = useHangoutEventQuery(marketplaceProductId ? null : hangoutId);
   const updateHangoutEventMutation = useUpdateHangoutEventMutation();
   const updateHangoutFulfillmentMutation =
     useUpdateHangoutEventFulfillmentMutation();
@@ -525,13 +529,22 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
   const [pendingFulfillmentState, setPendingFulfillmentState] = useState<
     boolean | null
   >(null);
-  const marketplaceProductId = hangout?.hangoutEventId?.trim() || null;
-  const { data: marketplaceProduct } = useMarketplaceProductQuery(
-    marketplaceProductId,
+  const resolvedMarketplaceProductId =
+    marketplaceProductId?.trim() || hangout?.hangoutEventId?.trim() || null;
+  const {
+    data: marketplaceProduct,
+    isLoading: isMarketplaceProductLoading,
+    isFetching: isMarketplaceProductFetching,
+    isError: isMarketplaceProductError,
+    refetch: refetchMarketplaceProduct,
+  } = useMarketplaceProductQuery(
+    resolvedMarketplaceProductId,
     {
-      enabled: Boolean(marketplaceProductId),
+      enabled: Boolean(resolvedMarketplaceProductId),
     },
   );
+  const isMarketplacePreviewOnly = Boolean(marketplaceProductId?.trim()) && !hangout;
+  const resolvedBackHref = backHref?.trim() || "/dashboard/hangouts";
   const canManage = useMemo(
     () =>
       canManageHangoutEvent(hangout, {
@@ -540,6 +553,23 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
       }),
     [authUser?.id, currentContactId, hangout],
   );
+  const canMessageVendor = useMemo(() => {
+    if (canManage) {
+      return true;
+    }
+
+    const normalizedCurrentContactId = currentContactId?.trim() || null;
+    const sponsorEventContactId =
+      hangout?.payerParticipant?.eventContactId?.trim() ||
+      hangout?.payerParticipant?.eventContact?.id?.trim() ||
+      null;
+
+    return Boolean(
+      normalizedCurrentContactId &&
+        sponsorEventContactId &&
+        normalizedCurrentContactId === sponsorEventContactId,
+    );
+  }, [canManage, currentContactId, hangout?.payerParticipant]);
 
   const participants = useMemo<HangoutParticipantBubble[]>(
     () =>
@@ -639,7 +669,10 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
     formatMarketplaceLocation(marketplaceProduct) ||
     hangout?.location?.trim() ||
     "Hangout venue";
-  const pageTitle = hangout?.event.title?.trim() || "Hangout";
+  const pageTitle =
+    hangout?.event.title?.trim() ||
+    marketplaceProduct?.title?.trim() ||
+    "Hangout";
   const amountLabel = formatCurrency(
     marketplaceProduct?.amount ?? hangout?.amount,
     "NGN",
@@ -755,15 +788,20 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
     }
   };
 
-  if (isLoading || isFetching) {
+  if (
+    isLoading ||
+    isFetching ||
+    (isMarketplacePreviewOnly &&
+      (isMarketplaceProductLoading || isMarketplaceProductFetching))
+  ) {
     return <HangoutDetailsSkeleton />;
   }
 
-  if (isError || !hangout) {
+  if ((isError || !hangout) && !marketplaceProduct) {
     return (
       <div className="space-y-5">
         <Link
-          href="/dashboard/hangouts"
+          href={resolvedBackHref}
           className="inline-flex items-center gap-2 text-base font-medium text-[#3300C9] transition-colors hover:text-[#2D00B4]"
         >
           <span className="flex size-9 items-center justify-center rounded-full bg-[#F2ECFF] text-[#3300C9]">
@@ -778,7 +816,10 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
           </p>
           <button
             type="button"
-            onClick={() => void refetch()}
+            onClick={() => {
+              void refetch();
+              void refetchMarketplaceProduct();
+            }}
             className="mt-4 text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
           >
             Retry loading hangout
@@ -792,7 +833,7 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href="/dashboard/hangouts"
+          href={resolvedBackHref}
           className="inline-flex items-center gap-2 text-base font-medium text-[#3300C9] transition-colors hover:text-[#2D00B4]"
         >
           <span className="flex size-9 items-center justify-center rounded-full bg-[#F2ECFF] text-[#3300C9]">
@@ -940,7 +981,9 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
                   <ReadOnlyBookingField
                     label="Check-in"
                     value={formatDate(
-                      hangout.checkInDate || hangout.event.eventDate,
+                      hangout?.checkInDate ||
+                        hangout?.event.eventDate ||
+                        undefined,
                     )}
                     icon={
                       <CalendarDaysIcon
@@ -962,7 +1005,7 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
                 ) : (
                   <ReadOnlyBookingField
                     label="Checkout"
-                    value={formatDate(hangout.checkOutDate)}
+                    value={formatDate(hangout?.checkOutDate)}
                     icon={
                       <CalendarDaysIcon
                         className="size-3.5"
@@ -1005,7 +1048,7 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
                 </Button>
               )}
 
-              {canManage && (
+              {canMessageVendor && (
                 <Button
                   type="button"
  onClick={() => setIsVendorChatOpen(true)}
@@ -1019,33 +1062,35 @@ const [isCheckOutCalendarOpen, setIsCheckOutCalendarOpen] = useState(false);
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5 lg:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-[20px] font-semibold tracking-[-0.03em] text-[#1E1E1E]">
-              Participants
-            </h2>
-            <p className="mt-1 text-sm text-[#7D7D7D]">
-              Everyone attached to this hangout.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-[20px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-1 sm:px-5">
-          {participantDetails.length > 0 ? (
-            participantDetails.map((participant) => (
-              <ParticipantDetailRow
-                key={`${participant.id}-${participant.role}`}
-                participant={participant}
-              />
-            ))
-          ) : (
-            <div className="px-1 py-5 text-sm text-[#7D7D7D]">
-              No participants have been added to this hangout yet.
+      {hangout ? (
+        <section className="rounded-[28px] border border-[#EEEAF7] bg-white p-4 shadow-[0_2px_6px_rgba(33,16,93,0.04)] sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-[20px] font-semibold tracking-[-0.03em] text-[#1E1E1E]">
+                Participants
+              </h2>
+              <p className="mt-1 text-sm text-[#7D7D7D]">
+                Everyone attached to this hangout.
+              </p>
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+
+          <div className="mt-5 rounded-[20px] border border-[#F1EDF8] bg-[#FCFBFF] px-4 py-1 sm:px-5">
+            {participantDetails.length > 0 ? (
+              participantDetails.map((participant) => (
+                <ParticipantDetailRow
+                  key={`${participant.id}-${participant.role}`}
+                  participant={participant}
+                />
+              ))
+            ) : (
+              <div className="px-1 py-5 text-sm text-[#7D7D7D]">
+                No participants have been added to this hangout yet.
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
 
 <ConfirmationModal
         open={pendingFulfillmentState !== null}

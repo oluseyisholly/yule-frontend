@@ -3,6 +3,7 @@ import type {
   WishlistEventGiftsResponse,
   PublicWishlistEventResponse,
   WishlistEventClaimedGiftIdsResponse,
+  WishlistEventHangoutResponse,
 } from "@/features/wishlist-events/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -143,4 +144,8 @@ export async function getPublicWishlistClaimedGiftIds(id: string) {
     message: response.message ?? "Claimed gift ids fetched successfully",
     data: Array.isArray(response.data) ? response.data : [],
   };
+}
+
+export async function getPublicWishlistHangout(id: string) {
+  return fetchJson<WishlistEventHangoutResponse>(`/${id}/hangout`);
 }

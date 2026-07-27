@@ -6,6 +6,7 @@ import type {
   WishlistEventDeleteResponse,
   WishlistEventGiftsParams,
   WishlistEventGiftsResponse,
+  WishlistEventHangoutResponse,
   WishlistEventPatchPayload,
   WishlistEventSetupPayload,
   WishlistEventsParams,
@@ -101,5 +102,11 @@ export async function getWishlistEventGifts(
 export async function getWishlistEventClaimedGiftIds(wishlistEventId: string) {
   return getApi<WishlistEventClaimedGiftIdsResponse>(
     `${WISHLIST_EVENTS_ENDPOINT}/${wishlistEventId}/gifts/claimed-ids`,
+  );
+}
+
+export async function getWishlistEventHangout(wishlistEventId: string) {
+  return getApi<WishlistEventHangoutResponse>(
+    `${WISHLIST_EVENTS_ENDPOINT}/${wishlistEventId}/hangout`,
   );
 }

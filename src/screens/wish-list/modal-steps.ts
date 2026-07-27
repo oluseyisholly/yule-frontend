@@ -4,6 +4,9 @@ export const VALID_WISHLIST_MODAL_STEPS = [
   "gift-deadline",
   "event-name",
   "celebration-type",
+  "check-in-date",
+  "check-out-date",
+  "hangout-selection",
   "gift-selection",
   "invite",
 ] as const;

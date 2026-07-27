@@ -11,6 +11,10 @@ export const hangoutEventQueryKeys = {
       params.per_page ?? 25,
       params.page ?? 1,
       params.searchQuery ?? "",
+      params.status ?? "",
+      params.startDate ?? "",
+      params.endDate ?? "",
+      params.sortOrder ?? "",
     ] as const,
   detail: (eventId: string | null) =>
     [...hangoutEventQueryKeys.all, "detail", eventId ?? ""] as const,

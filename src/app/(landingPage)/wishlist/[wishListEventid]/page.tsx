@@ -3,6 +3,7 @@ import {
   getPublicWishlistClaimedGiftIds,
   getPublicWishlistEvent,
   getPublicWishlistEventGifts,
+  getPublicWishlistHangout,
 } from "@/features/wishlist-events/public-service";
 import WishListPublicScreen from "@/screens/WishListPublicScreen";
 
@@ -32,20 +33,27 @@ export default async function WishListPublicPage({
   params,
 }: WishListPublicPageProps) {
   const { wishListEventid } = await params;
-  const [publicWishlistEvent, publicWishlistGifts, publicWishlistClaimedGiftIds] =
+  const [
+    publicWishlistEvent,
+    publicWishlistGifts,
+    publicWishlistClaimedGiftIds,
+    publicWishlistHangout,
+  ] =
     await Promise.all([
-    getPublicWishlistEvent(wishListEventid).catch(() => null),
-    getPublicWishlistEventGifts(wishListEventid, {
-      page: 1,
-      per_page: 24,
-    }).catch(() => null),
-    getPublicWishlistClaimedGiftIds(wishListEventid).catch(() => null),
-  ]);
+      getPublicWishlistEvent(wishListEventid).catch(() => null),
+      getPublicWishlistEventGifts(wishListEventid, {
+        page: 1,
+        per_page: 24,
+      }).catch(() => null),
+      getPublicWishlistClaimedGiftIds(wishListEventid).catch(() => null),
+      getPublicWishlistHangout(wishListEventid).catch(() => null),
+    ]);
 
   return (
     <WishListPublicScreen
       wishListEventId={wishListEventid}
       wishlistEvent={publicWishlistEvent?.data ?? null}
+      wishlistHangout={publicWishlistHangout?.data ?? null}
       wishlistGifts={publicWishlistGifts?.data.data ?? []}
       wishlistGiftTotal={publicWishlistGifts?.data.total ?? 0}
       claimedGiftIds={publicWishlistClaimedGiftIds?.data ?? []}

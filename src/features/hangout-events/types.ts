@@ -36,6 +36,8 @@ export type HangoutEventCore = {
 export type HangoutEventRecord = {
   id?: string | null;
   eventId: string;
+  payerParticipantId?: string | null;
+  payerParticipant?: HangoutEventParticipant | null;
   location: string | null;
   hangoutEventId: string | null;
   checkInDate: string | null;
@@ -146,7 +148,7 @@ export type HangoutEventsParams = {
   page?: number;
   per_page?: number;
   searchQuery?: string;
-  scope?: "organizer" | "participant" | "all";
+  scope?: "organizer" | "participant" | "sponsored" | "all";
   status?: string;
   startDate?: string;
   endDate?: string;

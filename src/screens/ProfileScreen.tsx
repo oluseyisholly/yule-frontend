@@ -293,11 +293,11 @@ function DetailItem({
         {label}
       </p>
       <div className="flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-full bg-[#F4F0FF] text-[#3300C9]">
+        <span className="flex size-9 items-center justify-center rounded-full bg-[#FFFFFF] text-[#1E1E1E]">
           {icon}
         </span>
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[15px] font-semibold text-[#1E1E1E]">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-[#9A97A4]">
             {countryFlag ? <NigeriaFlag /> : null}
             <span className="truncate">{value || "Not provided"}</span>
           </p>

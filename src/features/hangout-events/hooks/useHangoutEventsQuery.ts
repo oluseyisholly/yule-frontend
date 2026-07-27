@@ -18,6 +18,10 @@ export function useHangoutEventsQuery(
     per_page: params.per_page ?? 25,
     page: params.page ?? 1,
     searchQuery: params.searchQuery?.trim() ?? "",
+    status: params.status?.trim() ?? "",
+    startDate: params.startDate?.trim() ?? "",
+    endDate: params.endDate?.trim() ?? "",
+    sortOrder: params.sortOrder?.trim() ?? "",
   };
 
   return useQuery({

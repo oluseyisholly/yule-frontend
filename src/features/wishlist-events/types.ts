@@ -49,6 +49,14 @@ export type WishlistEventSetupPayload = {
     eventDeadline: string;
     visibility: WishlistEventVisibility;
   };
+  hangout?: {
+    location?: string;
+    eventCenterName?: string;
+    checkInDate: string;
+    checkOutDate: string;
+    amount?: number;
+    imageUrl?: string;
+  };
   gifts: WishlistSetupGiftPayload[];
 };
 
@@ -71,6 +79,34 @@ export type WishlistEventParticipant = {
   eventContact?: WishlistEventParticipantActor | null;
 };
 
+export type WishlistNestedHangoutEventRecord = {
+  id: string;
+  eventId: string;
+  hangoutEventId?: string | null;
+  payerParticipantId?: string | null;
+  payerParticipant?: WishlistEventParticipant | null;
+  location?: string | null;
+  eventCenterName?: string | null;
+  checkInDate?: string | null;
+  checkOutDate?: string | null;
+  numberOfGuests?: number | null;
+  amount?: number | string | null;
+  imageUrl?: string | null;
+  allowPlusOne?: boolean | null;
+  isFulfilled?: boolean | null;
+  event: {
+    id: string;
+    title: string;
+    description?: string | null;
+    eventTypeId: string;
+    eventOption?: string | null;
+    eventDate: string;
+    status?: string | null;
+    createdBy?: WishlistEventParticipantActor | null;
+    participants?: WishlistEventParticipant[];
+  };
+};
+
 export type WishlistEventRecord = {
   id: string;
   createdAt: string;
@@ -81,6 +117,8 @@ export type WishlistEventRecord = {
   allowMultipleItems: boolean;
   eventDeadline?: string | null;
   visibility: WishlistEventVisibility;
+  hangoutEventId?: string | null;
+  hangoutEvent?: WishlistNestedHangoutEventRecord | null;
   items?: unknown[];
   event: {
     id: string;
@@ -105,6 +143,18 @@ export type PublicWishlistEventRecord = {
   visibility: WishlistEventVisibility;
   allowMultipleItems: boolean;
   eventDeadline?: string | null;
+  hangoutEventId?: string | null;
+  hangoutEvent?: {
+    id: string;
+    payerParticipantId?: string | null;
+    payerParticipant?: WishlistEventParticipant | null;
+    location?: string | null;
+    eventCenterName?: string | null;
+    checkInDate?: string | null;
+    checkOutDate?: string | null;
+    amount?: number | string | null;
+    imageUrl?: string | null;
+  } | null;
   redirectPath?: string | null;
 };
 
@@ -190,4 +240,10 @@ export type WishlistEventClaimedGiftIdsResponse = {
   code: number;
   message: string;
   data: string[];
+};
+
+export type WishlistEventHangoutResponse = {
+  code: number;
+  message: string;
+  data: WishlistNestedHangoutEventRecord;
 };

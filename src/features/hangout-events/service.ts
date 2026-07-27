@@ -28,6 +28,8 @@ export async function getHangoutEvents(params: HangoutEventsParams = {}) {
       ? `${HANGOUT_EVENTS_ENDPOINT}/created`
       : params.scope === "participant"
         ? `${HANGOUT_EVENTS_ENDPOINT}/participated`
+        : params.scope === "sponsored"
+          ? `${HANGOUT_EVENTS_ENDPOINT}/sponsored`
         : HANGOUT_EVENTS_ENDPOINT;
 
   return getApi<HangoutEventsResponse>(endpoint, {
@@ -35,6 +37,16 @@ export async function getHangoutEvents(params: HangoutEventsParams = {}) {
       per_page: params.per_page ?? 25,
       page: params.page ?? 1,
       ...(resolvedSearchQuery ? { searchQuery: resolvedSearchQuery } : {}),
+      ...(params.status?.trim() ? { status: params.status.trim() } : {}),
+      ...(params.startDate?.trim()
+        ? { startDate: params.startDate.trim() }
+        : {}),
+      ...(params.endDate?.trim() ? { endDate: params.endDate.trim() } : {}),
+      ...(params.sortOrder?.trim()
+        ? { sortOrder: params.sortOrder.trim() }
+        : params.scope === "sponsored"
+          ? { sortOrder: "DESC" }
+          : {}),
     },
   });
 }
@@ -106,6 +118,12 @@ export async function updateHangoutEventFulfillment(
     HangoutEventMutationResponse,
     HangoutEventFulfillmentPayload
   >(`${HANGOUT_EVENTS_ENDPOINT}/${hangoutId}/fulfillment`, payload);
+}
+
+export async function claimHangoutEvent(hangoutEventId: string) {
+  return patchApi<HangoutEventMutationResponse>(
+    `${HANGOUT_EVENTS_ENDPOINT}/${hangoutEventId}/claim`,
+  );
 }
 
 export async function deleteHangoutEvent(eventId: string) {

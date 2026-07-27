@@ -47,6 +47,7 @@ export default function WishlistGiftItemCard({
   viewHref,
 }: WishlistGiftItemCardProps) {
   const isDisabled = item.isDisabled;
+  const hasViewAction = Boolean(viewHref || onView);
 
   return (
     <article
@@ -156,14 +157,23 @@ export default function WishlistGiftItemCard({
           </span>
         </div>
 
-        <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-0.5">
-          <Button
-            href={viewHref}
-            onClick={onView}
-            label="View"
-            variant="filled"
-            className="h-auto w-full min-w-0 justify-center rounded-[12px] px-3 py-1 text-[9px] font-medium sm:h-8 sm:px-3.5 sm:text-[10px]"
-          />
+        <div
+          className={cn(
+            "mt-auto items-center gap-2 pt-0.5",
+            hasViewAction
+              ? "grid grid-cols-[minmax(0,1fr)_auto]"
+              : "flex justify-end",
+          )}
+        >
+          {hasViewAction ? (
+            <Button
+              href={viewHref}
+              onClick={onView}
+              label="View"
+              variant="filled"
+              className="h-auto w-full min-w-0 justify-center rounded-[12px] px-3 py-1 text-[9px] font-medium sm:h-8 sm:px-3.5 sm:text-[10px]"
+            />
+          ) : null}
 
           {isDisabled ? (
             <span className="inline-flex h-8 items-center justify-center rounded-full bg-[#D94C3F] px-3.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">

@@ -8,6 +8,7 @@ export const wishlistEventQueryKeys = {
   lists: () => [...wishlistEventQueryKeys.all, "list"] as const,
   details: () => [...wishlistEventQueryKeys.all, "detail"] as const,
   gifts: () => [...wishlistEventQueryKeys.all, "gifts"] as const,
+  hangouts: () => [...wishlistEventQueryKeys.all, "hangout"] as const,
   claimedGiftIds: () =>
     [...wishlistEventQueryKeys.all, "claimed-gift-ids"] as const,
   list: (params: WishlistEventsParams = {}) =>
@@ -32,4 +33,6 @@ export const wishlistEventQueryKeys = {
     ] as const,
   claimedGiftIdList: (wishlistEventId: string) =>
     [...wishlistEventQueryKeys.claimedGiftIds(), wishlistEventId] as const,
+  hangoutDetail: (wishlistEventId: string) =>
+    [...wishlistEventQueryKeys.hangouts(), wishlistEventId] as const,
 };
