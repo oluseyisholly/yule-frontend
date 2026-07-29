@@ -3111,30 +3111,31 @@ export default function DashboardGiftsScreen() {
       relationshipId: string;
     }>,
   ) => {
+    const selectedRecord = selectedParticipantRecord;
     const contactId = selectedParticipantRecord?.id?.trim();
 
-    if (!contactId) {
+    if (!contactId || !selectedRecord) {
       return null;
     }
 
     const canManageSelectedRecipient =
-      canManageGiftRecipientDetails(selectedParticipantRecord);
+      canManageGiftRecipientDetails(selectedRecord);
 
     const nextDetails = {
       gender:
         overrides?.gender ??
         selectedRecipientGender ??
-        selectedParticipantRecord.gender ??
+        selectedRecord.gender ??
         "",
       ageRange:
         overrides?.ageRange ??
         selectedRecipientAgeRange ??
-        selectedParticipantRecord.ageRange ??
+        selectedRecord.ageRange ??
         "",
       relationshipId:
         overrides?.relationshipId ??
         selectedRecipientRelationshipId ??
-        selectedParticipantRecord.relationshipId ??
+        selectedRecord.relationshipId ??
         "",
     };
 
@@ -3469,87 +3470,88 @@ export default function DashboardGiftsScreen() {
           isNotified: true,
         }));
 
-    const recipientRefs = isGiftingMyself
-      ? ["creator"]
-      : participants.map((participant) => participant.clientRef);
+    let giftAssignments: GiftingEventGiftAssignmentPayload[];
 
-    const giftAssignments: GiftingEventGiftAssignmentPayload[] = isGiftingMyself
-      ? [
-          {
-            giverRef: "creator",
-            recipientRefs: ["creator"],
-            gifts: selectionContext.selectedProducts.map((product) => ({
-              participantGiftId: product._id,
-              quantity: Math.max(
-                1,
-                giftRecipientQuantitiesById[product._id]?.creator ?? 1,
-              ),
-              title: product.title,
-              description: product.description ?? "",
-              amount: product.amount,
-              currency: "NGN",
-              imageUrl: product.images[0] || undefined,
-              categorySlug: product.categorySlug || undefined,
-              subCategorySlug: product.subCategorySlug || undefined,
-              condition: product.condition || undefined,
-              locationState: product.location?.state || undefined,
-              locationCity: product.location?.city || undefined,
-              sellerId: product.sellerId || undefined,
-              productSlug: product.slug || undefined,
-            })),
-          },
-        ]
-      : selectionContext.selectedProducts
-          .map((product) => {
-            const quantitiesByRecipient =
-              giftRecipientQuantitiesById[product._id] ?? {};
-            const activeRecipients = participants.filter(
-              (participant) =>
-                (quantitiesByRecipient[participant.contactId] ?? 1) > 0,
-            );
-
-            if (!activeRecipients.length) {
-              return null;
-            }
-
-            const totalQuantity = activeRecipients.reduce(
-              (sum, participant) =>
-                sum +
-                (quantitiesByRecipient[participant.contactId] ?? 1),
-              0,
-            );
-
-            return {
-              giverRef: "creator",
-              recipientRefs: activeRecipients.map(
-                (participant) => participant.clientRef,
-              ),
-              gifts: [
-                {
-                  participantGiftId: product._id,
-                  quantity: totalQuantity,
-                  title: product.title,
-                  description: product.description ?? "",
-                  amount: product.amount,
-                  currency: "NGN",
-                  imageUrl: product.images[0] || undefined,
-                  categorySlug: product.categorySlug || undefined,
-                  subCategorySlug: product.subCategorySlug || undefined,
-                  condition: product.condition || undefined,
-                  locationState: product.location?.state || undefined,
-                  locationCity: product.location?.city || undefined,
-                  sellerId: product.sellerId || undefined,
-                  productSlug: product.slug || undefined,
-                },
-              ],
-            };
-          })
-          .filter(
-            (
-              assignment,
-            ): assignment is GiftingEventGiftAssignmentPayload =>
-              Boolean(assignment),
+    if (isGiftingMyself) {
+      giftAssignments = [
+        {
+          giverRef: "creator",
+          recipientRefs: ["creator"],
+          gifts: selectionContext.selectedProducts.map((product) => ({
+            participantGiftId: product._id,
+            quantity: Math.max(
+              1,
+              giftRecipientQuantitiesById[product._id]?.creator ?? 1,
+            ),
+            title: product.title,
+            description: product.description ?? "",
+            amount: product.amount,
+            currency: "NGN",
+            imageUrl: product.images[0] || undefined,
+            categorySlug: product.categorySlug || undefined,
+            subCategorySlug: product.subCategorySlug || undefined,
+            condition: product.condition || undefined,
+            locationState: product.location?.state || undefined,
+            locationCity: product.location?.city || undefined,
+            sellerId: product.sellerId || undefined,
+            productSlug: product.slug || undefined,
+          })),
+        },
+      ];
+    } else {
+      const candidateAssignments = selectionContext.selectedProducts.map(
+        (product): GiftingEventGiftAssignmentPayload | null => {
+          const quantitiesByRecipient =
+            giftRecipientQuantitiesById[product._id] ?? {};
+          const activeRecipients = participants.filter(
+            (participant) =>
+              (quantitiesByRecipient[participant.contactId] ?? 1) > 0,
           );
+
+          if (!activeRecipients.length) {
+            return null;
+          }
+
+          const totalQuantity = activeRecipients.reduce(
+            (sum, participant) =>
+              sum + (quantitiesByRecipient[participant.contactId] ?? 1),
+            0,
+          );
+
+          return {
+            giverRef: "creator",
+            recipientRefs: activeRecipients.map(
+              (participant) => participant.clientRef,
+            ),
+            gifts: [
+              {
+                participantGiftId: product._id,
+                quantity: totalQuantity,
+                title: product.title,
+                description: product.description ?? "",
+                amount: product.amount,
+                currency: "NGN",
+                imageUrl: product.images[0] || undefined,
+                categorySlug: product.categorySlug || undefined,
+                subCategorySlug: product.subCategorySlug || undefined,
+                condition: product.condition || undefined,
+                locationState: product.location?.state || undefined,
+                locationCity: product.location?.city || undefined,
+                sellerId: product.sellerId || undefined,
+                productSlug: product.slug || undefined,
+              },
+            ],
+          };
+        },
+      );
+
+      giftAssignments = candidateAssignments.filter(
+        (
+          assignment,
+        ): assignment is GiftingEventGiftAssignmentPayload =>
+          assignment !== null,
+      );
+    }
 
     return {
       event: {
