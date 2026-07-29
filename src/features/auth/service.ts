@@ -1,5 +1,6 @@
 import { ApiRequestError, postApi } from "@/lib/api";
 import type {
+  AuthHandoffExchangeResponse,
   CreateUserPayload,
   CreateUserResponse,
   ExternalBusinessesResponse,
@@ -12,8 +13,11 @@ import type {
 
 const SIGN_IN_ENDPOINT = "/user/signin";
 const CREATE_USER_ENDPOINT = "/user";
+const AUTH_HANDOFF_EXCHANGE_ENDPOINT = "/auth/handoff/exchange";
 const NEXT_PUBLIC_ONEDA_API_BASE_URL =
   process.env.NEXT_PUBLIC_ONEDA_API_BASE_URL?.trim().replace(/\/$/, "");
+const NEXT_PUBLIC_AUTH_APP_BASE_URL =
+  process.env.NEXT_PUBLIC_AUTH_APP_BASE_URL?.trim().replace(/\/$/, "");
 
 export async function signIn(payload: SignInPayload) {
   return postApi<SignInResponse, SignInPayload>(SIGN_IN_ENDPOINT, payload, {
@@ -29,6 +33,47 @@ export async function createUser(payload: CreateUserPayload) {
       skipAuthLogout: true,
     },
   );
+}
+
+export async function exchangeAuthHandoffCode(code: string) {
+  if (!NEXT_PUBLIC_ONEDA_API_BASE_URL) {
+    throw new ApiRequestError("Auth app base URL is not configured.");
+  }
+
+  const response = await fetch(
+    `${NEXT_PUBLIC_ONEDA_API_BASE_URL}${AUTH_HANDOFF_EXCHANGE_ENDPOINT}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+        targetApp: "FESTA",
+      }),
+      cache: "no-store",
+    },
+  );
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const responseBody = contentType.includes("application/json")
+    ? ((await response.json()) as AuthHandoffExchangeResponse | { message?: string })
+    : null;
+
+  if (!response.ok) {
+    throw new ApiRequestError(
+      responseBody && "message" in responseBody && responseBody.message
+        ? responseBody.message
+        : "Unable to exchange your sign-in code right now.",
+      {
+        status: response.status,
+        details: responseBody,
+      },
+    );
+  }
+
+  return responseBody as AuthHandoffExchangeResponse;
 }
 
 export async function getExternalProfile(

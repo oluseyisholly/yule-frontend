@@ -133,6 +133,14 @@ export type SignInResponse = {
   data: AuthUser;
 };
 
+export type AuthHandoffExchangeResponse = {
+  statusCode: number;
+  success: boolean;
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+};
+
 export type CreateUserResponse = {
   code: number;
   message: string;

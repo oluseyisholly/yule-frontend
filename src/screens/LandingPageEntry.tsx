@@ -6,7 +6,10 @@ import { jwtDecode } from "jwt-decode";
 import toast from "react-hot-toast";
 import { Spinner } from "@/components/ui/spinner";
 import HomeScreen from "@/screens/HomeScreen";
-import { getExternalProfile } from "@/features/auth/service";
+import {
+  exchangeAuthHandoffCode,
+  getExternalProfile,
+} from "@/features/auth/service";
 import type { AuthUser, SsoTokenPayload } from "@/features/auth/types";
 import { getMyContactId, syncContact } from "@/features/contacts/service";
 import { ApiRequestError, resetApiLogoutState } from "@/lib/api";
@@ -18,6 +21,7 @@ import {
 
 function buildSanitizedLandingUrl(searchParams: URLSearchParams) {
   const nextSearchParams = new URLSearchParams(searchParams.toString());
+  nextSearchParams.delete("code");
   nextSearchParams.delete("accessToken");
   nextSearchParams.delete("refreshToken");
   const nextSearch = nextSearchParams.toString();
@@ -43,6 +47,7 @@ function resolvePostSsoRedirect(searchParams: URLSearchParams) {
       return buildSanitizedLandingUrl(searchParams);
     }
 
+    resolvedUrl.searchParams.delete("code");
     resolvedUrl.searchParams.delete("accessToken");
     resolvedUrl.searchParams.delete("refreshToken");
 
@@ -62,7 +67,11 @@ function normalizeErrorMessage(error: unknown) {
   return "Unable to sign you in right now. Please try again.";
 }
 
-export default function LandingPageEntry() {
+export default function LandingPageEntry({
+  initialHasPendingSsoCode = false,
+}: {
+  initialHasPendingSsoCode?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuthSession = useAuthStore((state) => state.setAuthSession);
@@ -71,26 +80,24 @@ export default function LandingPageEntry() {
   );
   const setIsSsoSigningIn = useAuthStore((state) => state.setSsoSigningIn);
   const isSsoSigningIn = useAuthStore((state) => state.isSsoSigningIn);
-  const processedAccessTokenRef = useRef<string | null>(null);
-  const hasPendingAccessToken =
-    Boolean(searchParams.get("accessToken")?.trim()) ||
-    Boolean(searchParams.get("refreshToken")?.trim());
+  const processedCodeRef = useRef<string | null>(null);
+  const hasPendingSsoCode =
+    initialHasPendingSsoCode || Boolean(searchParams.get("code")?.trim());
 
   useEffect(() => {
-    const accessToken = searchParams.get("accessToken")?.trim() ?? "";
-    const refreshToken = searchParams.get("refreshToken")?.trim() ?? "";
+    const code = searchParams.get("code")?.trim() ?? "";
 
-    if (!accessToken) {
-      processedAccessTokenRef.current = null;
+    if (!code) {
+      processedCodeRef.current = null;
       setIsSsoSigningIn(false);
       return;
     }
 
-    if (processedAccessTokenRef.current === accessToken) {
+    if (processedCodeRef.current === code) {
       return;
     }
 
-    processedAccessTokenRef.current = accessToken;
+    processedCodeRef.current = code;
 
     let isCancelled = false;
 
@@ -99,6 +106,14 @@ export default function LandingPageEntry() {
       setIsSsoSigningIn(true);
 
       try {
+        const exchangeResponse = await exchangeAuthHandoffCode(code);
+        const accessToken = exchangeResponse.accessToken?.trim() ?? "";
+        const refreshToken = exchangeResponse.refreshToken?.trim() ?? "";
+
+        if (!accessToken) {
+          throw new Error("Unable to resolve your sign-in details.");
+        }
+
         const decodedToken = jwtDecode<SsoTokenPayload>(accessToken);
         const email = decodedToken.email?.trim();
         const id = decodedToken.id?.trim();
@@ -260,24 +275,22 @@ export default function LandingPageEntry() {
   ]);
 
   return (
-    <>
-      <HomeScreen />
-
-      {isSsoSigningIn || hasPendingAccessToken ? (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-white px-6">
-          <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-[28px] bg-white px-8 py-8 text-center">
-            <Spinner className="size-10 text-[#3300C9]" />
-            <div className="space-y-1">
-              <p className="text-[18px] font-semibold text-[#1E1E1E]">
-                Signing you in
-              </p>
-              <p className="text-sm text-[#6E6A78]">
-                Please wait while we finish setting up your session.
-              </p>
-            </div>
+    isSsoSigningIn || hasPendingSsoCode ? (
+      <div className="fixed inset-0 z-[250] flex items-center justify-center bg-white px-6">
+        <div className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-[28px] bg-white px-8 py-8 text-center">
+          <Spinner className="size-10 text-[#3300C9]" />
+          <div className="space-y-1">
+            <p className="text-[18px] font-semibold text-[#1E1E1E]">
+              Signing you in
+            </p>
+            <p className="text-sm text-[#6E6A78]">
+              Please wait while we finish setting up your session.
+            </p>
           </div>
         </div>
-      ) : null}
-    </>
+      </div>
+    ) : (
+      <HomeScreen />
+    )
   );
 }
