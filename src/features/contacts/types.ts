@@ -1,3 +1,20 @@
+export type ContactRelationship = {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+};
+
+export type ContactConnection = {
+  id: string;
+  ownerContactId: string;
+  contactId: string;
+  relationshipId?: string | null;
+  relationship?: ContactRelationship | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Contact = {
   id: string;
   firstName: string;
@@ -6,12 +23,28 @@ export type Contact = {
   userId?: string | null;
   profileUrl?: string | null;
   gender: "male" | "female" | string;
+  ageRange?: string | null;
   phone: string;
   phoneNumber?: string;
   createdById?: string | null;
   note: string;
+  connection?: ContactConnection | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ContactEnumOption = {
+  label: string;
+  value: string;
+};
+
+export type ContactEnumsResponse = {
+  code: number;
+  message: string;
+  data: {
+    genders: ContactEnumOption[];
+    ageRanges: ContactEnumOption[];
+  };
 };
 
 export type ContactsParams = {
@@ -40,13 +73,14 @@ export type CreateContactPayload = {
   lastName: string;
   phoneNumber: string;
   email: string;
+  ageRange?: string;
 };
 
 export type CreateBulkContactsPayload = {
   contacts: CreateContactPayload[];
 };
 
-export type UpdateContactPayload = CreateContactPayload;
+export type UpdateContactPayload = Partial<CreateContactPayload>;
 
 export type CreateContactResponse = {
   code: number;
@@ -90,6 +124,7 @@ export type SyncContactPayload = {
   email: string;
   userId: string;
   profileUrl: string;
+  ageRange?: string;
 };
 
 export type SyncContactResponse = {

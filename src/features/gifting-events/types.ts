@@ -2,8 +2,38 @@ export type GiftingEventStatus = "draft" | "ongoing" | "completed" | string;
 
 export type GiftingEventCurrency = "NGN" | string;
 
+export type GiftingEventGiftItemPayload = {
+  participantGiftId: string;
+  quantity?: number;
+  title: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  imageUrl?: string;
+  categorySlug?: string;
+  subCategorySlug?: string;
+  condition?: string;
+  locationState?: string;
+  locationCity?: string;
+  sellerId?: string;
+  productSlug?: string;
+};
+
+export type GiftingEventSetupParticipantPayload = {
+  clientRef: string;
+  contactId: string;
+  isNotified: boolean;
+};
+
+export type GiftingEventGiftAssignmentPayload = {
+  giverRef: string;
+  recipientRefs: string[];
+  gifts: GiftingEventGiftItemPayload[];
+};
+
 export type GiftingEventCreatePayload = {
-  giftBudget?: number;
+  minimumGiftBudget?: number;
+  maximumGiftBudget?: number;
   currency?: GiftingEventCurrency;
   giftDeadline?: string;
   allowAnonymousGifting?: boolean;
@@ -19,6 +49,24 @@ export type GiftingEventPatchPayload = Partial<
   Omit<GiftingEventCreatePayload, "event">
 > & {
   event?: Partial<GiftingEventCreatePayload["event"]>;
+};
+
+export type GiftingEventSetupPayload = {
+  event: {
+    title: string;
+    description?: string;
+    eventTypeId: string;
+    eventDate?: string;
+  };
+  gifting: {
+    minimumGiftBudget?: number;
+    maximumGiftBudget?: number;
+    currency?: GiftingEventCurrency;
+    giftDeadline?: string;
+    allowAnonymousGifting?: boolean;
+  };
+  participants: GiftingEventSetupParticipantPayload[];
+  giftAssignments: GiftingEventGiftAssignmentPayload[];
 };
 
 export type GiftingEventCompletePayload = {
@@ -49,7 +97,8 @@ export type GiftingEventParticipant = {
 export type GiftingEventRecord = {
   id: string;
   eventId: string;
-  giftBudget: number;
+  minimumGiftBudget?: number | null;
+  maximumGiftBudget?: number | null;
   currency: GiftingEventCurrency;
   giftDeadline: string;
   allowAnonymousGifting: boolean;

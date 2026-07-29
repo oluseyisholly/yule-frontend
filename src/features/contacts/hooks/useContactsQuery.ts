@@ -23,8 +23,8 @@ export function useContactsQuery(
     queryKey: contactQueryKeys.list(normalizedParams),
     queryFn: () => getContacts(normalizedParams),
     enabled: options.enabled ?? true,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     placeholderData: (previousData) => previousData,
   });

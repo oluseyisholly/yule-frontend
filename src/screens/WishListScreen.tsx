@@ -2176,7 +2176,10 @@ export default function WishListScreen() {
       eventDeadline?: string;
     },
   ) => {
-    if (!selectedEventTypeId) {
+    const resolvedEventTypeId =
+      selectedEventTypeId || selectedEventTypeOption?.value || "";
+
+    if (!resolvedEventTypeId) {
       toast.error("Please select an event first.");
       return null;
     }
@@ -2193,7 +2196,7 @@ export default function WishListScreen() {
         event: {
           title: resolvedTitle,
           description: "",
-          eventTypeId: selectedEventTypeId,
+          eventTypeId: resolvedEventTypeId,
           eventDate: toIsoDate(resolvedEventDate),
         },
         allowMultipleItems: true,
@@ -2241,13 +2244,16 @@ export default function WishListScreen() {
   };
 
   const handleWishListEventNext = () => {
-    if (!selectedEventTypeId) {
+    const resolvedEventTypeId =
+      selectedEventTypeId || selectedEventTypeOption?.value || "";
+
+    if (!resolvedEventTypeId) {
       toast.error("Please select an event first.");
       return;
     }
 
     setWishListDraftFields(flowSelectionKey, {
-      selectedEventTypeId,
+      selectedEventTypeId: resolvedEventTypeId,
       eventName:
         wishListSuggestedName.trim() ||
         selectedEventTypeOption?.label ||
@@ -2257,7 +2263,10 @@ export default function WishListScreen() {
   };
 
   const handleWishListEventSaveAndContinue = async () => {
-    if (!selectedEventTypeId) {
+    const resolvedEventTypeId =
+      selectedEventTypeId || selectedEventTypeOption?.value || "";
+
+    if (!resolvedEventTypeId) {
       toast.error("Please select an event first.");
       return;
     }
@@ -2274,14 +2283,14 @@ export default function WishListScreen() {
           payload: {
             event: {
               title: resolvedTitle,
-              eventTypeId: selectedEventTypeId,
+              eventTypeId: resolvedEventTypeId,
             },
           },
         });
 
         toast.success(response.message);
         setWishListDraftFields(flowSelectionKey, {
-          selectedEventTypeId,
+          selectedEventTypeId: resolvedEventTypeId,
           eventName: resolvedTitle,
         });
         setCurrentStep("event-date", mode, eventId, wishlistEventId);
@@ -2627,7 +2636,10 @@ export default function WishListScreen() {
   };
 
   const buildWishlistSetupPayload = (): WishlistEventSetupPayload | null => {
-    if (!selectedEventTypeId) {
+    const resolvedEventTypeId =
+      selectedEventTypeId || selectedEventTypeOption?.value || "";
+
+    if (!resolvedEventTypeId) {
       toast.error("Please select an event first.");
       return null;
     }
@@ -2655,7 +2667,7 @@ export default function WishListScreen() {
       event: {
         title: resolvedTitle,
         description: "",
-        eventTypeId: selectedEventTypeId,
+        eventTypeId: resolvedEventTypeId,
         eventDate: toIsoDate(selectedWishListDate),
       },
       wishlist: {
@@ -2760,6 +2772,7 @@ export default function WishListScreen() {
 
       giftsPayload = resolvedSelectedProducts.map((product) => ({
         participantGiftId: product._id,
+        quantity: 1,
         title: product.title,
         description: product.description ?? "",
         amount: product.amount,

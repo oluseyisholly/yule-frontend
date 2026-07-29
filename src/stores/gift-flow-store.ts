@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { GiftRecipientChoiceValue } from "@/components/GiftRecipientChoiceStep";
+import type { SearchableRecordItem } from "@/components/SearchableRecordPicker";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import type { GiftModalStep } from "@/screens/gifts/modal-steps";
 
@@ -9,27 +11,53 @@ export type GiftFlowMode = "create" | "edit";
 
 type GiftFlowDraftFields = {
   lastVisitedStep: GiftModalStep | null;
+  celebrationTarget: GiftRecipientChoiceValue;
+  selectedBudgetOption: string;
+  minimumGiftBudget: number | null;
+  maximumGiftBudget: number | null;
   selectedEventTypeId: string;
   eventDate: string;
   giftDeadline: string;
   eventName: string;
   selectedOnedaBusinessIds: string[];
   selectedOnedaContactIds: string[];
+  activeRecipientContactId: string;
+  recipientGender: "male" | "female" | "";
+  recipientAgeRange: string;
+  recipientRelationshipId: string;
+  recipientDetailsByContactId: Record<
+    string,
+    {
+      gender: "male" | "female" | "";
+      ageRange: string;
+      relationshipId: string;
+    }
+  >;
 };
 
 export type GiftFlowSelectionState = GiftFlowDraftFields & {
   selectedParticipantContactIds: string[];
+  selectedParticipantRecordsById: Record<string, SearchableRecordItem>;
   selectedGiftIds: string[];
   selectedGiftProductsById: Record<string, MarketplaceProduct>;
+  giftRecipientQuantitiesById: Record<string, Record<string, number>>;
 };
 
 type GiftFlowStore = {
   flowSelectionsByKey: Record<string, GiftFlowSelectionState>;
   setSelectedParticipantContactIds: (flowKey: string, ids: string[]) => void;
+  setSelectedParticipantRecordsById: (
+    flowKey: string,
+    recordsById: Record<string, SearchableRecordItem>,
+  ) => void;
   setSelectedGiftIds: (flowKey: string, ids: string[]) => void;
   setSelectedGiftProductsById: (
     flowKey: string,
     itemsById: Record<string, MarketplaceProduct>,
+  ) => void;
+  setGiftRecipientQuantitiesById: (
+    flowKey: string,
+    quantitiesById: Record<string, Record<string, number>>,
   ) => void;
   setDraftFields: (
     flowKey: string,
@@ -40,15 +68,26 @@ type GiftFlowStore = {
 
 export const EMPTY_GIFT_FLOW_SELECTION: GiftFlowSelectionState = {
   lastVisitedStep: null,
+  celebrationTarget: "myself",
+  selectedBudgetOption: "",
+  minimumGiftBudget: null,
+  maximumGiftBudget: null,
   selectedEventTypeId: "",
   eventDate: "",
   giftDeadline: "",
   eventName: "",
   selectedOnedaBusinessIds: [],
   selectedOnedaContactIds: [],
+  activeRecipientContactId: "",
+  recipientGender: "",
+  recipientAgeRange: "",
+  recipientRelationshipId: "",
+  recipientDetailsByContactId: {},
   selectedParticipantContactIds: [],
+  selectedParticipantRecordsById: {},
   selectedGiftIds: [],
   selectedGiftProductsById: {},
+  giftRecipientQuantitiesById: {},
 };
 
 export function isGiftFlowMode(
@@ -70,6 +109,10 @@ function hasFlowSelectionChanged(
 ) {
   return (
     currentSelection.lastVisitedStep !== nextSelection.lastVisitedStep ||
+    currentSelection.celebrationTarget !== nextSelection.celebrationTarget ||
+    currentSelection.selectedBudgetOption !== nextSelection.selectedBudgetOption ||
+    currentSelection.minimumGiftBudget !== nextSelection.minimumGiftBudget ||
+    currentSelection.maximumGiftBudget !== nextSelection.maximumGiftBudget ||
     currentSelection.selectedEventTypeId !== nextSelection.selectedEventTypeId ||
     currentSelection.eventDate !== nextSelection.eventDate ||
     currentSelection.giftDeadline !== nextSelection.giftDeadline ||
@@ -81,7 +124,17 @@ function hasFlowSelectionChanged(
     !haveSameStringArrayValues(
       currentSelection.selectedOnedaContactIds,
       nextSelection.selectedOnedaContactIds,
-    )
+    ) ||
+    currentSelection.activeRecipientContactId !==
+      nextSelection.activeRecipientContactId ||
+    JSON.stringify(currentSelection.selectedParticipantRecordsById) !==
+      JSON.stringify(nextSelection.selectedParticipantRecordsById) ||
+    currentSelection.recipientGender !== nextSelection.recipientGender ||
+    currentSelection.recipientAgeRange !== nextSelection.recipientAgeRange ||
+    currentSelection.recipientRelationshipId !==
+      nextSelection.recipientRelationshipId ||
+    JSON.stringify(currentSelection.recipientDetailsByContactId) !==
+      JSON.stringify(nextSelection.recipientDetailsByContactId)
   );
 }
 
@@ -96,12 +149,21 @@ function normalizeGiftFlowSelection(
     )
       ? selection.selectedParticipantContactIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedParticipantContactIds,
+    selectedParticipantRecordsById:
+      selection?.selectedParticipantRecordsById &&
+      typeof selection.selectedParticipantRecordsById === "object"
+        ? selection.selectedParticipantRecordsById
+        : EMPTY_GIFT_FLOW_SELECTION.selectedParticipantRecordsById,
     selectedOnedaBusinessIds: Array.isArray(selection?.selectedOnedaBusinessIds)
       ? selection.selectedOnedaBusinessIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaBusinessIds,
     selectedOnedaContactIds: Array.isArray(selection?.selectedOnedaContactIds)
       ? selection.selectedOnedaContactIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedOnedaContactIds,
+    activeRecipientContactId:
+      typeof selection?.activeRecipientContactId === "string"
+        ? selection.activeRecipientContactId
+        : EMPTY_GIFT_FLOW_SELECTION.activeRecipientContactId,
     selectedGiftIds: Array.isArray(selection?.selectedGiftIds)
       ? selection.selectedGiftIds
       : EMPTY_GIFT_FLOW_SELECTION.selectedGiftIds,
@@ -110,6 +172,16 @@ function normalizeGiftFlowSelection(
       typeof selection.selectedGiftProductsById === "object"
         ? selection.selectedGiftProductsById
         : EMPTY_GIFT_FLOW_SELECTION.selectedGiftProductsById,
+    giftRecipientQuantitiesById:
+      selection?.giftRecipientQuantitiesById &&
+      typeof selection.giftRecipientQuantitiesById === "object"
+        ? selection.giftRecipientQuantitiesById
+        : EMPTY_GIFT_FLOW_SELECTION.giftRecipientQuantitiesById,
+    recipientDetailsByContactId:
+      selection?.recipientDetailsByContactId &&
+      typeof selection.recipientDetailsByContactId === "object"
+        ? selection.recipientDetailsByContactId
+        : EMPTY_GIFT_FLOW_SELECTION.recipientDetailsByContactId,
   };
 }
 
@@ -186,6 +258,30 @@ export const useGiftFlowStore = create<GiftFlowStore>()(
             },
           };
         }),
+      setSelectedParticipantRecordsById: (flowKey, recordsById) =>
+        set((state) => {
+          const currentSelection = getFlowSelection(
+            state.flowSelectionsByKey,
+            flowKey,
+          );
+
+          if (
+            JSON.stringify(currentSelection.selectedParticipantRecordsById) ===
+            JSON.stringify(recordsById)
+          ) {
+            return state;
+          }
+
+          return {
+            flowSelectionsByKey: {
+              ...state.flowSelectionsByKey,
+              [flowKey]: {
+                ...currentSelection,
+                selectedParticipantRecordsById: recordsById,
+              },
+            },
+          };
+        }),
       setSelectedGiftIds: (flowKey, ids) =>
         set((state) => ({
           flowSelectionsByKey: {
@@ -203,6 +299,16 @@ export const useGiftFlowStore = create<GiftFlowStore>()(
             [flowKey]: {
               ...getFlowSelection(state.flowSelectionsByKey, flowKey),
               selectedGiftProductsById: itemsById,
+            },
+          },
+        })),
+      setGiftRecipientQuantitiesById: (flowKey, quantitiesById) =>
+        set((state) => ({
+          flowSelectionsByKey: {
+            ...state.flowSelectionsByKey,
+            [flowKey]: {
+              ...getFlowSelection(state.flowSelectionsByKey, flowKey),
+              giftRecipientQuantitiesById: quantitiesById,
             },
           },
         })),
@@ -244,7 +350,7 @@ export const useGiftFlowStore = create<GiftFlowStore>()(
     }),
     {
       name: "gift-flow-store",
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 );

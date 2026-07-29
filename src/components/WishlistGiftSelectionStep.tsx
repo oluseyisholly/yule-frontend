@@ -45,6 +45,8 @@ type WishlistGiftSelectionStepProps = {
     checked: boolean,
   ) => void;
   onViewProduct?: (product: MarketplaceProduct) => void;
+  initialMinimumPrice?: number | null;
+  initialMaximumPrice?: number | null;
   maximumSpend?: number;
   onBack?: () => void;
   onNext: () => void;
@@ -421,6 +423,8 @@ export default function WishlistGiftSelectionStep({
   onSelectedIdsChange,
   onSelectedProductToggle,
   onViewProduct,
+  initialMinimumPrice,
+  initialMaximumPrice,
   maximumSpend,
   onBack,
   onNext,
@@ -458,20 +462,36 @@ export default function WishlistGiftSelectionStep({
   const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
   const [selectedSubCategorySlug, setSelectedSubCategorySlug] = useState("");
   const [selectedCondition, setSelectedCondition] = useState("");
-  const [minimumPrice, setMinimumPrice] = useState("");
-  const [maximumPrice, setMaximumPrice] = useState("");
+  const [minimumPrice, setMinimumPrice] = useState(
+    initialMinimumPrice ? String(initialMinimumPrice) : "",
+  );
+  const [maximumPrice, setMaximumPrice] = useState(
+    initialMaximumPrice ? String(initialMaximumPrice) : "",
+  );
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [draftCategorySlug, setDraftCategorySlug] = useState("");
   const [draftSubCategorySlug, setDraftSubCategorySlug] = useState("");
   const [draftCondition, setDraftCondition] = useState("");
-  const [draftMinimumPrice, setDraftMinimumPrice] = useState("");
-  const [draftMaximumPrice, setDraftMaximumPrice] = useState("");
+  const [draftMinimumPrice, setDraftMinimumPrice] = useState(
+    initialMinimumPrice ? String(initialMinimumPrice) : "",
+  );
+  const [draftMaximumPrice, setDraftMaximumPrice] = useState(
+    initialMaximumPrice ? String(initialMaximumPrice) : "",
+  );
   const onSelectedProductToggleRef = useRef(onSelectedProductToggle);
   const isExternalProductSource = Array.isArray(externalProducts);
 
   useEffect(() => {
     onSelectedProductToggleRef.current = onSelectedProductToggle;
   }, [onSelectedProductToggle]);
+
+  useEffect(() => {
+    setMinimumPrice(initialMinimumPrice ? String(initialMinimumPrice) : "");
+  }, [initialMinimumPrice]);
+
+  useEffect(() => {
+    setMaximumPrice(initialMaximumPrice ? String(initialMaximumPrice) : "");
+  }, [initialMaximumPrice]);
 
   const deferredQuery = useDeferredValue(query);
   const {

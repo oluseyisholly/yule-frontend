@@ -57,6 +57,7 @@ export type ScheduledEventMessagePayload = {
 
 export type ScheduledEventMessageSetupGiftItem = {
   participantGiftId: string;
+  quantity?: number;
   title: string;
   description: string;
   amount: number;
@@ -94,6 +95,7 @@ export type ScheduledEventMessageSetupPayload = {
     message: string;
     scheduledAt: string;
     sendNow: boolean;
+    redirectUrl?: string;
     metadata?: ScheduledEventMessageMetadata;
   };
   participants: ScheduledEventMessageSetupParticipant[];

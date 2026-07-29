@@ -116,6 +116,7 @@ type DrawNameStartModalProps = {
 
 const EMPTY_NEW_COLLEAGUE_FORM: AddColleagueFormValues = {
   gender: "",
+  ageRange: "",
   firstName: "",
   lastName: "",
   phoneNumber: "",
@@ -197,6 +198,10 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    ageRange: contact.ageRange?.trim() || "",
+    relationshipId: contact.connection?.relationshipId?.trim() || null,
+    relationshipName:
+      contact.connection?.relationship?.name?.trim() || "",
     profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
@@ -1883,6 +1888,7 @@ Thank you.`;
         isNotified: wishlistNotificationChoice === "yes",
         gifts: selectedProducts.map((product) => ({
           participantGiftId: product._id,
+          quantity: 1,
           title: product.title,
           description: product.description ?? "",
           amount: product.amount,
@@ -3004,6 +3010,7 @@ Thank you.`;
   ) => {
     const nextFormValues: AddColleagueFormValues = {
       gender: item.gender || "",
+      ageRange: item.ageRange || "",
       firstName: item.firstName || item.name.split(" ")[0] || "",
       lastName: item.lastName || item.name.split(" ").slice(1).join(" ") || "",
       phoneNumber: item.phoneNumber || "",
@@ -3051,6 +3058,7 @@ Thank you.`;
     try {
       const payload = {
         gender: genderValue,
+        ageRange: newColleagueForm.ageRange || undefined,
         firstName: firstNameValue,
         lastName: lastNameValue,
         phoneNumber: newColleagueForm.phoneNumber.trim(),
@@ -3405,6 +3413,7 @@ Thank you.`;
         recipientParticipantId: currentParticipantId,
         gifts: selectedProducts.map((product) => ({
           participantGiftId: product._id,
+          quantity: 1,
           title: product.title,
           description: product.description ?? "",
           amount: product.amount,
@@ -4366,15 +4375,48 @@ Thank you.`;
       />
     ) : currentStep === "budget" ? (
       <GiftBudgetStep
-        value={selectedBudget}
-        customValue={customBudget}
-        onChange={(nextValue) => {
-          setSelectedBudget(nextValue);
-          if (nextValue !== "More") {
-            setCustomBudget("");
+        selectedOption={
+          (selectedBudget === "More"
+            ? "custom"
+            : selectedBudget === "N10,000"
+              ? "10000-25000"
+              : selectedBudget === "N15,000"
+                ? "10000-25000"
+                : selectedBudget === "N20,000"
+                  ? "10000-25000"
+                  : selectedBudget === "N35,000"
+                    ? "25000-50000"
+                    : selectedBudget === "N50,000"
+                      ? "50000-100000"
+                      : selectedBudget === "N85,000"
+                        ? "50000-100000"
+                        : selectedBudget === "N100,000"
+                          ? "100000-250000"
+                          : "") as Parameters<typeof GiftBudgetStep>[0]["selectedOption"]
+        }
+        customMinimumValue={customBudget}
+        customMaximumValue={customBudget}
+        onSelectOption={(nextValue) => {
+          if (nextValue === "custom") {
+            setSelectedBudget("More");
+            return;
           }
+
+          const budgetLabelByOption: Record<string, string> = {
+            "under-10000": "N10,000",
+            "10000-25000": "N15,000",
+            "25000-50000": "N35,000",
+            "50000-100000": "N50,000",
+            "100000-250000": "N100,000",
+            "250000-500000": "N100,000",
+            "500000-plus": "N100,000",
+          };
+
+          setSelectedBudget(budgetLabelByOption[nextValue] ?? "");
+          setCustomBudget("");
         }}
-        onCustomValueChange={setCustomBudget}
+        onCustomMinimumValueChange={setCustomBudget}
+        onCustomMaximumValueChange={setCustomBudget}
         onBack={() =>
           onStepChange(cameToBudgetFromGroupName ? "group-name" : "event-date")
         }

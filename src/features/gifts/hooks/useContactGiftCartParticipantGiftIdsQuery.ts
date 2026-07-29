@@ -15,8 +15,8 @@ export function useContactGiftCartParticipantGiftIdsQuery(
     queryKey: giftQueryKeys.cartParticipantGiftIds(),
     queryFn: () => getContactGiftCartParticipantGiftIds(),
     enabled: options.enabled ?? true,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     placeholderData: (previousData) => previousData,
   });

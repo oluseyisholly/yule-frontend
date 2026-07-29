@@ -2,6 +2,7 @@ import type { ContactsParams } from "@/features/contacts/types";
 
 export const contactQueryKeys = {
   all: ["contacts"] as const,
+  enums: () => [...contactQueryKeys.all, "enums"] as const,
   lists: () => [...contactQueryKeys.all, "list"] as const,
   list: (params: ContactsParams = {}) =>
     [

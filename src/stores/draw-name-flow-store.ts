@@ -91,6 +91,7 @@ export const EMPTY_DRAW_NAME_ADD_RECORD_DRAFT: DrawNameAddRecordDraftState = {
   returnStep: "record",
   form: {
     gender: "",
+    ageRange: "",
     firstName: "",
     lastName: "",
     phoneNumber: "",

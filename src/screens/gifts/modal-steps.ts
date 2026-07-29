@@ -1,14 +1,20 @@
 export const VALID_GIFT_MODAL_STEPS = [
+  "recipient-choice",
+  "source",
   "event",
-  "event-date",
-  "event-name",
+  "budget",
   "source",
   "oneda-business",
   "oneda-contact",
   "record",
   "review-records",
+  "contact-details",
+  "gender",
+  "age-range",
+  "relationship",
   "add-record",
   "gift-selection",
+  "review-gifts",
   "invite",
 ] as const;
 

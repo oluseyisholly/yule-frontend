@@ -9,6 +9,7 @@ import Autoplay from "embla-carousel-autoplay";
 import {
   CalendarDaysIcon,
   CheckCircle2,
+  MinusIcon,
   MoreHorizontal,
   Clock3,
   PlusIcon,
@@ -30,12 +31,20 @@ import CustomColleagueReview from "@/components/CustomColleagueReview";
 import EmailInviteComposeModal from "@/components/EmailInviteComposeModal";
 import DrawNameInviteStep from "@/components/DrawNameInviteStep";
 import EventDateStep from "@/components/EventDateStep";
-import GroupNameStep from "@/components/GroupNameStep";
+import GiftBudgetStep, {
+  deriveGiftBudgetOption,
+  resolveGiftBudgetRange,
+  type GiftBudgetOptionKey,
+} from "@/components/GiftBudgetStep";
+import GiftRecipientChoiceStep, {
+  type GiftRecipientChoiceValue,
+} from "@/components/GiftRecipientChoiceStep";
 import ModalButton from "@/components/ModalButtons";
 import OverlayRecordPicker from "@/components/OverlayRecordPicker";
 import OverlaySelect, {
   type OverlaySelectOption,
 } from "@/components/OverlaySelect";
+import SideDrawer from "@/components/SideDrawer";
 import type { SearchableRecordItem } from "@/components/SearchableRecordPicker";
 import UserAvatar from "@/components/UserAvatar";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
@@ -58,6 +67,7 @@ import {
 } from "@/components/ui/drop-down";
 import { Input } from "@/components/ui/input";
 import ContentModal from "@/components/ui/modal";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import ViewIcon from "@/components/icons/ViewIcon";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
 import featureImg1 from "@/assets/icons/featureImg1.svg";
@@ -69,6 +79,8 @@ import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCrea
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useEnsureMyContactMutation } from "@/features/contacts/hooks/useEnsureMyContactMutation";
+import { useContactEnumsQuery } from "@/features/contacts/hooks/useContactEnumsQuery";
+import { useUpdateContactConnectionMutation } from "@/features/contacts/hooks/useUpdateContactConnectionMutation";
 import { useUpdateContactMutation } from "@/features/contacts/hooks/useUpdateContactMutation";
 import type { Contact } from "@/features/contacts/types";
 import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
@@ -92,9 +104,11 @@ import { useUpdateGiftFulfillmentMutation } from "@/features/gifts/hooks/useUpda
 import { useSendEmailMutation } from "@/features/email/hooks/useSendEmailMutation";
 import { canManageGiftingEvent } from "@/features/gifting-events/access";
 import { useCreateGiftingEventMutation } from "@/features/gifting-events/hooks/useCreateGiftingEventMutation";
+import { useCreateGiftingEventSetupMutation } from "@/features/gifting-events/hooks/useCreateGiftingEventSetupMutation";
 import { useDeleteGiftingEventMutation } from "@/features/gifting-events/hooks/useDeleteGiftingEventMutation";
 import { useCompleteGiftingEventMutation } from "@/features/gifting-events/hooks/useCompleteGiftingEventMutation";
 import { useGiftingEventsQuery } from "@/features/gifting-events/hooks/useGiftingEventsQuery";
+import { useUpdateGiftingEventSetupMutation } from "@/features/gifting-events/hooks/useUpdateGiftingEventSetupMutation";
 import { useUpdateGiftingEventMutation } from "@/features/gifting-events/hooks/useUpdateGiftingEventMutation";
 import { useSendGiftingEventInvitationsMutation } from "@/features/invitations/hooks/useSendGiftingEventInvitationsMutation";
 import type {
@@ -107,13 +121,19 @@ import type {
   ContactGiftCartItem,
 } from "@/features/gifts/types";
 import type {
+  GiftingEventGiftAssignmentPayload,
   GiftingEventParticipant,
   GiftingEventParticipantActor,
   GiftingEventRecord,
+  GiftingEventSetupPayload,
 } from "@/features/gifting-events/types";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import { useCreateParticipantsBulkMutation } from "@/features/participants/hooks/useCreateParticipantsBulkMutation";
 import { useMyParticipantQuery } from "@/features/participants/hooks/useMyParticipantQuery";
+import { useAvailableRelationshipsQuery } from "@/features/relationships/hooks/useAvailableRelationshipsQuery";
+import { useCreateRelationshipMutation } from "@/features/relationships/hooks/useCreateRelationshipMutation";
+import { useDeleteRelationshipMutation } from "@/features/relationships/hooks/useDeleteRelationshipMutation";
+import { useUpdateRelationshipMutation } from "@/features/relationships/hooks/useUpdateRelationshipMutation";
 import { cn, shareInvite } from "@/lib/utils";
 import {
   buildInviteShareMessage,
@@ -163,6 +183,8 @@ type GiftingEventRow = {
   id: string;
   giftingEventId: string;
   eventId: string;
+  minimumGiftBudget: number | null;
+  maximumGiftBudget: number | null;
   eventTypeId: string;
   eventName: string;
   eventTypeKey?: string | null;
@@ -177,6 +199,8 @@ type GiftingEventRow = {
   status: GiftingEventStatusLabel;
   canManage: boolean;
 };
+
+type MissingGiftContactField = "gender" | "ageRange" | "relationship";
 
 type StatCardData = {
   icon: ReactNode;
@@ -203,6 +227,7 @@ const PAGE_SIZE = 5;
 const fallbackGiftImages = [featureImg1, featureImg2, featureImg3, featureImg4];
 const EMPTY_NEW_COLLEAGUE_FORM: AddColleagueFormValues = {
   gender: "",
+  ageRange: "",
   firstName: "",
   lastName: "",
   phoneNumber: "",
@@ -346,6 +371,15 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat("en-GB").format(date);
 }
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = `${today.getMonth() + 1}`.padStart(2, "0");
+  const day = `${today.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function getContactAvatarStyle(seed: string) {
   const hash = Array.from(seed).reduce(
     (accumulator, character) => accumulator + character.charCodeAt(0),
@@ -392,6 +426,10 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    ageRange: contact.ageRange?.trim() || "",
+    relationshipId: contact.connection?.relationshipId?.trim() || null,
+    relationshipName:
+      contact.connection?.relationship?.name?.trim() || "",
     profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
@@ -738,6 +776,8 @@ function getGiftRowKey(row: GiftRow, index: number) {
 function hasGiftFlowDraft(selection: GiftFlowSelectionState) {
   return (
     selection.lastVisitedStep !== EMPTY_GIFT_FLOW_SELECTION.lastVisitedStep ||
+    selection.celebrationTarget !==
+      EMPTY_GIFT_FLOW_SELECTION.celebrationTarget ||
     selection.selectedEventTypeId !==
       EMPTY_GIFT_FLOW_SELECTION.selectedEventTypeId ||
     selection.eventDate !== EMPTY_GIFT_FLOW_SELECTION.eventDate ||
@@ -855,6 +895,14 @@ function toGiftingEventRow(
     id: record.id,
     giftingEventId: record.id,
     eventId: record.eventId,
+    minimumGiftBudget:
+      typeof record.minimumGiftBudget === "number"
+        ? record.minimumGiftBudget
+        : null,
+    maximumGiftBudget:
+      typeof record.maximumGiftBudget === "number"
+        ? record.maximumGiftBudget
+        : null,
     eventTypeId: record.event.eventTypeId,
     eventName: record.event.title?.trim() || "Untitled event",
     eventTypeKey: eventTypeKey ?? null,
@@ -1303,11 +1351,17 @@ export default function DashboardGiftsScreen() {
   const setSelectedParticipantContactIds = useGiftFlowStore(
     (state) => state.setSelectedParticipantContactIds,
   );
+  const setSelectedParticipantRecordsById = useGiftFlowStore(
+    (state) => state.setSelectedParticipantRecordsById,
+  );
   const setStoredSelectedGiftIds = useGiftFlowStore(
     (state) => state.setSelectedGiftIds,
   );
   const setSelectedGiftProductsById = useGiftFlowStore(
     (state) => state.setSelectedGiftProductsById,
+  );
+  const setGiftRecipientQuantitiesById = useGiftFlowStore(
+    (state) => state.setGiftRecipientQuantitiesById,
   );
   const resetGiftFlowSelection = useGiftFlowStore(
     (state) => state.resetFlowSelection,
@@ -1330,9 +1384,13 @@ export default function DashboardGiftsScreen() {
   const [eventTypeSearchValue, setEventTypeSearchValue] = useState("");
   const [debouncedEventTypeSearchValue, setDebouncedEventTypeSearchValue] =
     useState("");
+  const [relationshipSearchValue, setRelationshipSearchValue] = useState("");
+  const [debouncedRelationshipSearchValue, setDebouncedRelationshipSearchValue] =
+    useState("");
   const [addRecordReturnStep, setAddRecordReturnStep] = useState<
     "record" | "review-records"
   >("record");
+  const [isGiftRecordPickerOpen, setIsGiftRecordPickerOpen] = useState(false);
   const [giftsStatsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
   ]);
@@ -1340,9 +1398,30 @@ export default function DashboardGiftsScreen() {
     isCompleteGiftingEventConfirmationOpen,
     setIsCompleteGiftingEventConfirmationOpen,
   ] = useState(false);
+  const [isSavingGiftSetupAsDraft, setIsSavingGiftSetupAsDraft] =
+    useState(false);
+  const [isSavingGiftSetupAndCompleting, setIsSavingGiftSetupAndCompleting] =
+    useState(false);
+  const [
+    isDiscardGiftFlowConfirmationOpen,
+    setIsDiscardGiftFlowConfirmationOpen,
+  ] = useState(false);
   const [isGiftInviteEmailComposeOpen, setIsGiftInviteEmailComposeOpen] =
     useState(false);
+  const [activeGiftAssignmentProductId, setActiveGiftAssignmentProductId] =
+    useState<string | null>(null);
+  const [
+    pendingGiftContactDetailsPrompt,
+    setPendingGiftContactDetailsPrompt,
+  ] = useState<{
+    item: SearchableRecordItem;
+    missingFields: MissingGiftContactField[];
+  } | null>(null);
+  const [skippedGiftContactDetailsPromptIds, setSkippedGiftContactDetailsPromptIds] =
+    useState<string[]>([]);
   const autoPreselectedCaughtMyEyeFlowKeysRef = useRef<Set<string>>(new Set());
+  const [customGiftBudgetMinimum, setCustomGiftBudgetMinimum] = useState("");
+  const [customGiftBudgetMaximum, setCustomGiftBudgetMaximum] = useState("");
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [newColleagueForm, setNewColleagueForm] =
     useState<AddColleagueFormValues>(EMPTY_NEW_COLLEAGUE_FORM);
@@ -1364,14 +1443,28 @@ export default function DashboardGiftsScreen() {
     null;
   const selectedParticipantContactIds =
     flowSelection.selectedParticipantContactIds;
+  const selectedParticipantRecordsById =
+    flowSelection.selectedParticipantRecordsById;
   const selectedOnedaBusinessIds = flowSelection.selectedOnedaBusinessIds;
   const selectedOnedaContactIds = flowSelection.selectedOnedaContactIds;
   const selectedGiftIds = flowSelection.selectedGiftIds;
   const selectedGiftProductsById = flowSelection.selectedGiftProductsById;
+  const giftRecipientQuantitiesById = flowSelection.giftRecipientQuantitiesById;
+  const selectedCelebrationTarget = flowSelection.celebrationTarget;
+  const selectedBudgetOption = flowSelection.selectedBudgetOption;
+  const selectedMinimumGiftBudget = flowSelection.minimumGiftBudget;
+  const selectedMaximumGiftBudget = flowSelection.maximumGiftBudget;
   const selectedGiftEventTypeId = flowSelection.selectedEventTypeId;
   const selectedGiftEventDate = flowSelection.eventDate;
   const giftEventName = flowSelection.eventName;
+  const selectedRecipientGender = flowSelection.recipientGender;
+  const selectedRecipientAgeRange = flowSelection.recipientAgeRange;
+  const selectedRecipientRelationshipId = flowSelection.recipientRelationshipId;
+  const activeRecipientContactId = flowSelection.activeRecipientContactId;
+  const recipientDetailsByContactId = flowSelection.recipientDetailsByContactId;
   const isGiftInviteStep = currentGiftFlowStep === "invite";
+  const isGiftingMyself = selectedCelebrationTarget === "myself";
+  const isGroupGifting = selectedCelebrationTarget === "group";
   const activeTabParam = searchParams.get("tab")?.trim().toLowerCase() ?? null;
   const receivedEventIdParam = searchParams.get("eventId")?.trim() || "";
   const isBrowseGiftsFlow = searchParams.get("browse") === "true";
@@ -1526,7 +1619,9 @@ export default function DashboardGiftsScreen() {
   const updateEventTypeMutation = useUpdateEventTypeMutation();
   const deleteEventTypeMutation = useDeleteEventTypeMutation();
   const deleteGiftingEventMutation = useDeleteGiftingEventMutation();
+  const createGiftingEventSetupMutation = useCreateGiftingEventSetupMutation();
   const completeGiftingEventMutation = useCompleteGiftingEventMutation();
+  const updateGiftingEventSetupMutation = useUpdateGiftingEventSetupMutation();
   const updateGiftingEventMutation = useUpdateGiftingEventMutation();
   const updateGiftFulfillmentMutation = useUpdateGiftFulfillmentMutation();
   const sendEmailMutation = useSendEmailMutation();
@@ -1534,7 +1629,11 @@ export default function DashboardGiftsScreen() {
   const createBulkContactsMutation = useCreateBulkContactsMutation();
   const createContactMutation = useCreateContactMutation();
   const updateContactMutation = useUpdateContactMutation();
+  const updateContactConnectionMutation = useUpdateContactConnectionMutation();
   const deleteContactMutation = useDeleteContactMutation();
+  const createRelationshipMutation = useCreateRelationshipMutation();
+  const updateRelationshipMutation = useUpdateRelationshipMutation();
+  const deleteRelationshipMutation = useDeleteRelationshipMutation();
   const createParticipantsBulkMutation = useCreateParticipantsBulkMutation();
   const assignBulkGiftsMutation = useAssignBulkGiftsMutation();
   const shouldEnableContactsQuery =
@@ -1569,6 +1668,26 @@ export default function DashboardGiftsScreen() {
       currentGiftFlowStep === "gift-selection" &&
       Boolean(eventId),
   });
+  const {
+    data: availableRelationshipsResponse,
+    isError: isAvailableRelationshipsError,
+    isLoading: isAvailableRelationshipsLoading,
+    refetch: refetchAvailableRelationships,
+  } = useAvailableRelationshipsQuery(
+    {
+      per_page: 25,
+      page: 1,
+      searchQuery: debouncedRelationshipSearchValue,
+    },
+    {
+      enabled: isGiftFlowOpen && currentGiftFlowStep === "relationship",
+    },
+  );
+  const { data: contactEnumsResponse } = useContactEnumsQuery(
+    isGiftFlowOpen &&
+      (currentGiftFlowStep === "gender" ||
+        currentGiftFlowStep === "age-range"),
+  );
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
   const sentRows = useMemo<GiftRow[]>(
     () =>
@@ -1623,6 +1742,20 @@ export default function DashboardGiftsScreen() {
         (eventType) => eventType.value === selectedGiftEventTypeId,
       ) ?? null,
     [eventTypeOptions, selectedGiftEventTypeId],
+  );
+  const relationshipOptions = useMemo<OverlaySelectOption[]>(
+    () =>
+      (availableRelationshipsResponse?.data?.data ?? [])
+        .filter((relationship) => relationship.isActive)
+        .map((relationship) => ({
+          value: relationship.id,
+          label: relationship.name,
+          icon: <UsersIcon className="size-5 text-[#5B5B5B]" />,
+          isManageable:
+            Boolean(resolvedCurrentContactId) &&
+            relationship.createdById === resolvedCurrentContactId,
+        })),
+    [availableRelationshipsResponse, resolvedCurrentContactId],
   );
   const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
     () =>
@@ -1702,6 +1835,7 @@ export default function DashboardGiftsScreen() {
       mergeRecordItems(
         currentEventRow?.participantRecordItems ?? [],
         customContactRecordItems,
+        Object.values(selectedParticipantRecordsById),
         (contactsResponse?.data.data ?? [])
           .filter((contact) => contact.id !== resolvedCurrentContactId)
           .map((contact) =>
@@ -1713,6 +1847,7 @@ export default function DashboardGiftsScreen() {
       currentEventRow,
       customContactRecordItems,
       resolvedCurrentContactId,
+      selectedParticipantRecordsById,
     ],
   );
   const selectedParticipantReviewItems = useMemo(
@@ -1727,8 +1862,68 @@ export default function DashboardGiftsScreen() {
           name: item.name,
           email: item.email || item.subtitle || "",
           isAdmin: false,
+          actionLabel:
+            isGroupGifting &&
+            Boolean(item.isManageable) &&
+            getMissingGiftContactFields(item).length > 0
+              ? "Update details"
+              : undefined,
         })),
-    [contactRecordOptions, selectedParticipantContactIds],
+    [
+      contactRecordOptions,
+      isGroupGifting,
+      recipientDetailsByContactId,
+      selectedParticipantContactIds,
+    ],
+  );
+  const giftAssignmentRecipients = useMemo(
+    () =>
+      isGiftingMyself
+        ? [
+            {
+              key: "creator",
+              name:
+                [authUser?.firstName?.trim(), authUser?.lastName?.trim()]
+                  .filter(Boolean)
+                  .join(" ") || "You",
+              email: authUser?.email?.trim() || "",
+              profileUrl: authUser?.profile?.profilePhotoUrl?.trim() || null,
+            },
+          ]
+        : selectedParticipantContactIds
+            .map((selectedId) =>
+              contactRecordOptions.find((record) => record.id === selectedId),
+            )
+            .filter((item): item is SearchableRecordItem => Boolean(item))
+            .map((item) => ({
+              key: item.id,
+              name: item.name,
+              email: item.email || item.subtitle || "",
+              profileUrl: item.profileUrl || null,
+            })),
+    [
+      authUser?.email,
+      authUser?.firstName,
+      authUser?.lastName,
+      authUser?.profile?.profilePhotoUrl,
+      contactRecordOptions,
+      isGiftingMyself,
+      selectedParticipantContactIds,
+    ],
+  );
+  const selectedGiftPreviewProducts = useMemo(
+    () =>
+      selectedGiftIds
+        .map((selectedId) => selectedGiftProductsById[selectedId])
+        .filter((product): product is MarketplaceProduct => Boolean(product)),
+    [selectedGiftIds, selectedGiftProductsById],
+  );
+  const activeGiftAssignmentProduct = useMemo(
+    () =>
+      activeGiftAssignmentProductId
+        ? selectedGiftProductsById[activeGiftAssignmentProductId] ?? null
+        : null,
+    [activeGiftAssignmentProductId, selectedGiftProductsById],
   );
   const counterpartLabel = isSentTab ? "Sent to" : "Received from";
   const giftRows = isSentTab ? sentRows : receivedRows;
@@ -1743,6 +1938,43 @@ export default function DashboardGiftsScreen() {
       { scroll: false },
     );
   };
+
+  useEffect(() => {
+    if (!selectedParticipantContactIds.length) {
+      return;
+    }
+
+    const resolvedSelectedRecordsById = selectedParticipantContactIds.reduce<
+      Record<string, SearchableRecordItem>
+    >((accumulator, selectedId) => {
+      const matchingRecord = contactRecordOptions.find(
+        (record) => record.id === selectedId,
+      );
+
+      if (matchingRecord) {
+        accumulator[selectedId] = matchingRecord;
+      } else if (selectedParticipantRecordsById[selectedId]) {
+        accumulator[selectedId] = selectedParticipantRecordsById[selectedId];
+      }
+
+      return accumulator;
+    }, {});
+
+    if (Object.keys(resolvedSelectedRecordsById).length === 0) {
+      return;
+    }
+
+    setSelectedParticipantRecordsById(
+      flowSelectionKey,
+      resolvedSelectedRecordsById,
+    );
+  }, [
+    contactRecordOptions,
+    flowSelectionKey,
+    selectedParticipantContactIds,
+    selectedParticipantRecordsById,
+    setSelectedParticipantRecordsById,
+  ]);
 
   useEffect(() => {
     if (activeTabParam === activeTab) {
@@ -1770,6 +2002,15 @@ export default function DashboardGiftsScreen() {
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, debouncedQuery]);
+
+  useEffect(() => {
+    setCustomGiftBudgetMinimum(
+      selectedMinimumGiftBudget ? String(selectedMinimumGiftBudget) : "",
+    );
+    setCustomGiftBudgetMaximum(
+      selectedMaximumGiftBudget ? String(selectedMaximumGiftBudget) : "",
+    );
+  }, [selectedMaximumGiftBudget, selectedMinimumGiftBudget]);
 
   const totalPages = isEventsTab
     ? Math.max(1, giftingEventsResponse?.data.totalPages ?? 1)
@@ -1850,7 +2091,45 @@ export default function DashboardGiftsScreen() {
 
   const handleOpenGiftFlow = () => {
     resetGiftFlowSelection(buildGiftFlowSelectionKey("create", null, null));
-    openGiftFlowModal("event", "create", null, null);
+    openGiftFlowModal("recipient-choice", "create", null, null);
+  };
+
+  const handleRequestCloseGiftFlow = () => {
+    if (currentGiftFlowStep === "invite") {
+      closeGiftFlowModal();
+      return;
+    }
+
+    setIsDiscardGiftFlowConfirmationOpen(true);
+  };
+
+  const handleConfirmDiscardGiftFlow = () => {
+    resetGiftFlowSelection(flowSelectionKey);
+    setIsDiscardGiftFlowConfirmationOpen(false);
+    closeGiftFlowModal();
+  };
+
+  const handleGiftRecipientChoiceSelect = (
+    value: GiftRecipientChoiceValue,
+  ) => {
+    setGiftFlowDraftFields(flowSelectionKey, {
+      celebrationTarget: value,
+    });
+    setGiftFlowStep(
+      value === "myself" ? "event" : "source",
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleGiftSourceNext = () => {
+    setGiftFlowStep(
+      eventId ? "record" : "event",
+      mode,
+      eventId,
+      giftingEventId,
+    );
   };
 
   const handleBrowseGifts = () => {
@@ -1898,6 +2177,14 @@ export default function DashboardGiftsScreen() {
 
     setGiftFlowDraftFields(editFlowKey, {
       lastVisitedStep: nextStep,
+      celebrationTarget: sourceSelection.celebrationTarget,
+      selectedBudgetOption:
+        sourceSelection.selectedBudgetOption ||
+        deriveGiftBudgetOption(row.minimumGiftBudget, row.maximumGiftBudget),
+      minimumGiftBudget:
+        sourceSelection.minimumGiftBudget ?? row.minimumGiftBudget,
+      maximumGiftBudget:
+        sourceSelection.maximumGiftBudget ?? row.maximumGiftBudget,
       selectedEventTypeId:
         sourceSelection.selectedEventTypeId || row.eventTypeId,
       eventDate: sourceSelection.eventDate || row.eventDateValue,
@@ -1964,7 +2251,7 @@ export default function DashboardGiftsScreen() {
       sourceSelection.lastVisitedStep &&
       isGiftModalStep(sourceSelection.lastVisitedStep)
         ? sourceSelection.lastVisitedStep
-        : "event";
+        : "recipient-choice";
 
     openGiftingEventFlow(row, resumeStep);
   };
@@ -2078,6 +2365,10 @@ export default function DashboardGiftsScreen() {
       setSelectedGiftProductsById(nextFlowKey, selectedGiftProductsById);
     }
 
+    if (Object.keys(giftRecipientQuantitiesById).length) {
+      setGiftRecipientQuantitiesById(nextFlowKey, giftRecipientQuantitiesById);
+    }
+
     if (flowSelectionKey !== nextFlowKey) {
       resetGiftFlowSelection(flowSelectionKey);
     }
@@ -2089,19 +2380,37 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
+    const resolvedEventDate = selectedGiftEventDate || getTodayDateInputValue();
+
     setGiftFlowDraftFields(flowSelectionKey, {
       selectedEventTypeId: selectedEventTypeOption.value,
+      eventDate: resolvedEventDate,
       eventName:
         giftEventName.trim() ||
         selectedEventTypeOption.label ||
         "Untitled event",
     });
-    setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+    setGiftFlowStep("budget", mode, eventId, giftingEventId);
   };
 
   const handleGiftFlowEventSaveAndContinue = async () => {
     if (!selectedEventTypeOption) {
       toast.error("Please select an event first.");
+      return;
+    }
+
+    if (isGiftingMyself) {
+      const resolvedEventDate = selectedGiftEventDate || getTodayDateInputValue();
+
+      setGiftFlowDraftFields(flowSelectionKey, {
+        selectedEventTypeId: selectedEventTypeOption.value,
+        eventDate: resolvedEventDate,
+        eventName:
+          giftEventName.trim() ||
+          selectedEventTypeOption.label ||
+          "Untitled event",
+      });
+      setGiftFlowStep("budget", mode, eventId, giftingEventId);
       return;
     }
 
@@ -2121,6 +2430,9 @@ export default function DashboardGiftsScreen() {
                 selectedEventTypeOption.label ||
                 "Untitled event",
               eventTypeId: selectedEventTypeOption.value,
+              eventDate: toIsoDate(
+                selectedGiftEventDate || getTodayDateInputValue(),
+              ),
             },
           },
         });
@@ -2128,12 +2440,13 @@ export default function DashboardGiftsScreen() {
         toast.success(response.message);
         setGiftFlowDraftFields(flowSelectionKey, {
           selectedEventTypeId: selectedEventTypeOption.value,
+          eventDate: selectedGiftEventDate || getTodayDateInputValue(),
           eventName:
             giftEventName.trim() ||
             selectedEventTypeOption.label ||
             "Untitled event",
         });
-        setGiftFlowStep("event-date", mode, eventId, giftingEventId);
+        setGiftFlowStep("budget", mode, eventId, giftingEventId);
         return;
       }
 
@@ -2144,14 +2457,20 @@ export default function DashboardGiftsScreen() {
             selectedEventTypeOption.label ||
             "Untitled event",
           eventTypeId: selectedEventTypeOption.value,
+          eventDate: toIsoDate(selectedGiftEventDate || getTodayDateInputValue()),
         },
       });
       const nextGiftingEventId = response.data.id;
       const nextEventId = response.data.eventId;
 
-      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "event-date");
+      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "budget");
       toast.success(response.message);
-      setGiftFlowStep("event-date", "create", nextEventId, nextGiftingEventId);
+      setGiftFlowStep(
+        "budget",
+        "create",
+        nextEventId,
+        nextGiftingEventId,
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2161,93 +2480,58 @@ export default function DashboardGiftsScreen() {
     }
   };
 
-  const handleGiftEventDateNext = () => {
-    if (!selectedGiftEventDate) {
+  const handleGiftBudgetNext = async () => {
+    const resolvedBudgetRange = resolveGiftBudgetRange(
+      selectedBudgetOption as GiftBudgetOptionKey | "",
+      customGiftBudgetMinimum,
+      customGiftBudgetMaximum,
+    );
+
+    if (
+      selectedBudgetOption === "custom" &&
+      (!resolvedBudgetRange.minimumGiftBudget ||
+        !resolvedBudgetRange.maximumGiftBudget)
+    ) {
+      toast.error("Please enter both minimum and maximum budgets.");
       return;
     }
 
-    setGiftFlowStep("event-name", mode, eventId, giftingEventId);
+    if (
+      resolvedBudgetRange.minimumGiftBudget !== null &&
+      resolvedBudgetRange.maximumGiftBudget !== null &&
+      resolvedBudgetRange.minimumGiftBudget >
+        resolvedBudgetRange.maximumGiftBudget
+    ) {
+      toast.error("Minimum budget cannot be greater than maximum budget.");
+      return;
+    }
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      minimumGiftBudget: resolvedBudgetRange.minimumGiftBudget,
+      maximumGiftBudget: resolvedBudgetRange.maximumGiftBudget,
+    });
+    setGiftFlowStep("gift-selection", mode, eventId, giftingEventId);
   };
 
-  const handleGiftEventDateSaveAndContinue = async () => {
-    if (!selectedGiftEventTypeId || !selectedGiftEventDate) {
+  const handleSaveGiftEventDetails = async () => {
+    if (!selectedGiftEventTypeId) {
       toast.error("Please complete all gifting event details.");
       return;
     }
 
-    try {
+    const resolvedEventDate = selectedGiftEventDate || getTodayDateInputValue();
+
+    if (isGiftingMyself) {
       const resolvedTitle =
         giftEventName.trim() ||
         selectedEventTypeOption?.label ||
         "Untitled event";
 
-      if (mode === "edit" && giftingEventId) {
-        const response = await updateGiftingEventMutation.mutateAsync({
-          id: giftingEventId,
-          payload: {
-            event: {
-              title: resolvedTitle,
-              eventTypeId: selectedGiftEventTypeId,
-              eventDate: toIsoDate(selectedGiftEventDate),
-            },
-          },
-        });
-
-        toast.success(response.message);
-        setGiftFlowDraftFields(flowSelectionKey, {
-          eventName: resolvedTitle,
-          eventDate: selectedGiftEventDate,
-        });
-        setGiftFlowStep("event-name", mode, eventId, giftingEventId);
-        return;
-      }
-
-      if (giftingEventId) {
-        const response = await updateGiftingEventMutation.mutateAsync({
-          id: giftingEventId,
-          payload: {
-            event: {
-              title: resolvedTitle,
-              eventTypeId: selectedGiftEventTypeId,
-              eventDate: toIsoDate(selectedGiftEventDate),
-            },
-          },
-        });
-
-        toast.success(response.message);
-        setGiftFlowDraftFields(flowSelectionKey, {
-          eventName: resolvedTitle,
-          eventDate: selectedGiftEventDate,
-        });
-        setGiftFlowStep("event-name", mode, eventId, giftingEventId);
-        return;
-      }
-
-      const response = await createGiftingEventMutation.mutateAsync({
-        event: {
-          title: resolvedTitle,
-          eventTypeId: selectedGiftEventTypeId,
-          eventDate: toIsoDate(selectedGiftEventDate),
-        },
+      setGiftFlowDraftFields(flowSelectionKey, {
+        eventName: resolvedTitle,
+        eventDate: resolvedEventDate,
       });
-      const nextGiftingEventId = response.data.id;
-      const nextEventId = response.data.eventId;
-
-      promoteGiftFlowSelection(nextEventId, nextGiftingEventId, "event-name");
-      toast.success(response.message);
-      setGiftFlowStep("event-name", "create", nextEventId, nextGiftingEventId);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save this gifting event right now.",
-      );
-    }
-  };
-
-  const handleSaveGiftEventDetails = async () => {
-    if (!selectedGiftEventTypeId || !selectedGiftEventDate) {
-      toast.error("Please complete all gifting event details.");
+      setGiftFlowStep("budget", mode, eventId, giftingEventId);
       return;
     }
 
@@ -2269,7 +2553,7 @@ export default function DashboardGiftsScreen() {
             event: {
               title: resolvedTitle,
               eventTypeId: selectedGiftEventTypeId,
-              eventDate: toIsoDate(selectedGiftEventDate),
+              eventDate: toIsoDate(resolvedEventDate),
             },
           },
         });
@@ -2277,7 +2561,7 @@ export default function DashboardGiftsScreen() {
         toast.success(response.message);
         setGiftFlowDraftFields(flowSelectionKey, {
           eventName: resolvedTitle,
-          eventDate: selectedGiftEventDate,
+          eventDate: resolvedEventDate,
         });
         setGiftFlowStep("source", mode, eventId, giftingEventId);
         return;
@@ -2290,7 +2574,7 @@ export default function DashboardGiftsScreen() {
             event: {
               title: resolvedTitle,
               eventTypeId: selectedGiftEventTypeId,
-              eventDate: toIsoDate(selectedGiftEventDate),
+              eventDate: toIsoDate(resolvedEventDate),
             },
           },
         });
@@ -2298,7 +2582,7 @@ export default function DashboardGiftsScreen() {
         toast.success(response.message);
         setGiftFlowDraftFields(flowSelectionKey, {
           eventName: resolvedTitle,
-          eventDate: selectedGiftEventDate,
+          eventDate: resolvedEventDate,
         });
         setGiftFlowStep("source", mode, eventId, giftingEventId);
         return;
@@ -2308,7 +2592,7 @@ export default function DashboardGiftsScreen() {
         event: {
           title: resolvedTitle,
           eventTypeId: selectedGiftEventTypeId,
-          eventDate: toIsoDate(selectedGiftEventDate),
+          eventDate: toIsoDate(resolvedEventDate),
         },
       });
       const nextGiftingEventId = response.data.id;
@@ -2350,6 +2634,7 @@ export default function DashboardGiftsScreen() {
     setAddRecordReturnStep(returnStep);
     setNewColleagueForm({
       gender: item.gender || "",
+      ageRange: item.ageRange || "",
       firstName: item.firstName || item.name.split(" ")[0] || "",
       lastName: item.lastName || item.name.split(" ").slice(1).join(" ") || "",
       phoneNumber: item.phoneNumber || "",
@@ -2380,6 +2665,7 @@ export default function DashboardGiftsScreen() {
     try {
       const payload = {
         gender: genderValue,
+        ageRange: newColleagueForm.ageRange || undefined,
         firstName: firstNameValue,
         lastName: lastNameValue,
         phoneNumber: newColleagueForm.phoneNumber.trim(),
@@ -2404,9 +2690,17 @@ export default function DashboardGiftsScreen() {
       );
 
       if (!editingRecordId) {
-        setSelectedParticipantContactIds(flowSelectionKey, [
-          ...new Set([...selectedParticipantContactIds, response.data.id]),
-        ]);
+        setSelectedParticipantContactIds(
+          flowSelectionKey,
+          isGroupGifting
+            ? Array.from(
+                new Set([
+                  ...selectedParticipantContactIds,
+                  response.data.id,
+                ]),
+              )
+            : [response.data.id],
+        );
       }
 
       setEditingRecordId(null);
@@ -2414,7 +2708,9 @@ export default function DashboardGiftsScreen() {
       setRecordSearchValue("");
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
-      await refetchContacts();
+      if (addRecordReturnStep === "record") {
+        setIsGiftRecordPickerOpen(true);
+      }
       setGiftFlowStep(addRecordReturnStep, mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
@@ -2450,7 +2746,6 @@ export default function DashboardGiftsScreen() {
       setEditingRecordId(null);
       setNewColleagueForm(EMPTY_NEW_COLLEAGUE_FORM);
       toast.success(response.message);
-      await refetchContacts();
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -2467,6 +2762,15 @@ export default function DashboardGiftsScreen() {
     }
 
     setGiftFlowStep("oneda-business", mode, eventId, giftingEventId);
+  };
+
+  const toSingleSelection = (ids: string[]) => {
+    const nextSelectedId = ids
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .at(-1);
+
+    return nextSelectedId ? [nextSelectedId] : [];
   };
 
   const handleSelectedOnedaBusinessIdsChange = (ids: string[]) => {
@@ -2517,7 +2821,9 @@ export default function DashboardGiftsScreen() {
       const importedRecords = response.data.map((contact) =>
         mapContactToRecordItem(contact, resolvedCurrentContactId),
       );
-      const importedRecordIds = importedRecords.map((record) => record.id);
+      const importedRecordIds = isGroupGifting
+        ? importedRecords.map((record) => record.id)
+        : toSingleSelection(importedRecords.map((record) => record.id));
 
       setCustomContactRecordItems((current) =>
         mergeRecordItems(current, importedRecords),
@@ -2526,7 +2832,6 @@ export default function DashboardGiftsScreen() {
       setRecordSearchValue("");
       setDebouncedRecordSearchValue("");
       toast.success(response.message);
-      await refetchContacts();
       setGiftFlowStep("record", mode, eventId, giftingEventId);
     } catch (error) {
       toast.error(
@@ -2546,124 +2851,534 @@ export default function DashboardGiftsScreen() {
     setGiftFlowStep("review-records", mode, eventId, giftingEventId);
   };
 
-  const handleGiftParticipantsNext = async () => {
+  function getMissingGiftContactFields(
+    item: SearchableRecordItem | null | undefined,
+  ): MissingGiftContactField[] {
+    if (!item) {
+      return [];
+    }
+
+    const localDetails = recipientDetailsByContactId[item.id];
+    const resolvedGender = localDetails?.gender || item.gender || "";
+    const resolvedAgeRange = localDetails?.ageRange || item.ageRange || "";
+    const resolvedRelationshipId =
+      localDetails?.relationshipId || item.relationshipId || "";
+
+    const missingFields: MissingGiftContactField[] = [];
+
+    if (!resolvedGender.trim()) {
+      missingFields.push("gender");
+    }
+
+    if (!resolvedAgeRange.trim()) {
+      missingFields.push("ageRange");
+    }
+
+    if (!resolvedRelationshipId.trim()) {
+      missingFields.push("relationship");
+    }
+
+    return missingFields;
+  }
+
+  function canManageGiftRecipientDetails(
+    item: SearchableRecordItem | null | undefined,
+  ) {
+    return Boolean(item?.isManageable);
+  }
+
+  const getGiftNextStepAfterParticipantsReview = (): GiftModalStep => {
+    if (!selectedGiftEventTypeId) {
+      return "event";
+    }
+
+    return "budget";
+  };
+
+  const getGiftNextStepAfterContactDetails = (): GiftModalStep => {
+    if (isGroupGifting) {
+      return "review-records";
+    }
+
+    return getGiftNextStepAfterParticipantsReview();
+  };
+
+  const handleGiftGenderBack = () => {
+    if (isGroupGifting) {
+      setGiftFlowDraftFields(flowSelectionKey, {
+        activeRecipientContactId: "",
+      });
+      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+      return;
+    }
+
+    setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftAgeRangeBack = () => {
+    if (isGroupGifting && hasSelectedGiftRecipientGender) {
+      setGiftFlowDraftFields(flowSelectionKey, {
+        activeRecipientContactId: "",
+      });
+      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+      return;
+    }
+
+    setGiftFlowStep("gender", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftRelationshipBack = () => {
+    if (isGroupGifting && hasSelectedGiftRecipientAgeRange) {
+      if (hasSelectedGiftRecipientGender) {
+        setGiftFlowDraftFields(flowSelectionKey, {
+          activeRecipientContactId: "",
+        });
+        setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+        return;
+      }
+    }
+
+    if (!hasSelectedGiftRecipientAgeRange) {
+      setGiftFlowStep("age-range", mode, eventId, giftingEventId);
+      return;
+    }
+
+    if (!hasSelectedGiftRecipientGender) {
+      setGiftFlowStep("gender", mode, eventId, giftingEventId);
+      return;
+    }
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      activeRecipientContactId: "",
+    });
+    setGiftFlowStep("review-records", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftParticipantsNext = () => {
     if (!selectedParticipantContactIds.length) {
       toast.error("Please select at least one participant.");
       return;
     }
 
-    try {
-      let resolvedEventId = eventId;
-      let resolvedGiftingEventId = giftingEventId;
-      const resolvedEventTypeId =
-        selectedGiftEventTypeId || selectedEventTypeOption?.value || "";
-      const resolvedTitle =
-        giftEventName.trim() ||
-        selectedEventTypeOption?.label ||
-        "Untitled event";
-      const resolvedEventDate =
-        selectedGiftEventDate && selectedGiftEventDate.trim()
-          ? toIsoDate(selectedGiftEventDate)
-          : undefined;
+    if (isGroupGifting) {
+      const nextItemWithMissingDetails = selectedParticipantContactIds
+        .map(
+          (contactId) =>
+            contactRecordOptions.find((record) => record.id === contactId) ??
+            null,
+        )
+        .find((item) => {
+          if (
+            !item ||
+            !canManageGiftRecipientDetails(item) ||
+            skippedGiftContactDetailsPromptIds.includes(item.id)
+          ) {
+            return false;
+          }
 
-      const eventPayload = {
-        title: resolvedTitle,
-        eventTypeId: resolvedEventTypeId,
-        ...(resolvedEventDate ? { eventDate: resolvedEventDate } : {}),
-      };
-
-      if (!resolvedEventId || !resolvedGiftingEventId) {
-        if (!resolvedEventTypeId) {
-          toast.error("Please select an event first.");
-          return;
-        }
-
-        const draftResponse = await createGiftingEventMutation.mutateAsync({
-          event: eventPayload,
+          return getMissingGiftContactFields(item).length > 0;
         });
 
-        resolvedEventId = draftResponse.data.eventId;
-        resolvedGiftingEventId = draftResponse.data.id;
-        promoteGiftFlowSelection(
-          resolvedEventId,
-          resolvedGiftingEventId,
-          "review-records",
-        );
+      if (nextItemWithMissingDetails) {
+        setPendingGiftContactDetailsPrompt({
+          item: nextItemWithMissingDetails,
+          missingFields: getMissingGiftContactFields(nextItemWithMissingDetails),
+        });
+        return;
       }
+    } else {
+      const selectedContactId = selectedParticipantContactIds[0];
+      const selectedItem =
+        contactRecordOptions.find((record) => record.id === selectedContactId) ??
+        null;
+      const missingFields = getMissingGiftContactFields(selectedItem);
 
-      if (!resolvedEventId || !resolvedGiftingEventId) {
-        toast.error("Unable to resolve this gifting event right now.");
+      if (
+        selectedItem &&
+        canManageGiftRecipientDetails(selectedItem) &&
+        missingFields.length > 0 &&
+        !skippedGiftContactDetailsPromptIds.includes(selectedItem.id)
+      ) {
+        setPendingGiftContactDetailsPrompt({
+          item: selectedItem,
+          missingFields,
+        });
+        return;
+      }
+    }
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      activeRecipientContactId: "",
+    });
+    setGiftFlowStep(
+      getGiftNextStepAfterParticipantsReview(),
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleSkipGiftContactDetailsPrompt = () => {
+    const pendingPromptItemId = pendingGiftContactDetailsPrompt?.item.id;
+    const nextSkippedIds = pendingPromptItemId
+      ? skippedGiftContactDetailsPromptIds.includes(pendingPromptItemId)
+        ? skippedGiftContactDetailsPromptIds
+        : [...skippedGiftContactDetailsPromptIds, pendingPromptItemId]
+      : skippedGiftContactDetailsPromptIds;
+
+    if (pendingPromptItemId) {
+      setSkippedGiftContactDetailsPromptIds((current) =>
+        current.includes(pendingPromptItemId)
+          ? current
+          : [...current, pendingPromptItemId],
+      );
+    }
+
+    if (isGroupGifting) {
+      const nextItemWithMissingDetails = selectedParticipantContactIds
+        .map(
+          (contactId) =>
+            contactRecordOptions.find((record) => record.id === contactId) ??
+            null,
+        )
+        .find((item) => {
+          if (
+            !item ||
+            !canManageGiftRecipientDetails(item) ||
+            nextSkippedIds.includes(item.id)
+          ) {
+            return false;
+          }
+
+          return getMissingGiftContactFields(item).length > 0;
+        });
+
+      if (nextItemWithMissingDetails) {
+        setPendingGiftContactDetailsPrompt({
+          item: nextItemWithMissingDetails,
+          missingFields: getMissingGiftContactFields(nextItemWithMissingDetails),
+        });
         return;
       }
 
-      if (resolvedEventId === eventId && resolvedGiftingEventId === giftingEventId) {
-        await updateGiftingEventMutation.mutateAsync({
-          id: resolvedGiftingEventId,
-          payload: {
-            event: eventPayload,
-          },
-        });
+      setPendingGiftContactDetailsPrompt(null);
+      setGiftFlowStep(
+        getGiftNextStepAfterParticipantsReview(),
+        mode,
+        eventId,
+        giftingEventId,
+      );
+      return;
+    }
 
-        setGiftFlowDraftFields(flowSelectionKey, {
-          selectedEventTypeId: resolvedEventTypeId,
-          eventName: resolvedTitle,
-          ...(selectedGiftEventDate ? { eventDate: selectedGiftEventDate } : {}),
-        });
-      } else {
-        setGiftFlowDraftFields(buildGiftFlowSelectionKey("create", resolvedGiftingEventId, resolvedEventId), {
-          selectedEventTypeId: resolvedEventTypeId,
-          eventName: resolvedTitle,
-          ...(selectedGiftEventDate ? { eventDate: selectedGiftEventDate } : {}),
+    setPendingGiftContactDetailsPrompt(null);
+    setGiftFlowStep(
+      getGiftNextStepAfterContactDetails(),
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleUpdateGiftContactDetailsFromPrompt = () => {
+    if (!pendingGiftContactDetailsPrompt) {
+      return;
+    }
+
+    const shouldOpenGender = pendingGiftContactDetailsPrompt.missingFields.includes(
+      "gender",
+    );
+    const shouldOpenAgeRange =
+      pendingGiftContactDetailsPrompt.missingFields.includes("ageRange");
+
+    setPendingGiftContactDetailsPrompt(null);
+    setGiftFlowStep(
+      shouldOpenGender
+        ? "gender"
+        : shouldOpenAgeRange
+          ? "age-range"
+          : "relationship",
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const persistActiveRecipientDraftDetails = async (
+    overrides?: Partial<{
+      gender: "male" | "female" | "";
+      ageRange: string;
+      relationshipId: string;
+    }>,
+  ) => {
+    const contactId = selectedParticipantRecord?.id?.trim();
+
+    if (!contactId) {
+      return null;
+    }
+
+    const canManageSelectedRecipient =
+      canManageGiftRecipientDetails(selectedParticipantRecord);
+
+    const nextDetails = {
+      gender:
+        overrides?.gender ??
+        selectedRecipientGender ??
+        selectedParticipantRecord.gender ??
+        "",
+      ageRange:
+        overrides?.ageRange ??
+        selectedRecipientAgeRange ??
+        selectedParticipantRecord.ageRange ??
+        "",
+      relationshipId:
+        overrides?.relationshipId ??
+        selectedRecipientRelationshipId ??
+        selectedParticipantRecord.relationshipId ??
+        "",
+    };
+
+    if (isGroupGifting) {
+      if (!canManageSelectedRecipient) {
+        return null;
+      }
+
+      const contactUpdatePayload: {
+        gender?: "male" | "female";
+        ageRange?: string;
+      } = {};
+
+      if (typeof overrides?.gender !== "undefined" && overrides.gender) {
+        contactUpdatePayload.gender = overrides.gender;
+      }
+
+      if (typeof overrides?.ageRange !== "undefined" && overrides.ageRange) {
+        contactUpdatePayload.ageRange = overrides.ageRange;
+      }
+
+      if (Object.keys(contactUpdatePayload).length > 0) {
+        await updateContactMutation.mutateAsync({
+          id: contactId,
+          payload: contactUpdatePayload,
         });
       }
 
-      const response = await createParticipantsBulkMutation.mutateAsync({
-        eventId: resolvedEventId,
-        role: "participant",
-        contactIds: selectedParticipantContactIds,
-      });
+      if (
+        typeof overrides?.relationshipId !== "undefined" &&
+        overrides.relationshipId
+      ) {
+        await updateContactConnectionMutation.mutateAsync({
+          id: contactId,
+          payload: {
+            relationshipId: overrides.relationshipId,
+          },
+        });
+      }
+    }
 
-      await refetchGiftingEvents();
-      toast.success(response.message || "Participants saved successfully.");
-      setGiftFlowStep(
-        "gift-selection",
-        mode,
-        resolvedEventId,
-        resolvedGiftingEventId,
-      );
+    setGiftFlowDraftFields(flowSelectionKey, {
+      recipientDetailsByContactId: {
+        ...recipientDetailsByContactId,
+        [contactId]: {
+          gender: nextDetails.gender,
+          ageRange: nextDetails.ageRange,
+          relationshipId: nextDetails.relationshipId,
+        },
+      },
+    });
+
+    return nextDetails;
+  };
+
+  const handleOpenGroupRecipientDetails = (contactId: string) => {
+    const selectedItem =
+      contactRecordOptions.find((record) => record.id === contactId) ?? null;
+
+    if (!selectedItem || !canManageGiftRecipientDetails(selectedItem)) {
+      return;
+    }
+
+    const missingFields = getMissingGiftContactFields(selectedItem);
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      activeRecipientContactId: contactId,
+    });
+
+    setGiftFlowStep(
+      missingFields.includes("gender")
+        ? "gender"
+        : missingFields.includes("ageRange")
+          ? "age-range"
+          : "relationship",
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleGiftGenderNext = async () => {
+    if (!selectedRecipientGender) {
+      toast.error("Please select a gender.");
+      return;
+    }
+
+    try {
+      await persistActiveRecipientDraftDetails({
+        gender: selectedRecipientGender,
+      });
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to add participants right now.",
+          : "Unable to update this contact right now.",
       );
+      return;
     }
+
+    if (!selectedRecipientAgeRange) {
+      setGiftFlowStep("age-range", mode, eventId, giftingEventId);
+      return;
+    }
+
+    if (!selectedRecipientRelationshipId) {
+      setGiftFlowStep("relationship", mode, eventId, giftingEventId);
+      return;
+    }
+
+    if (isGroupGifting) {
+      setGiftFlowDraftFields(flowSelectionKey, {
+        activeRecipientContactId: "",
+      });
+    }
+
+    setGiftFlowStep(
+      getGiftNextStepAfterContactDetails(),
+      mode,
+      eventId,
+      giftingEventId,
+    );
   };
 
-  const resolveGiftSelectionContext = async () => {
-    if (!eventId) {
-      toast.error("Unable to resolve this gifting event right now.");
-      return null;
+  const handleGiftAgeRangeNext = async () => {
+    if (!selectedRecipientAgeRange) {
+      toast.error("Please select an age range.");
+      return;
     }
 
-    if (!selectedParticipantContactIds.length) {
-      toast.error("Please select at least one participant first.");
-      return null;
+    try {
+      await persistActiveRecipientDraftDetails({
+        ageRange: selectedRecipientAgeRange,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update this contact right now.",
+      );
+      return;
     }
 
-    let resolvedParticipantId = currentParticipantId;
-
-    if (!resolvedParticipantId) {
-      const refreshedParticipantResponse = await refetchMyParticipant();
-      resolvedParticipantId =
-        refreshedParticipantResponse.data?.data?.id ?? null;
+    if (!selectedRecipientRelationshipId) {
+      setGiftFlowStep("relationship", mode, eventId, giftingEventId);
+      return;
     }
 
-    if (!resolvedParticipantId) {
-      toast.error("Unable to resolve your participant record right now.");
-      return null;
+    if (isGroupGifting) {
+      setGiftFlowDraftFields(flowSelectionKey, {
+        activeRecipientContactId: "",
+      });
     }
 
+    setGiftFlowStep(
+      getGiftNextStepAfterContactDetails(),
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleGiftRelationshipNext = async () => {
+    if (!selectedRecipientRelationshipId) {
+      toast.error("Please select a relationship to continue.");
+      return;
+    }
+
+    try {
+      await persistActiveRecipientDraftDetails({
+        relationshipId: selectedRecipientRelationshipId,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update this contact right now.",
+      );
+      return;
+    }
+
+    if (isGroupGifting) {
+      setGiftFlowDraftFields(flowSelectionKey, {
+        activeRecipientContactId: "",
+      });
+    }
+
+    setGiftFlowStep(
+      getGiftNextStepAfterContactDetails(),
+      mode,
+      eventId,
+      giftingEventId,
+    );
+  };
+
+  const handleCreateRelationshipOption = async (label: string) => {
+    const response = await createRelationshipMutation.mutateAsync({
+      name: label.trim(),
+      description: "",
+      isActive: true,
+    });
+
+    if (!response.data) {
+      return;
+    }
+
+    return {
+      value: response.data.id,
+      label: response.data.name,
+      icon: <UsersIcon className="size-5 text-[#5B5B5B]" />,
+      isManageable: true,
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleUpdateRelationshipOption = async (
+    option: OverlaySelectOption,
+    label: string,
+  ) => {
+    const response = await updateRelationshipMutation.mutateAsync({
+      id: option.value,
+      payload: {
+        name: label.trim(),
+        description: "",
+        isActive: true,
+      },
+    });
+
+    if (!response.data) {
+      return;
+    }
+
+    return {
+      value: response.data.id,
+      label: response.data.name,
+      icon: <UsersIcon className="size-5 text-[#5B5B5B]" />,
+      isManageable: true,
+    } satisfies OverlaySelectOption;
+  };
+
+  const handleDeleteRelationshipOption = async (option: OverlaySelectOption) => {
+    await deleteRelationshipMutation.mutateAsync(option.value);
+  };
+
+  const resolveGiftSelectionContext = () => {
     const selectedProducts = selectedGiftIds
       .map((selectedId) => selectedGiftProductsById[selectedId])
       .filter((product): product is MarketplaceProduct => Boolean(product));
@@ -2688,60 +3403,241 @@ export default function DashboardGiftsScreen() {
       return null;
     }
 
-    let participantIdsByContactId =
-      currentEventRow?.participantIdsByContactId ?? {};
-    let resolvedRecipientParticipantIds = Array.from(
-      new Set(
-        selectedParticipantContactIds
-          .map((contactId) => participantIdsByContactId[contactId])
-          .filter((participantId): participantId is string =>
-            Boolean(participantId?.trim()),
-          ),
-      ),
-    );
+    return {
+      selectedProducts,
+    };
+  };
 
-    if (
-      resolvedRecipientParticipantIds.length !==
-      selectedParticipantContactIds.length
-    ) {
-      const refreshedGiftingEventsResponse = await refetchGiftingEvents();
-      const refreshedRecord = (
-        refreshedGiftingEventsResponse.data?.data.data ?? []
-      ).find(
-        (record) => record.id === giftingEventId || record.eventId === eventId,
-      );
+  const buildGiftingSetupPayload = (): GiftingEventSetupPayload | null => {
+    const resolvedEventTypeId =
+      selectedGiftEventTypeId ||
+      selectedEventTypeOption?.value ||
+      legacyEventTypeId ||
+      "";
 
-      if (refreshedRecord) {
-        participantIdsByContactId = getParticipantIdsByContactId(
-          refreshedRecord.event.participants,
-        );
-        resolvedRecipientParticipantIds = Array.from(
-          new Set(
-            selectedParticipantContactIds
-              .map((contactId) => participantIdsByContactId[contactId])
-              .filter((participantId): participantId is string =>
-                Boolean(participantId?.trim()),
-              ),
-          ),
-        );
-      }
-    }
-
-    if (
-      !resolvedRecipientParticipantIds.length ||
-      resolvedRecipientParticipantIds.length !==
-        selectedParticipantContactIds.length
-    ) {
-      toast.error("Unable to resolve the selected participants right now.");
+    if (!resolvedEventTypeId) {
+      toast.error("Please select an event first.");
       return null;
     }
 
+    const resolvedEventDate =
+      selectedGiftEventDate?.trim() || getTodayDateInputValue();
+    const resolvedTitle =
+      giftEventName.trim() ||
+      selectedEventTypeOption?.label ||
+      "Untitled event";
+    const resolvedBudgetRange = resolveGiftBudgetRange(
+      selectedBudgetOption as GiftBudgetOptionKey | "",
+      customGiftBudgetMinimum,
+      customGiftBudgetMaximum,
+    );
+    const selectionContext = resolveGiftSelectionContext();
+
+    if (!selectionContext) {
+      return null;
+    }
+
+    if (
+      selectedBudgetOption === "custom" &&
+      (!resolvedBudgetRange.minimumGiftBudget ||
+        !resolvedBudgetRange.maximumGiftBudget)
+    ) {
+      toast.error("Please enter both minimum and maximum budgets.");
+      return null;
+    }
+
+    if (
+      resolvedBudgetRange.minimumGiftBudget !== null &&
+      resolvedBudgetRange.maximumGiftBudget !== null &&
+      resolvedBudgetRange.minimumGiftBudget >
+        resolvedBudgetRange.maximumGiftBudget
+    ) {
+      toast.error("Minimum budget cannot be greater than maximum budget.");
+      return null;
+    }
+
+    if (!isGiftingMyself && !selectedParticipantContactIds.length) {
+      toast.error("Please select at least one participant first.");
+      return null;
+    }
+
+    const participants = isGiftingMyself
+      ? []
+      : selectedParticipantContactIds.map((contactId, index) => ({
+          clientRef: `p${index + 1}`,
+          contactId,
+          isNotified: true,
+        }));
+
+    const recipientRefs = isGiftingMyself
+      ? ["creator"]
+      : participants.map((participant) => participant.clientRef);
+
+    const giftAssignments: GiftingEventGiftAssignmentPayload[] = isGiftingMyself
+      ? [
+          {
+            giverRef: "creator",
+            recipientRefs: ["creator"],
+            gifts: selectionContext.selectedProducts.map((product) => ({
+              participantGiftId: product._id,
+              quantity: Math.max(
+                1,
+                giftRecipientQuantitiesById[product._id]?.creator ?? 1,
+              ),
+              title: product.title,
+              description: product.description ?? "",
+              amount: product.amount,
+              currency: "NGN",
+              imageUrl: product.images[0] || undefined,
+              categorySlug: product.categorySlug || undefined,
+              subCategorySlug: product.subCategorySlug || undefined,
+              condition: product.condition || undefined,
+              locationState: product.location?.state || undefined,
+              locationCity: product.location?.city || undefined,
+              sellerId: product.sellerId || undefined,
+              productSlug: product.slug || undefined,
+            })),
+          },
+        ]
+      : selectionContext.selectedProducts
+          .map((product) => {
+            const quantitiesByRecipient =
+              giftRecipientQuantitiesById[product._id] ?? {};
+            const activeRecipients = participants.filter(
+              (participant) =>
+                (quantitiesByRecipient[participant.contactId] ?? 1) > 0,
+            );
+
+            if (!activeRecipients.length) {
+              return null;
+            }
+
+            const totalQuantity = activeRecipients.reduce(
+              (sum, participant) =>
+                sum +
+                (quantitiesByRecipient[participant.contactId] ?? 1),
+              0,
+            );
+
+            return {
+              giverRef: "creator",
+              recipientRefs: activeRecipients.map(
+                (participant) => participant.clientRef,
+              ),
+              gifts: [
+                {
+                  participantGiftId: product._id,
+                  quantity: totalQuantity,
+                  title: product.title,
+                  description: product.description ?? "",
+                  amount: product.amount,
+                  currency: "NGN",
+                  imageUrl: product.images[0] || undefined,
+                  categorySlug: product.categorySlug || undefined,
+                  subCategorySlug: product.subCategorySlug || undefined,
+                  condition: product.condition || undefined,
+                  locationState: product.location?.state || undefined,
+                  locationCity: product.location?.city || undefined,
+                  sellerId: product.sellerId || undefined,
+                  productSlug: product.slug || undefined,
+                },
+              ],
+            };
+          })
+          .filter(
+            (
+              assignment,
+            ): assignment is GiftingEventGiftAssignmentPayload =>
+              Boolean(assignment),
+          );
+
     return {
-      resolvedEventId: eventId,
-      resolvedGiverParticipantId: resolvedParticipantId,
-      resolvedRecipientParticipantIds,
-      selectedProducts,
+      event: {
+        title: resolvedTitle,
+        description: "",
+        eventTypeId: resolvedEventTypeId,
+        eventDate: toIsoDate(resolvedEventDate),
+      },
+      gifting: {
+        minimumGiftBudget: resolvedBudgetRange.minimumGiftBudget ?? undefined,
+        maximumGiftBudget: resolvedBudgetRange.maximumGiftBudget ?? undefined,
+        currency: "NGN",
+        giftDeadline: toIsoDate(resolvedEventDate),
+        allowAnonymousGifting: false,
+      },
+      participants,
+      giftAssignments,
     };
+  };
+
+  const syncSelectedGiftRecipientDetails = async () => {
+    if (isGiftingMyself || isGroupGifting) {
+      return;
+    }
+
+    for (const selectedContactId of selectedParticipantContactIds) {
+      const localDetails = recipientDetailsByContactId[selectedContactId];
+
+      if (!localDetails) {
+        continue;
+      }
+
+      const contactUpdatePayload: {
+        gender?: "male" | "female";
+        ageRange?: string;
+      } = {};
+
+      if (localDetails.gender) {
+        contactUpdatePayload.gender = localDetails.gender;
+      }
+
+      if (localDetails.ageRange) {
+        contactUpdatePayload.ageRange = localDetails.ageRange;
+      }
+
+      if (Object.keys(contactUpdatePayload).length > 0) {
+        await updateContactMutation.mutateAsync({
+          id: selectedContactId,
+          payload: contactUpdatePayload,
+        });
+      }
+
+      if (localDetails.relationshipId) {
+        await updateContactConnectionMutation.mutateAsync({
+          id: selectedContactId,
+          payload: {
+            relationshipId: localDetails.relationshipId,
+          },
+        });
+      }
+    }
+  };
+
+  const saveGiftingSetup = async () => {
+    const payload = buildGiftingSetupPayload();
+
+    if (!payload) {
+      return null;
+    }
+
+    await syncSelectedGiftRecipientDetails();
+
+    if (mode === "edit") {
+      const resolvedGiftingEventId =
+        giftingEventId?.trim() || currentEventRow?.giftingEventId?.trim() || "";
+
+      if (!resolvedGiftingEventId) {
+        toast.error("Unable to resolve this gifting event right now.");
+        return null;
+      }
+
+      return updateGiftingEventSetupMutation.mutateAsync({
+        id: resolvedGiftingEventId,
+        payload,
+      });
+    }
+
+    return createGiftingEventSetupMutation.mutateAsync(payload);
   };
 
   const handleGiftFlowSelectionNext = async () => {
@@ -2750,65 +3646,151 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
+    setGiftFlowStep("review-gifts", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftReviewNext = () => {
+    if (!selectedGiftPreviewProducts.length) {
+      toast.error("Please select at least one gift before continuing.");
+      return;
+    }
+
+    if (!isGiftingMyself && !giftAssignmentRecipients.length) {
+      toast.error("Please select at least one recipient before continuing.");
+      return;
+    }
+
+    const hasInvalidRecipientAssignment = selectedGiftPreviewProducts.some(
+      (product) => {
+        const recipientQuantities = giftRecipientQuantitiesById[product._id] ?? {};
+
+        if (isGiftingMyself) {
+          return Math.max(1, recipientQuantities.creator ?? 1) <= 0;
+        }
+
+        return !giftAssignmentRecipients.some((recipient) => {
+          const quantity = recipientQuantities[recipient.key] ?? 0;
+          return quantity > 0;
+        });
+      },
+    );
+
+    if (hasInvalidRecipientAssignment) {
+      toast.error(
+        "Please assign at least one unit of each selected gift before continuing.",
+      );
+      return;
+    }
+
     setIsCompleteGiftingEventConfirmationOpen(true);
   };
 
-  const handleConfirmCompleteGiftingEvent = async () => {
-    if (!giftingEventId) {
-      toast.error("Unable to resolve this gifting event right now.");
-      return;
+  const handleOpenGiftAssignmentDrawer = (productId: string) => {
+    setActiveGiftAssignmentProductId(productId);
+  };
+
+  const handleUpdateGiftRecipientQuantity = (
+    productId: string,
+    recipientKey: string,
+    nextQuantity: number,
+  ) => {
+    const currentQuantities = giftRecipientQuantitiesById[productId] ?? {};
+    const normalizedRequestedQuantity = isGiftingMyself
+      ? Math.max(1, nextQuantity)
+      : Math.max(0, nextQuantity);
+
+    let safeQuantity = normalizedRequestedQuantity;
+
+    if (!isGiftingMyself && normalizedRequestedQuantity === 0) {
+      const activeRecipientCount = giftAssignmentRecipients.reduce(
+        (count, recipient) =>
+          count + ((currentQuantities[recipient.key] ?? 1) > 0 ? 1 : 0),
+        0,
+      );
+      const currentRecipientQuantity = currentQuantities[recipientKey] ?? 1;
+      const isCurrentRecipientActive = currentRecipientQuantity > 0;
+
+      if (isCurrentRecipientActive && activeRecipientCount <= 1) {
+        safeQuantity = 1;
+      }
     }
 
-    const selectionContext = await resolveGiftSelectionContext();
+    const nextQuantitiesById = {
+      ...giftRecipientQuantitiesById,
+      [productId]: {
+        ...currentQuantities,
+        [recipientKey]: safeQuantity,
+      },
+    };
 
-    if (!selectionContext) {
-      return;
-    }
+    setGiftRecipientQuantitiesById(flowSelectionKey, nextQuantitiesById);
+  };
+
+  const handleConfirmSaveGiftingSetupAsDraft = async () => {
+    setIsSavingGiftSetupAsDraft(true);
 
     try {
-      await assignBulkGiftsMutation.mutateAsync({
-        eventId: selectionContext.resolvedEventId,
-        giverParticipantId: selectionContext.resolvedGiverParticipantId,
-        recipientParticipantIds:
-          selectionContext.resolvedRecipientParticipantIds,
-        gifts: selectionContext.selectedProducts.map((product) => ({
-          participantGiftId: product._id,
-          title: product.title,
-          description: product.description ?? "",
-          amount: product.amount,
-          currency: "NGN",
-          imageUrl: product.images[0] || undefined,
-          categorySlug: product.categorySlug || undefined,
-          subCategorySlug: product.subCategorySlug || undefined,
-          condition: product.condition || undefined,
-          locationState: product.location?.state || undefined,
-          locationCity: product.location?.city || undefined,
-          sellerId: product.sellerId || undefined,
-          productSlug: product.slug || undefined,
-        })),
-      });
+      const response = await saveGiftingSetup();
+
+      if (!response) {
+        return;
+      }
+
+      toast.success(response.message || "Gifting event saved as draft.");
+      setIsCompleteGiftingEventConfirmationOpen(false);
+      resetGiftFlowSelection(flowSelectionKey);
+      closeGiftFlowModal();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to save this gifting event right now.",
+      );
+    } finally {
+      setIsSavingGiftSetupAsDraft(false);
+    }
+  };
+
+  const handleConfirmCompleteGiftingEvent = async () => {
+    setIsSavingGiftSetupAndCompleting(true);
+
+    try {
+      const setupResponse = await saveGiftingSetup();
+
+      if (!setupResponse) {
+        return;
+      }
+
+      const nextGiftingEventId = setupResponse.data.id?.trim() || "";
+      const nextEventId =
+        setupResponse.data.eventId?.trim() ||
+        setupResponse.data.event.id?.trim() ||
+        "";
+
+      if (!nextGiftingEventId || !nextEventId) {
+        toast.error("Unable to resolve this gifting event right now.");
+        return;
+      }
 
       const completeResponse =
-        await completeGiftingEventMutation.mutateAsync(giftingEventId);
+        await completeGiftingEventMutation.mutateAsync(nextGiftingEventId);
+
       toast.success(completeResponse.message);
       setIsCompleteGiftingEventConfirmationOpen(false);
-      setGiftFlowStep(
-        "invite",
-        mode,
-        selectionContext.resolvedEventId,
-        giftingEventId,
-      );
+      setGiftFlowStep("invite", mode, nextEventId, nextGiftingEventId);
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Unable to complete this gifting event right now.",
       );
+    } finally {
+      setIsSavingGiftSetupAndCompleting(false);
     }
   };
 
   const handleGiftInviteBack = () => {
-    setGiftFlowStep("gift-selection", mode, eventId, giftingEventId);
+    setGiftFlowStep("review-gifts", mode, eventId, giftingEventId);
   };
 
   const handleGiftInviteSendEmail = () => {
@@ -2880,12 +3862,26 @@ export default function DashboardGiftsScreen() {
   }, [recordSearchValue]);
 
   useEffect(() => {
+    if (currentGiftFlowStep !== "record") {
+      setIsGiftRecordPickerOpen(false);
+    }
+  }, [currentGiftFlowStep]);
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedEventTypeSearchValue(eventTypeSearchValue.trim());
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [eventTypeSearchValue]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedRelationshipSearchValue(relationshipSearchValue.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [relationshipSearchValue]);
 
   useEffect(() => {
     if (currentContactId?.trim()) {
@@ -3058,6 +4054,132 @@ export default function DashboardGiftsScreen() {
     setStoredSelectedGiftIds,
   ]);
 
+  useEffect(() => {
+    if (!isGiftFlowOpen) {
+      return;
+    }
+
+    if ((currentGiftFlowStep as string) !== "contact-details") {
+      return;
+    }
+
+    replaceGiftFlowStep("gender", mode, eventId, giftingEventId);
+  }, [
+    currentGiftFlowStep,
+    eventId,
+    giftingEventId,
+    isGiftFlowOpen,
+    mode,
+    replaceGiftFlowStep,
+  ]);
+
+  const selectedParticipantRecord = useMemo(() => {
+    const selectedContactId =
+      activeRecipientContactId || selectedParticipantContactIds[0];
+
+    if (!selectedContactId) {
+      return null;
+    }
+
+    return contactRecordOptions.find((record) => record.id === selectedContactId) ?? null;
+  }, [
+    activeRecipientContactId,
+    contactRecordOptions,
+    selectedParticipantContactIds,
+  ]);
+
+  const hasSelectedGiftRecipientGender = Boolean(
+    (
+      recipientDetailsByContactId[selectedParticipantRecord?.id ?? ""]?.gender ||
+      selectedParticipantRecord?.gender ||
+      ""
+    ).trim(),
+  );
+
+  const hasSelectedGiftRecipientAgeRange = Boolean(
+    (
+      recipientDetailsByContactId[selectedParticipantRecord?.id ?? ""]?.ageRange ||
+      selectedParticipantRecord?.ageRange ||
+      ""
+    ).trim(),
+  );
+
+  useEffect(() => {
+    if (!selectedParticipantRecord) {
+      return;
+    }
+
+    setGiftFlowDraftFields(flowSelectionKey, {
+      recipientGender:
+        recipientDetailsByContactId[selectedParticipantRecord.id]?.gender ||
+        selectedRecipientGender ||
+        selectedParticipantRecord.gender ||
+        "",
+      recipientAgeRange:
+        recipientDetailsByContactId[selectedParticipantRecord.id]?.ageRange ||
+        selectedRecipientAgeRange ||
+        selectedParticipantRecord.ageRange ||
+        "",
+      recipientRelationshipId:
+        recipientDetailsByContactId[selectedParticipantRecord.id]
+          ?.relationshipId ||
+        selectedRecipientRelationshipId ||
+        selectedParticipantRecord.relationshipId ||
+        "",
+    });
+  }, [
+    flowSelectionKey,
+    recipientDetailsByContactId,
+    selectedParticipantRecord,
+    selectedRecipientAgeRange,
+    selectedRecipientGender,
+    selectedRecipientRelationshipId,
+    setGiftFlowDraftFields,
+  ]);
+
+  useEffect(() => {
+    if (!isGiftFlowOpen) {
+      return;
+    }
+
+    const recipientKeys = giftAssignmentRecipients.map((recipient) => recipient.key);
+
+    if (!recipientKeys.length || !selectedGiftIds.length) {
+      return;
+    }
+
+    const nextQuantitiesById: Record<string, Record<string, number>> = {};
+
+    selectedGiftIds.forEach((giftId) => {
+      const currentQuantities = giftRecipientQuantitiesById[giftId] ?? {};
+
+      nextQuantitiesById[giftId] = recipientKeys.reduce<
+        Record<string, number>
+      >((accumulator, recipientKey) => {
+        const currentQuantity = currentQuantities[recipientKey];
+        accumulator[recipientKey] =
+          typeof currentQuantity === "number" && currentQuantity >= 0
+            ? currentQuantity
+            : 1;
+        return accumulator;
+      }, {});
+    });
+
+    if (
+      JSON.stringify(nextQuantitiesById) !==
+      JSON.stringify(giftRecipientQuantitiesById)
+    ) {
+      setGiftRecipientQuantitiesById(flowSelectionKey, nextQuantitiesById);
+    }
+  }, [
+    flowSelectionKey,
+    giftAssignmentRecipients,
+    giftRecipientQuantitiesById,
+    isGiftFlowOpen,
+    selectedGiftIds,
+    setGiftRecipientQuantitiesById,
+  ]);
+
   const giftSelectionStep = (
     <WishlistGiftSelectionStep
       selectedIds={selectedGiftIds}
@@ -3074,7 +4196,12 @@ export default function DashboardGiftsScreen() {
                 : "/dashboard/gifts?tab=events",
               { scroll: false },
             )
-          : setGiftFlowStep("review-records", mode, eventId, giftingEventId)
+          : setGiftFlowStep(
+              isGiftingMyself ? "budget" : "review-records",
+              mode,
+              eventId,
+              giftingEventId,
+            )
       }
       onNext={
         isBrowseGiftsFlow
@@ -3091,14 +4218,15 @@ export default function DashboardGiftsScreen() {
         isBrowseGiftsFlow
           ? false
           : !selectedGiftIds.length ||
-            assignBulkGiftsMutation.isPending ||
-            isMyParticipantLoading ||
-            isMyParticipantFetching
+            createGiftingEventSetupMutation.isPending ||
+            updateGiftingEventSetupMutation.isPending ||
+            completeGiftingEventMutation.isPending
       }
       nextLabel={
         isBrowseGiftsFlow
           ? "Done"
-          : assignBulkGiftsMutation.isPending
+          : createGiftingEventSetupMutation.isPending ||
+              updateGiftingEventSetupMutation.isPending
             ? "Saving..."
             : "Next"
       }
@@ -3106,6 +4234,9 @@ export default function DashboardGiftsScreen() {
       disableContentScroll={true}
       enableInfiniteScroll={true}
       hideSelectionControls={isBrowseGiftsFlow}
+      initialMinimumPrice={selectedMinimumGiftBudget}
+      initialMaximumPrice={selectedMaximumGiftBudget}
+      maximumSpend={selectedMaximumGiftBudget ?? undefined}
       caughtMyEyeProductIds={caughtMyEyeGiftProductIds}
       prioritizedProductIds={prioritizedGiftProductIds}
       deferProductsUntilInitialSelectionResolved={
@@ -3120,7 +4251,126 @@ export default function DashboardGiftsScreen() {
     />
   );
 
-  if (isGiftFlowOpen && currentGiftFlowStep === "gift-selection") {
+  const giftReviewStep = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="space-y-2 pb-5">
+        <h2 className="text-[26px] font-semibold leading-tight text-[#1E1E1E] sm:text-[32px]">
+          Review selected gifts
+        </h2>
+        <p className="text-[13px] text-[#5F5A6B] sm:text-[14px]">
+          {isGiftingMyself
+            ? "Review the gifts you selected for yourself before you save this gifting flow."
+            : isGroupGifting
+              ? "Manage how each selected gift is shared across the people in this group before you save."
+              : "Manage the gift and quantity for this recipient before you save this gifting flow."}
+        </p>
+      </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto pr-1 min-[520px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        {selectedGiftPreviewProducts.map((product) => {
+          const recipientQuantities = giftRecipientQuantitiesById[product._id] ?? {};
+          const totalUnits = Object.values(recipientQuantities).reduce(
+            (sum, quantity) => sum + quantity,
+            0,
+          );
+          const activeGiftRecipients = giftAssignmentRecipients.filter(
+            (recipient) => (recipientQuantities[recipient.key] ?? 1) > 0,
+          );
+
+          return (
+            <div
+              key={product._id}
+              className="mx-auto flex h-full w-full max-w-[290px] min-w-0 flex-col overflow-hidden rounded-[16px] border border-gray-100 bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] min-[520px]:max-w-none"
+            >
+              <div className="relative h-[136px] w-full overflow-hidden rounded-[12px] bg-[#F6F2FB] sm:h-[148px] lg:h-[160px]">
+                {product.images[0] ? (
+                  <Image
+                    src={product.images[0]}
+                    alt={product.title}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : null}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-2 px-1 pt-2">
+                <div className="space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight text-[#4E4C4D] sm:text-[16px]">
+                      {product.title}
+                    </h3>
+                    <span className="shrink-0 text-[13px] font-semibold leading-tight tracking-[0.03em] text-darker sm:text-[14px]">
+                      {formatCurrency(product.amount)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#3300C9]/15 bg-[#F3EFFB] px-2 py-0.5 text-[9px] font-medium text-[#3300C9]">
+                      {totalUnits} unit{totalUnits === 1 ? "" : "s"}
+                    </span>
+                    <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#E8E1F6] bg-[#F8F6FD] px-2 py-0.5 text-[9px] font-medium text-[#6F6785]">
+                      {activeGiftRecipients.length}{" "}
+                      {isGiftingMyself ? "wishlist" : "recipient"}
+                      {activeGiftRecipients.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+                  <div className="flex items-center -space-x-2">
+                    {activeGiftRecipients.map((recipient) => (
+                      <UserAvatar
+                        key={`${product._id}-${recipient.key}`}
+                        name={recipient.name}
+                        imageUrl={recipient.profileUrl}
+                        className="size-7 border-2 border-white text-[10px]"
+                        textClassName="text-[10px]"
+                      />
+                    ))}
+                  </div>
+
+                  <ModalButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => handleOpenGiftAssignmentDrawer(product._id)}
+                    className="inline-flex !h-7 !w-fit rounded-full border border-[#3300C9] bg-white px-3 text-[9px] font-semibold text-[#3300C9] hover:bg-[#F6F2FF] sm:!h-8 sm:px-3.5 sm:text-[10px]"
+                  >
+                    {isGiftingMyself ? "Update Units" : "Manage Recipients"}
+                  </ModalButton>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-[#F1EDF9] pt-5 mt-5">
+        <div className="flex items-center justify-center gap-3">
+          <BackButton
+            onClick={() =>
+              setGiftFlowStep("gift-selection", mode, eventId, giftingEventId)
+            }
+            className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            iconClassName="size-[24px]"
+          />
+          <ModalButton
+            type="button"
+            onClick={handleGiftReviewNext}
+            className="h-[38px] !w-fit min-w-[96px] px-6"
+          >
+            Next
+          </ModalButton>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (
+    isGiftFlowOpen &&
+    (currentGiftFlowStep === "gift-selection" ||
+      currentGiftFlowStep === "review-gifts")
+  ) {
     return (
       <div className="space-y-6">
         {isBrowseGiftsFlow ? (
@@ -3154,7 +4404,9 @@ export default function DashboardGiftsScreen() {
               isBrowseGiftsFlow && "min-h-0",
             )}
           >
-            {giftSelectionStep}
+            {currentGiftFlowStep === "gift-selection"
+              ? giftSelectionStep
+              : giftReviewStep}
           </div>
         </div>
 
@@ -3162,17 +4414,184 @@ export default function DashboardGiftsScreen() {
           open={isCompleteGiftingEventConfirmationOpen}
           onClose={() => setIsCompleteGiftingEventConfirmationOpen(false)}
           onConfirm={handleConfirmCompleteGiftingEvent}
+          onSecondaryConfirm={handleConfirmSaveGiftingSetupAsDraft}
           action="save"
-          title="Complete Gifting Event"
-          description="Are you sure you are ready to complete this gifting event and continue to the invite step?"
-          confirmText="Yes, Continue"
+          title="Save Gifting Event"
+          description="You can save this gifting event as a draft, or save and complete it so you can continue to invite participants."
+          confirmText="Save"
+          secondaryConfirmText="Save as Draft"
           isLoading={
-            assignBulkGiftsMutation.isPending ||
+            isSavingGiftSetupAndCompleting ||
+            createGiftingEventSetupMutation.isPending ||
+            updateGiftingEventSetupMutation.isPending ||
             completeGiftingEventMutation.isPending
           }
+          isSecondaryLoading={isSavingGiftSetupAsDraft}
           closeOnOverlayClick={false}
           closeOnEscape={false}
         />
+
+        <SideDrawer
+          open={Boolean(activeGiftAssignmentProduct)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActiveGiftAssignmentProductId(null);
+            }
+          }}
+          title={
+            activeGiftAssignmentProduct?.title ||
+            (isGiftingMyself ? "Update Units" : "Manage Recipients")
+          }
+          description={
+            isGiftingMyself
+              ? "Adjust how many units of this gift you want to save for yourself."
+              : isGroupGifting
+                ? "Adjust how many units of this gift are assigned to each person in this group."
+                : "Adjust how many units of this gift are assigned to this recipient."
+          }
+          footer={
+            <ModalButton
+              type="button"
+              onClick={() => setActiveGiftAssignmentProductId(null)}
+              className="h-11 w-full rounded-[16px] text-[14px]"
+            >
+              Done
+            </ModalButton>
+          }
+        >
+          <div className="space-y-3">
+            {giftAssignmentRecipients.map((recipient) => {
+              const quantity =
+                activeGiftAssignmentProduct
+                  ? giftRecipientQuantitiesById[activeGiftAssignmentProduct._id]?.[
+                      recipient.key
+                    ] ?? 1
+                  : 1;
+              const isRecipientDisabled = !isGiftingMyself && quantity === 0;
+
+              return (
+                <div
+                  key={recipient.key}
+                  className={cn(
+                    "rounded-[18px] border p-4 transition-colors",
+                    isRecipientDisabled
+                      ? "border-[#EEEAF7] bg-[#F5F3FA] opacity-65"
+                      : "border-[#EEEAF7] bg-[#FCFBFF]",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <UserAvatar
+                        name={recipient.name}
+                        imageUrl={recipient.profileUrl}
+                        className="size-11 text-[13px]"
+                        textClassName="text-[13px]"
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-[14px] font-semibold",
+                            isRecipientDisabled
+                              ? "text-[#8B8697]"
+                              : "text-[#2F2F33]",
+                          )}
+                        >
+                          {recipient.name}
+                        </p>
+                        <p
+                          className={cn(
+                            "truncate text-[12px]",
+                            isRecipientDisabled
+                              ? "text-[#A7A1B5]"
+                              : "text-[#7D7888]",
+                          )}
+                        >
+                          {recipient.email || "Assigned recipient"}
+                        </p>
+                        {/* {isRecipientDisabled ? (
+                          <p className="mt-1 text-[11px] font-medium text-[#9A93AB]">
+                            Disabled for this gift
+                          </p>
+                        ) : null} */}
+                      </div>
+                    </div>
+
+                    {activeGiftAssignmentProduct ? (
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 rounded-full border px-2 py-1",
+                          isRecipientDisabled
+                            ? "border-[#E5E0EF] bg-[#F8F6FC]"
+                            : "border-[#E8E1F6] bg-white",
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateGiftRecipientQuantity(
+                              activeGiftAssignmentProduct._id,
+                              recipient.key,
+                              quantity - 1,
+                            )
+                          }
+                          className={cn(
+                            "inline-flex size-8 items-center justify-center rounded-full transition-colors",
+                            isRecipientDisabled
+                              ? "text-[#8F88A3] hover:bg-[#EEEAF6]"
+                              : "text-[#3300C9] hover:bg-[#F3EFFB]",
+                          )}
+                        >
+                          <MinusIcon className="size-4" />
+                        </button>
+                        <input
+                          type="number"
+                          min={isGiftingMyself ? 1 : 0}
+                          value={quantity}
+                          onChange={(event) =>
+                            handleUpdateGiftRecipientQuantity(
+                              activeGiftAssignmentProduct._id,
+                              recipient.key,
+                              Number.isNaN(Number(event.target.value))
+                                ? isGiftingMyself
+                                  ? 1
+                                  : 0
+                                : Number(event.target.value),
+                            )
+                          }
+                          className={cn(
+                            "h-8 w-12 border-0 bg-transparent text-center text-[14px] font-semibold outline-none",
+                            isRecipientDisabled
+                              ? "text-[#8F88A3]"
+                              : "text-[#2F2F33]",
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateGiftRecipientQuantity(
+                              activeGiftAssignmentProduct._id,
+                              recipient.key,
+                              quantity + 1,
+                            )
+                          }
+                          className={cn(
+                            "inline-flex size-8 items-center justify-center rounded-full transition-colors",
+                            isRecipientDisabled
+                              ? "text-[#8F88A3] hover:bg-[#EEEAF6]"
+                              : "text-[#3300C9] hover:bg-[#F3EFFB]",
+                          )}
+                        >
+                          <PlusIcon className="size-4" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </SideDrawer>
+
       </div>
     );
   }
@@ -3594,21 +5013,26 @@ export default function DashboardGiftsScreen() {
         open={isCompleteGiftingEventConfirmationOpen}
         onClose={() => setIsCompleteGiftingEventConfirmationOpen(false)}
         onConfirm={handleConfirmCompleteGiftingEvent}
+        onSecondaryConfirm={handleConfirmSaveGiftingSetupAsDraft}
         action="save"
-        title="Complete Gifting Event"
-        description="Are you sure you are ready to complete this gifting event and continue to the invite step?"
-        confirmText="Yes, Continue"
+        title="Save Gifting Event"
+        description="You can save this gifting event as a draft, or save and complete it so you can continue to invite participants."
+        confirmText="Save"
+        secondaryConfirmText="Save as Draft"
         isLoading={
-          assignBulkGiftsMutation.isPending ||
+          isSavingGiftSetupAndCompleting ||
+          createGiftingEventSetupMutation.isPending ||
+          updateGiftingEventSetupMutation.isPending ||
           completeGiftingEventMutation.isPending
         }
+        isSecondaryLoading={isSavingGiftSetupAsDraft}
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
 
       <ContentModal
         open={isGiftFlowOpen && currentGiftFlowStep !== "gift-selection"}
-        onClose={closeGiftFlowModal}
+        onClose={handleRequestCloseGiftFlow}
         title="Get a Gift"
         showHeader={false}
         closeOnOverlayClick={false}
@@ -3637,7 +5061,9 @@ export default function DashboardGiftsScreen() {
             onBack={() =>
               setGiftFlowStep("review-records", mode, eventId, giftingEventId)
             }
-            // disableContentScroll={true}
+            initialMinimumPrice={selectedMinimumGiftBudget}
+            initialMaximumPrice={selectedMaximumGiftBudget}
+            maximumSpend={selectedMaximumGiftBudget ?? undefined}
             onNext={handleGiftFlowSelectionNext}
             nextDisabled={
               !selectedGiftIds.length ||
@@ -3675,56 +5101,38 @@ export default function DashboardGiftsScreen() {
             onCopyLink={handleGiftInviteCopyLink}
             isSendingEmail={sendEmailMutation.isPending}
           />
-        ) : currentGiftFlowStep === "event-date" ? (
-          <EventDateStep
-            eventName={selectedEventTypeOption?.label ?? "Event"}
-            value={selectedGiftEventDate}
-            onChange={(value) =>
+        ) : currentGiftFlowStep === "budget" ? (
+          <GiftBudgetStep
+            selectedOption={selectedBudgetOption as GiftBudgetOptionKey | ""}
+            customMinimumValue={customGiftBudgetMinimum}
+            customMaximumValue={customGiftBudgetMaximum}
+            onSelectOption={(value) =>
               setGiftFlowDraftFields(flowSelectionKey, {
-                eventDate: value,
+                selectedBudgetOption: value,
               })
             }
+            onCustomMinimumValueChange={setCustomGiftBudgetMinimum}
+            onCustomMaximumValueChange={setCustomGiftBudgetMaximum}
             onBack={() =>
-              setGiftFlowStep("event", mode, eventId, giftingEventId)
+              setGiftFlowStep(
+                "event",
+                mode,
+                eventId,
+                giftingEventId,
+              )
             }
-            onNext={handleGiftEventDateNext}
-            onSaveAndContinue={handleGiftEventDateSaveAndContinue}
-            isSaveAndContinuePending={
-              createGiftingEventMutation.isPending ||
-              updateGiftingEventMutation.isPending
-            }
-            heading="What's the date?"
-            headingAlign="left"
-            showGoToEventNameLink={false}
-          />
-        ) : currentGiftFlowStep === "event-name" ? (
-          <GroupNameStep
-            value={giftEventName}
-            onChange={(value) =>
-              setGiftFlowDraftFields(flowSelectionKey, {
-                eventName: value,
-              })
-            }
-            onBack={() =>
-              setGiftFlowStep("event-date", mode, eventId, giftingEventId)
-            }
-            onNext={() =>
-              setGiftFlowStep("source", mode, eventId, giftingEventId)
-            }
-            onSaveAndContinue={handleSaveGiftEventDetails}
-            title="Below is a suggestion of a name for your event."
-            description="Feel free to edit as you see fit."
-            placeholder="Write event name"
-            nextLabel="Next"
-            saveAndContinueLabel="Save & Continue"
+            onNext={handleGiftBudgetNext}
             nextDisabled={
-              createGiftingEventMutation.isPending ||
-              updateGiftingEventMutation.isPending
+              !selectedBudgetOption || updateGiftingEventMutation.isPending
             }
-            isSaveAndContinuePending={
-              createGiftingEventMutation.isPending ||
-              updateGiftingEventMutation.isPending
+            nextLabel={
+              updateGiftingEventMutation.isPending ? "Saving..." : "Next"
             }
+          />
+        ) : currentGiftFlowStep === "recipient-choice" ? (
+          <GiftRecipientChoiceStep
+            value={selectedCelebrationTarget}
+            onChange={handleGiftRecipientChoiceSelect}
           />
         ) : currentGiftFlowStep === "add-record" ? (
           <AddColleagueForm
@@ -3749,11 +5157,10 @@ export default function DashboardGiftsScreen() {
         ) : currentGiftFlowStep === "source" ? (
           <div className="space-y-12 pt-2">
             <div className="text-center">
-              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
-                Hey {greetingName},
-              </p>
               <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                Who&apos;d you like to gift?
+                {isGroupGifting
+                  ? "Who are the Lucky People?"
+                  : "Who is the Lucky Person?"}
               </p>
             </div>
 
@@ -3778,18 +5185,21 @@ export default function DashboardGiftsScreen() {
             <div className="flex justify-center">
               <BackButton
                 onClick={() =>
-                  setGiftFlowStep("event-name", mode, eventId, giftingEventId)
+                  setGiftFlowStep(
+                    "recipient-choice",
+                    mode,
+                    eventId,
+                    giftingEventId,
+                  )
                 }
-                className="flex size-[66px] items-center justify-center rounded-[14px] bg-[#F3EFFB] text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
               />
             </div>
           </div>
         ) : currentGiftFlowStep === "oneda-business" ? (
           <div className="space-y-8 pt-2">
             <div className="text-center">
-              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
-                Hey {greetingName},
-              </p>
               <p className="mt-2 text-[20px] font-normal text-[#434343]">
                 Which business are you selecting from?
               </p>
@@ -3816,7 +5226,7 @@ export default function DashboardGiftsScreen() {
                     onClick={() =>
                       setGiftFlowStep("source", mode, eventId, giftingEventId)
                     }
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className="flex h-[38px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"
                   />
                 }
@@ -3826,7 +5236,7 @@ export default function DashboardGiftsScreen() {
                       onClick={() =>
                         setGiftFlowStep("source", mode, eventId, giftingEventId)
                       }
-                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                       iconClassName="size-[24px]"
                     />
 
@@ -3857,11 +5267,10 @@ export default function DashboardGiftsScreen() {
         ) : currentGiftFlowStep === "oneda-contact" ? (
           <div className="space-y-8 pt-2">
             <div className="text-center">
-              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
-                Hey {greetingName},
-              </p>
               <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                Who&apos;d you like to gift?
+                {isGroupGifting
+                  ? "Who'd you like to gift?"
+                  : "Who'd you like to gift?"}
               </p>
             </div>
 
@@ -3871,7 +5280,9 @@ export default function DashboardGiftsScreen() {
                 selectedIds={selectedOnedaContactIds}
                 onSelectedIdsChange={(ids) =>
                   setGiftFlowDraftFields(flowSelectionKey, {
-                    selectedOnedaContactIds: ids,
+                    selectedOnedaContactIds: isGroupGifting
+                      ? ids
+                      : toSingleSelection(ids),
                   })
                 }
                 placeholder="Search for colleague"
@@ -3896,7 +5307,7 @@ export default function DashboardGiftsScreen() {
                         giftingEventId,
                       )
                     }
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className="flex h-[38px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"
                   />
                 }
@@ -3911,7 +5322,7 @@ export default function DashboardGiftsScreen() {
                           giftingEventId,
                         )
                       }
-                      className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                      className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                       iconClassName="size-[24px]"
                     />
 
@@ -3949,55 +5360,222 @@ export default function DashboardGiftsScreen() {
           greetingName={greetingName}
           items={selectedParticipantReviewItems}
           prompt="Who would you like to gift?"
-          onAddNew={() => handleOpenAddNewColleague("review-records")}
-            onBack={() =>
-              setGiftFlowStep("source", mode, eventId, giftingEventId)
-            }
-            onNext={handleGiftParticipantsNext}
-            onEdit={(id) => {
-              const item = contactRecordOptions.find(
-                (record) => record.id === id,
-              );
+          topActionLabel={isGroupGifting ? "Add" : "Replace"}
+          topActionIcon={isGroupGifting ? "add" : "replace"}
+          onTopAction={() =>
+            setGiftFlowStep(
+              isGroupGifting ? "source" : "record",
+              mode,
+              eventId,
+              giftingEventId,
+            )
+          }
+          onBack={() =>
+            setGiftFlowStep("source", mode, eventId, giftingEventId)
+          }
+          onNext={handleGiftParticipantsNext}
+          onItemAction={
+            isGroupGifting ? handleOpenGroupRecipientDetails : undefined
+          }
+          hideItemActions
+          nextDisabled={
+            !selectedParticipantReviewItems.length
+          }
+          nextLabel="Next"
+        />
+        ) : currentGiftFlowStep === "gender" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                What is{" "}
+                {selectedParticipantRecord?.firstName?.trim() || "this person's"}{" "}
+                sex?
+              </p>
+            </div>
 
-              if (item) {
-                handleOpenEditColleague(item, "review-records");
-              }
-            }}
-            onDelete={(id) =>
-              setSelectedParticipantContactIds(
-                flowSelectionKey,
-                selectedParticipantContactIds.filter(
-                  (selectedId) => selectedId !== id,
-                ),
-              )
-            }
-            nextDisabled={
-              !selectedParticipantReviewItems.length ||
-              createParticipantsBulkMutation.isPending
-            }
-            nextLabel={
-              createParticipantsBulkMutation.isPending
-                ? "Saving..."
-                : "Save & Continue"
-            }
-          />
+            <div className="mx-auto flex max-w-[494px] justify-center">
+              <RadioGroup
+                value={selectedRecipientGender}
+                onValueChange={(value) =>
+                  setGiftFlowDraftFields(flowSelectionKey, {
+                    recipientGender: value as "male" | "female" | "",
+                  })
+                }
+                className="mx-auto inline-flex w-full max-w-[378px] items-center gap-2 rounded-full bg-[#E7EDC7] p-2"
+              >
+                {[
+                  { label: "Male", value: "male" },
+                  { label: "Female", value: "female" },
+                ].map((option) => {
+                  const isActive = selectedRecipientGender === option.value;
+
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        "relative flex h-[52px] flex-1 cursor-pointer items-center justify-center rounded-full px-4 text-[16px] font-medium transition-colors sm:text-[17px]",
+                        isActive
+                          ? "bg-[#3300C9] text-white shadow-[0_8px_20px_rgba(51,0,201,0.18)]"
+                          : "bg-transparent text-[#3300C9] hover:bg-white/35",
+                      )}
+                    >
+                      <RadioGroupItem
+                        value={option.value}
+                        className="sr-only"
+                        iconClassName="sr-only"
+                      />
+                      {option.label}
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={handleGiftGenderBack}
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                type="button"
+                onClick={handleGiftGenderNext}
+                className="h-[38px] !w-fit min-w-[96px] px-6"
+              >
+                Next
+              </ModalButton>
+            </div>
+          </div>
+        ) : currentGiftFlowStep === "age-range" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                What is{" "}
+                {selectedParticipantRecord?.firstName?.trim() || "this person's"}{" "}
+                age range?
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlaySelect
+                value={selectedRecipientAgeRange}
+                onValueChange={(value) =>
+                  setGiftFlowDraftFields(flowSelectionKey, {
+                    recipientAgeRange: value,
+                  })
+                }
+                options={(contactEnumsResponse?.data.ageRanges ?? []).map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                placeholder="Select age range"
+                panelTitle="Select age range"
+                searchPlaceholder=""
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={handleGiftAgeRangeBack}
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                type="button"
+                onClick={handleGiftAgeRangeNext}
+                className="h-[38px] !w-fit min-w-[96px] px-6"
+              >
+                Next
+              </ModalButton>
+            </div>
+          </div>
+        ) : currentGiftFlowStep === "relationship" ? (
+          <div className="space-y-8 pt-2">
+            <div className="text-center">
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                Set relationship
+              </p>
+              <p className="mt-2 text-[16px] font-normal text-[#666666]">
+                Choose how this person is connected to you.
+              </p>
+            </div>
+
+            <div className="mx-auto max-w-[494px]">
+              <OverlaySelect
+                value={selectedRecipientRelationshipId}
+                onValueChange={(value) =>
+                  setGiftFlowDraftFields(flowSelectionKey, {
+                    recipientRelationshipId: value,
+                  })
+                }
+                options={relationshipOptions}
+                placeholder="Select relationship"
+                panelTitle="Select relationship"
+                searchPlaceholder=""
+                searchValue={relationshipSearchValue}
+                onSearchValueChange={setRelationshipSearchValue}
+                onCreateOption={handleCreateRelationshipOption}
+                onUpdateOption={handleUpdateRelationshipOption}
+                onDeleteOption={handleDeleteRelationshipOption}
+                triggerClassName="text-[10px]"
+              />
+            </div>
+
+            {isAvailableRelationshipsError ? (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void refetchAvailableRelationships()}
+                  className="text-sm font-medium text-[#3300C9] transition-colors hover:text-[#2400A1]"
+                >
+                  Retry loading relationships
+                </button>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={handleGiftRelationshipBack}
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
+              <ModalButton
+                type="button"
+                onClick={handleGiftRelationshipNext}
+                className="h-[38px] !w-fit min-w-[96px] px-6"
+                disabled={
+                  !selectedRecipientRelationshipId ||
+                  isAvailableRelationshipsLoading
+                }
+              >
+                Next
+              </ModalButton>
+            </div>
+          </div>
         ) : currentGiftFlowStep === "record" ? (
           <div className="space-y-8 pt-2">
             <div className="text-center">
-              <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+              {/* <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
                 Hey {greetingName},
-              </p>
+              </p> */}
               <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                Who&apos;d you like to gift with?
+                {isGroupGifting
+                  ? "Who are the Lucky People?"
+                  : "Who is the Lucky Person?"}
               </p>
             </div>
 
             <div className="mx-auto max-w-[494px]">
               <OverlayRecordPicker
+                open={isGiftRecordPickerOpen}
+                onOpenChange={setIsGiftRecordPickerOpen}
                 items={contactRecordOptions}
                 selectedIds={selectedParticipantContactIds}
                 onSelectedIdsChange={(ids) =>
-                  setSelectedParticipantContactIds(flowSelectionKey, ids)
+                  setSelectedParticipantContactIds(
+                    flowSelectionKey,
+                    isGroupGifting ? ids : toSingleSelection(ids),
+                  )
                 }
                 placeholder="Search for colleague"
                 panelTitle="Search for colleague"
@@ -4020,7 +5598,7 @@ export default function DashboardGiftsScreen() {
                     onClick={() =>
                       setGiftFlowStep("source", mode, eventId, giftingEventId)
                     }
-                    className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                    className="flex h-[38px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                     iconClassName="size-[24px]"
                   />
                 }
@@ -4065,12 +5643,9 @@ export default function DashboardGiftsScreen() {
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-7">
-            <div className="space-y-2 text-left">
-              <p className="text-[18px] font-medium leading-tight text-[#1E1E1E] sm:text-[20px]">
-                Hi {greetingName},
-              </p>
-              <p className="text-[18px] font-normal text-[#434343] sm:text-[20px]">
-                What event are you celebrating?
+            <div className="space-y-2 text-center">
+              <p className="mt-2 text-[20px] font-normal text-[#434343]">
+                What&apos;s the occasion about
               </p>
             </div>
 
@@ -4112,38 +5687,50 @@ export default function DashboardGiftsScreen() {
             ) : null}
 
             <div className="flex flex-wrap items-center justify-center gap-3">
+              <BackButton
+                onClick={() =>
+                  setGiftFlowStep(
+                    selectedCelebrationTarget !== "myself"
+                      ? "review-records"
+                      : "recipient-choice",
+                    mode,
+                    eventId,
+                    giftingEventId,
+                  )
+                }
+                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                iconClassName="size-[24px]"
+              />
               <ModalButton
                 type="button"
                 onClick={handleGiftFlowEventNext}
                 disabled={
                   !selectedGiftEventTypeId ||
-                  createGiftingEventMutation.isPending ||
-                  updateGiftingEventMutation.isPending
+                  (!isGiftingMyself &&
+                    (createGiftingEventMutation.isPending ||
+                      updateGiftingEventMutation.isPending))
                 }
                 className="h-[38px] !w-fit min-w-[96px] px-6"
               >
                 Next
               </ModalButton>
-
-              <ModalButton
-                type="button"
-                onClick={handleGiftFlowEventSaveAndContinue}
-                disabled={
-                  !selectedGiftEventTypeId ||
-                  createGiftingEventMutation.isPending ||
-                  updateGiftingEventMutation.isPending
-                }
-                className="h-[38px] !w-fit min-w-[140px] px-6"
-              >
-                {createGiftingEventMutation.isPending ||
-                updateGiftingEventMutation.isPending
-                  ? "Saving..."
-                  : "Save & Continue"}
-              </ModalButton>
             </div>
           </div>
         )}
       </ContentModal>
+
+      <ConfirmationModal
+        open={isDiscardGiftFlowConfirmationOpen}
+        onClose={() => setIsDiscardGiftFlowConfirmationOpen(false)}
+        onConfirm={handleConfirmDiscardGiftFlow}
+        action="delete"
+        title="Discard Gifting Setup?"
+        description="If you close this flow now, the records and setup details you have entered locally will be lost."
+        confirmText="Discard"
+        cancelText="Keep Editing"
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
 
       <EmailInviteComposeModal
         open={isGiftInviteEmailComposeOpen}
@@ -4155,6 +5742,31 @@ export default function DashboardGiftsScreen() {
         lockedEmails={giftInviteLockedEmails}
         onSubmit={handleConfirmSendGiftInviteEmails}
         isSubmitting={sendEmailMutation.isPending}
+        hasBody={false}
+      />
+
+      <ConfirmationModal
+        open={Boolean(pendingGiftContactDetailsPrompt)}
+        onClose={() => setPendingGiftContactDetailsPrompt(null)}
+        onConfirm={handleUpdateGiftContactDetailsFromPrompt}
+        onSecondaryConfirm={handleSkipGiftContactDetailsPrompt}
+        action="save"
+        title="Complete contact details?"
+        description={
+          pendingGiftContactDetailsPrompt
+            ? `This contact is missing ${pendingGiftContactDetailsPrompt.missingFields
+                .map((field) =>
+                  field === "ageRange"
+                    ? "age range"
+                    : field === "relationship"
+                      ? "relationship"
+                      : "gender",
+                )
+                .join(", ")}. Adding them can help improve gifting suggestions.`
+            : ""
+        }
+        confirmText="Update details"
+        secondaryConfirmText="Skip for now"
       />
     </div>
   );

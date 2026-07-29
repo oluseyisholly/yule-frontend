@@ -24,8 +24,8 @@ export function useExternalBusinessesQuery(
       return Array.isArray(response.data) ? response.data : [];
     },
     enabled: (options.enabled ?? true) && Boolean(accountId) && Boolean(accessToken),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     placeholderData: [],
   });

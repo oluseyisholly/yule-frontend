@@ -199,6 +199,7 @@ const RECORD_AVATAR_STYLES = [
 ] as const;
 const EMPTY_NEW_COLLEAGUE_FORM: AddColleagueFormValues = {
   gender: "",
+  ageRange: "",
   firstName: "",
   lastName: "",
   phoneNumber: "",
@@ -684,6 +685,10 @@ function mapContactToRecordItem(
       contact.gender === "male" || contact.gender === "female"
         ? contact.gender
         : "",
+    ageRange: contact.ageRange?.trim() || "",
+    relationshipId: contact.connection?.relationshipId?.trim() || null,
+    relationshipName:
+      contact.connection?.relationship?.name?.trim() || "",
     profileUrl: contact.profileUrl?.trim() || null,
     initials: `${firstInitial}${lastInitial}`.trim().toUpperCase() || "CT",
     avatarBg,
@@ -2497,6 +2502,7 @@ export default function DashboardHangoutsScreen() {
     setEditingRecordId(item.id);
     setNewColleagueForm({
       gender: item.gender || "",
+      ageRange: item.ageRange || "",
       firstName: item.firstName || item.name.split(" ")[0] || "",
       lastName: item.lastName || item.name.split(" ").slice(1).join(" ") || "",
       phoneNumber: item.phoneNumber || "",
@@ -2527,6 +2533,7 @@ export default function DashboardHangoutsScreen() {
     try {
       const payload = {
         gender: genderValue,
+        ageRange: newColleagueForm.ageRange || undefined,
         firstName: firstNameValue,
         lastName: lastNameValue,
         phoneNumber: newColleagueForm.phoneNumber.trim(),

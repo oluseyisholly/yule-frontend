@@ -1,5 +1,6 @@
 export type CreateBulkGiftItemPayload = {
   participantGiftId: string;
+  quantity?: number;
   title: string;
   description: string;
   amount: number;
@@ -28,6 +29,7 @@ export type ContactGiftCartItem = {
   id: string;
   contactId: string;
   participantGiftId: string;
+  quantity?: number | null;
   title: string;
   description?: string | null;
   amount: number | string;
@@ -134,6 +136,7 @@ export type UpdateGiftFulfillmentResponse = {
 export type ParticipantGiftSelection = {
   id?: string;
   participantGiftId?: string;
+  quantity?: number | null;
   title?: string;
   description?: string;
   amount?: number | string;
@@ -169,6 +172,7 @@ export type ParticipantGiftRow = {
   recipientParticipantId: string;
   giverParticipantId?: string | null;
   participantGiftId?: string;
+  quantity?: number | null;
   title?: string;
   description?: string;
   amount?: number | string;

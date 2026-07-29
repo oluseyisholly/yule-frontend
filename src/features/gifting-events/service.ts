@@ -7,9 +7,11 @@ import type {
   GiftingEventsParams,
   GiftingEventsResponse,
   GiftingEventPatchPayload,
+  GiftingEventSetupPayload,
 } from "@/features/gifting-events/types";
 
 const GIFTING_EVENTS_ENDPOINT = "/gifting-event";
+const GIFTING_EVENTS_SETUP_ENDPOINT = `${GIFTING_EVENTS_ENDPOINT}/setup`;
 
 export async function getGiftingEvents(params: GiftingEventsParams = {}) {
   return getApi<GiftingEventsResponse>(GIFTING_EVENTS_ENDPOINT, {
@@ -34,6 +36,25 @@ export async function updateGiftingEvent(
 ) {
   return patchApi<GiftingEventMutationResponse, GiftingEventPatchPayload>(
     `${GIFTING_EVENTS_ENDPOINT}/${id}`,
+    payload,
+  );
+}
+
+export async function createGiftingEventSetup(
+  payload: GiftingEventSetupPayload,
+) {
+  return postApi<GiftingEventMutationResponse, GiftingEventSetupPayload>(
+    GIFTING_EVENTS_SETUP_ENDPOINT,
+    payload,
+  );
+}
+
+export async function updateGiftingEventSetup(
+  giftingEventId: string,
+  payload: GiftingEventSetupPayload,
+) {
+  return patchApi<GiftingEventMutationResponse, GiftingEventSetupPayload>(
+    `${GIFTING_EVENTS_SETUP_ENDPOINT}/${giftingEventId}`,
     payload,
   );
 }

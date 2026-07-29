@@ -30,6 +30,9 @@ export type SearchableRecordItem = {
   lastName?: string;
   phoneNumber?: string;
   gender?: "male" | "female" | "";
+  ageRange?: string;
+  relationshipId?: string | null;
+  relationshipName?: string;
   profileUrl?: string | null;
   avatar?: ReactNode;
   initials?: string;

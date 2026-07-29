@@ -23,6 +23,7 @@ export type WishlistEventPatchPayload = Partial<
 
 export type WishlistSetupGiftPayload = {
   participantGiftId: string;
+  quantity?: number;
   title: string;
   description: string;
   amount: number;
@@ -144,17 +145,7 @@ export type PublicWishlistEventRecord = {
   allowMultipleItems: boolean;
   eventDeadline?: string | null;
   hangoutEventId?: string | null;
-  hangoutEvent?: {
-    id: string;
-    payerParticipantId?: string | null;
-    payerParticipant?: WishlistEventParticipant | null;
-    location?: string | null;
-    eventCenterName?: string | null;
-    checkInDate?: string | null;
-    checkOutDate?: string | null;
-    amount?: number | string | null;
-    imageUrl?: string | null;
-  } | null;
+  hangoutEvent?: WishlistNestedHangoutEventRecord | null;
   redirectPath?: string | null;
 };
 

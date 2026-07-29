@@ -33,6 +33,7 @@ export type DrawNameEventPatchPayload = Partial<
 
 export type DrawNameEventSetupGiftPayload = {
   participantGiftId: string;
+  quantity?: number;
   title: string;
   description: string;
   amount: number;

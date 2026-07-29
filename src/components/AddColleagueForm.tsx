@@ -1,11 +1,20 @@
 "use client";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
+import { useContactEnumsQuery } from "@/features/contacts/hooks/useContactEnumsQuery";
 
 export type AddColleagueFormValues = {
   gender: "male" | "female" | "";
+  ageRange?: string;
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -42,6 +51,9 @@ export default function AddColleagueForm({
   saveLabel = "Save",
   savingLabel = "Saving",
 }: AddColleagueFormProps) {
+  const { data: contactEnumsResponse } = useContactEnumsQuery();
+  const ageRangeOptions = contactEnumsResponse?.data.ageRanges ?? [];
+
   return (
     <div className="space-y-5">
       <div className="space-y-3">
@@ -70,6 +82,25 @@ export default function AddColleagueForm({
             Female
           </label>
         </RadioGroup>
+      </div>
+
+      <div className="space-y-2">
+        <FieldLabel>Age range</FieldLabel>
+        <Select
+          value={values.ageRange ?? ""}
+          onValueChange={(value) => onChange("ageRange", value)}
+        >
+          <SelectTrigger className="h-[38px] w-full rounded-[8px] border-[#D9D5E5] px-3 text-sm shadow-none focus-visible:ring-0">
+            <SelectValue placeholder="Select age range" />
+          </SelectTrigger>
+          <SelectContent>
+            {ageRangeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

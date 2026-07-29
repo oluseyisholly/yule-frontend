@@ -132,6 +132,7 @@ const SCHEDULE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
 
 const EMPTY_ADD_SCHEDULE_CONTACT_FORM: AddColleagueFormValues = {
   gender: "",
+  ageRange: "",
   firstName: "",
   lastName: "",
   phoneNumber: "",
@@ -516,6 +517,7 @@ function mapMarketplaceProductToGiftPayload(
 ): CreateBulkGiftItemPayload {
   return {
     participantGiftId: product._id,
+    quantity: 1,
     title: product.title,
     description: product.description ?? "",
     amount: product.amount,
@@ -1440,6 +1442,7 @@ export default function ScheduleScreen() {
     const lastName = addContactForm.lastName.trim();
     const phoneNumber = addContactForm.phoneNumber.trim();
     const email = addContactForm.email.trim();
+    const ageRange = addContactForm.ageRange?.trim() || undefined;
 
     if (!gender || !firstName || !lastName || !email) {
       toast.error("Please complete the contact details.");
@@ -1449,6 +1452,7 @@ export default function ScheduleScreen() {
     try {
       const response = await createContactMutation.mutateAsync({
         gender,
+        ageRange,
         firstName,
         lastName,
         phoneNumber,
@@ -2367,6 +2371,7 @@ export default function ScheduleScreen() {
               ),
           ),
           sendNow: mode === "message",
+          ...(giftUrl ? { redirectUrl: giftUrl } : {}),
           metadata: {
             source: "dashboard",
           },

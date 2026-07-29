@@ -1,6 +1,7 @@
 import { deleteApi, getApi, patchApi, postApi } from "@/lib/api";
 import type {
   ContactsParams,
+  ContactEnumsResponse,
   CreateBulkContactsPayload,
   CreateBulkContactsResponse,
   ContactsResponse,
@@ -17,6 +18,7 @@ import type {
 
 const CONTACTS_ENDPOINT = "/contacts";
 const CONTACTS_EXCLUDE_ME = "/contacts/exclude-me";
+const CONTACTS_ENUMS_ENDPOINT = "/contacts/enums";
 const ENSURE_MY_CONTACT_ENDPOINT = "/contacts/me/ensure";
 const MY_CONTACT_ID_ENDPOINT = "/contacts/me/contact-id";
 const SYNC_CONTACT_ENDPOINT = "/contacts/sync";
@@ -29,6 +31,10 @@ export async function getContacts(params: ContactsParams = {}) {
       searchQuery: params.searchQuery ?? "",
     },
   });
+}
+
+export async function getContactEnums() {
+  return getApi<ContactEnumsResponse>(CONTACTS_ENUMS_ENDPOINT);
 }
 
 export async function createContact(payload: CreateContactPayload) {
@@ -48,6 +54,16 @@ export async function createBulkContacts(payload: CreateBulkContactsPayload) {
 export async function updateContact(id: string, payload: UpdateContactPayload) {
   return patchApi<UpdateContactResponse, UpdateContactPayload>(
     `${CONTACTS_ENDPOINT}/${id}`,
+    payload,
+  );
+}
+
+export async function updateContactConnection(
+  id: string,
+  payload: { relationshipId: string },
+) {
+  return patchApi<CreateContactResponse, { relationshipId: string }>(
+    `${CONTACTS_ENDPOINT}/${id}/connection`,
     payload,
   );
 }

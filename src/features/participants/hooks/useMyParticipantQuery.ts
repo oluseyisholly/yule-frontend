@@ -16,8 +16,8 @@ export function useMyParticipantQuery(
     queryKey: participantQueryKeys.eventMe(eventId ?? ""),
     queryFn: () => getMyParticipant(eventId!),
     enabled: Boolean(eventId) && (options.enabled ?? true),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     placeholderData: (previousData) => previousData,
   });
