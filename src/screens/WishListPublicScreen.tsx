@@ -582,23 +582,23 @@ export default function WishListPublicScreen({
         onClose={() => setIsLoginRequiredModalOpen(false)}
         showHeader={false}
         title="Login Required"
-        dialogClassName="max-w-[420px] rounded-[24px] bg-white"
-        bodyClassName="px-6 py-8 md:px-8"
+        dialogClassName="max-w-[400px] rounded-[18px] bg-white sm:rounded-[20px]"
+        bodyClassName="px-6 py-7 md:px-7"
         bodyScrollable={false}
       >
         <div className="flex flex-col items-center text-center">
-          <h2 className="text-[28px] font-semibold leading-tight text-[#17191C]">
+          <h2 className="text-[22px] font-semibold leading-[1.25] text-[#17191C] sm:text-[24px]">
             Log in to claim this wishlist
           </h2>
-          <p className="mt-3 max-w-[300px] text-[15px] leading-6 text-[#716F6F]">
+          <p className="mt-3 max-w-[296px] text-[14px] leading-6 text-[#716F6F]">
             You have to be logged in before you can claim a gift or hangout from
             this wishlist.
           </p>
 
-          <div className="mt-8 flex w-full flex-col gap-3">
+          <div className="mt-7 flex w-full flex-col gap-3">
             <Button
               href={`${YULE_SIGN_IN_URL}&redirectUrl=${encodeURIComponent(`/wishlist/${wishListEventId}`)}`}
-              className="h-[52px] w-full px-6 text-[15px]"
+              className="h-[46px] w-full rounded-full px-5 text-[14px] font-medium"
             >
               Log In
             </Button>
@@ -606,7 +606,7 @@ export default function WishListPublicScreen({
               type="button"
               variant="outlined"
               onClick={() => setIsLoginRequiredModalOpen(false)}
-              className="h-[52px] w-full px-6 text-[15px] hover:bg-[#F7F3FF]"
+              className="h-[46px] w-full rounded-full px-5 text-[14px] font-medium hover:bg-[#F7F3FF]"
             >
               Cancel
             </Button>
