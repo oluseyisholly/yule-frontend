@@ -67,9 +67,9 @@ import {
 } from "@/components/ui/drop-down";
 import { Input } from "@/components/ui/input";
 import ContentModal from "@/components/ui/modal";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import ViewIcon from "@/components/icons/ViewIcon";
 import EventGiftDetailView from "@/components/gifts/EventGiftDetailView";
+import RecipientGiftSetupReview from "@/components/gifts/RecipientGiftSetupReview";
 import featureImg1 from "@/assets/icons/featureImg1.svg";
 import featureImg2 from "@/assets/icons/featureImg2.svg";
 import featureImg3 from "@/assets/icons/featureImg3.svg";
@@ -79,8 +79,6 @@ import { useCreateBulkContactsMutation } from "@/features/contacts/hooks/useCrea
 import { useCreateContactMutation } from "@/features/contacts/hooks/useCreateContactMutation";
 import { useDeleteContactMutation } from "@/features/contacts/hooks/useDeleteContactMutation";
 import { useEnsureMyContactMutation } from "@/features/contacts/hooks/useEnsureMyContactMutation";
-import { useContactEnumsQuery } from "@/features/contacts/hooks/useContactEnumsQuery";
-import { useUpdateContactConnectionMutation } from "@/features/contacts/hooks/useUpdateContactConnectionMutation";
 import { useUpdateContactMutation } from "@/features/contacts/hooks/useUpdateContactMutation";
 import type { Contact } from "@/features/contacts/types";
 import { useExternalBusinessesQuery } from "@/features/auth/hooks/useExternalBusinessesQuery";
@@ -200,7 +198,7 @@ type GiftingEventRow = {
   canManage: boolean;
 };
 
-type MissingGiftContactField = "gender" | "ageRange" | "relationship";
+type MissingGiftContactField = "relationship";
 
 type StatCardData = {
   icon: ReactNode;
@@ -1410,6 +1408,10 @@ export default function DashboardGiftsScreen() {
     useState(false);
   const [activeGiftAssignmentProductId, setActiveGiftAssignmentProductId] =
     useState<string | null>(null);
+  const [pendingGiftReviewEditProductId, setPendingGiftReviewEditProductId] =
+    useState<string | null>(null);
+  const [pendingGiftReviewDeleteProductId, setPendingGiftReviewDeleteProductId] =
+    useState<string | null>(null);
   const [
     pendingGiftContactDetailsPrompt,
     setPendingGiftContactDetailsPrompt,
@@ -1457,8 +1459,6 @@ export default function DashboardGiftsScreen() {
   const selectedGiftEventTypeId = flowSelection.selectedEventTypeId;
   const selectedGiftEventDate = flowSelection.eventDate;
   const giftEventName = flowSelection.eventName;
-  const selectedRecipientGender = flowSelection.recipientGender;
-  const selectedRecipientAgeRange = flowSelection.recipientAgeRange;
   const selectedRecipientRelationshipId = flowSelection.recipientRelationshipId;
   const activeRecipientContactId = flowSelection.activeRecipientContactId;
   const recipientDetailsByContactId = flowSelection.recipientDetailsByContactId;
@@ -1629,7 +1629,6 @@ export default function DashboardGiftsScreen() {
   const createBulkContactsMutation = useCreateBulkContactsMutation();
   const createContactMutation = useCreateContactMutation();
   const updateContactMutation = useUpdateContactMutation();
-  const updateContactConnectionMutation = useUpdateContactConnectionMutation();
   const deleteContactMutation = useDeleteContactMutation();
   const createRelationshipMutation = useCreateRelationshipMutation();
   const updateRelationshipMutation = useUpdateRelationshipMutation();
@@ -1682,11 +1681,6 @@ export default function DashboardGiftsScreen() {
     {
       enabled: isGiftFlowOpen && currentGiftFlowStep === "relationship",
     },
-  );
-  const { data: contactEnumsResponse } = useContactEnumsQuery(
-    isGiftFlowOpen &&
-      (currentGiftFlowStep === "gender" ||
-        currentGiftFlowStep === "age-range"),
   );
   const currentParticipantId = myParticipantResponse?.data?.id ?? null;
   const sentRows = useMemo<GiftRow[]>(
@@ -2859,20 +2853,10 @@ export default function DashboardGiftsScreen() {
     }
 
     const localDetails = recipientDetailsByContactId[item.id];
-    const resolvedGender = localDetails?.gender || item.gender || "";
-    const resolvedAgeRange = localDetails?.ageRange || item.ageRange || "";
     const resolvedRelationshipId =
       localDetails?.relationshipId || item.relationshipId || "";
 
     const missingFields: MissingGiftContactField[] = [];
-
-    if (!resolvedGender.trim()) {
-      missingFields.push("gender");
-    }
-
-    if (!resolvedAgeRange.trim()) {
-      missingFields.push("ageRange");
-    }
 
     if (!resolvedRelationshipId.trim()) {
       missingFields.push("relationship");
@@ -2903,51 +2887,7 @@ export default function DashboardGiftsScreen() {
     return getGiftNextStepAfterParticipantsReview();
   };
 
-  const handleGiftGenderBack = () => {
-    if (isGroupGifting) {
-      setGiftFlowDraftFields(flowSelectionKey, {
-        activeRecipientContactId: "",
-      });
-      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
-      return;
-    }
-
-    setGiftFlowStep("review-records", mode, eventId, giftingEventId);
-  };
-
-  const handleGiftAgeRangeBack = () => {
-    if (isGroupGifting && hasSelectedGiftRecipientGender) {
-      setGiftFlowDraftFields(flowSelectionKey, {
-        activeRecipientContactId: "",
-      });
-      setGiftFlowStep("review-records", mode, eventId, giftingEventId);
-      return;
-    }
-
-    setGiftFlowStep("gender", mode, eventId, giftingEventId);
-  };
-
   const handleGiftRelationshipBack = () => {
-    if (isGroupGifting && hasSelectedGiftRecipientAgeRange) {
-      if (hasSelectedGiftRecipientGender) {
-        setGiftFlowDraftFields(flowSelectionKey, {
-          activeRecipientContactId: "",
-        });
-        setGiftFlowStep("review-records", mode, eventId, giftingEventId);
-        return;
-      }
-    }
-
-    if (!hasSelectedGiftRecipientAgeRange) {
-      setGiftFlowStep("age-range", mode, eventId, giftingEventId);
-      return;
-    }
-
-    if (!hasSelectedGiftRecipientGender) {
-      setGiftFlowStep("gender", mode, eventId, giftingEventId);
-      return;
-    }
-
     setGiftFlowDraftFields(flowSelectionKey, {
       activeRecipientContactId: "",
     });
@@ -3085,29 +3025,22 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
-    const shouldOpenGender = pendingGiftContactDetailsPrompt.missingFields.includes(
-      "gender",
-    );
-    const shouldOpenAgeRange =
-      pendingGiftContactDetailsPrompt.missingFields.includes("ageRange");
+    const pendingContactId = pendingGiftContactDetailsPrompt.item.id;
+    const pendingRelationshipId =
+      recipientDetailsByContactId[pendingContactId]?.relationshipId ||
+      pendingGiftContactDetailsPrompt.item.relationshipId ||
+      "";
 
     setPendingGiftContactDetailsPrompt(null);
-    setGiftFlowStep(
-      shouldOpenGender
-        ? "gender"
-        : shouldOpenAgeRange
-          ? "age-range"
-          : "relationship",
-      mode,
-      eventId,
-      giftingEventId,
-    );
+    setGiftFlowDraftFields(flowSelectionKey, {
+      activeRecipientContactId: pendingContactId,
+      recipientRelationshipId: pendingRelationshipId,
+    });
+    setGiftFlowStep("relationship", mode, eventId, giftingEventId);
   };
 
   const persistActiveRecipientDraftDetails = async (
     overrides?: Partial<{
-      gender: "male" | "female" | "";
-      ageRange: string;
       relationshipId: string;
     }>,
   ) => {
@@ -3118,20 +3051,7 @@ export default function DashboardGiftsScreen() {
       return null;
     }
 
-    const canManageSelectedRecipient =
-      canManageGiftRecipientDetails(selectedRecord);
-
     const nextDetails = {
-      gender:
-        overrides?.gender ??
-        selectedRecipientGender ??
-        selectedRecord.gender ??
-        "",
-      ageRange:
-        overrides?.ageRange ??
-        selectedRecipientAgeRange ??
-        selectedRecord.ageRange ??
-        "",
       relationshipId:
         overrides?.relationshipId ??
         selectedRecipientRelationshipId ??
@@ -3139,50 +3059,12 @@ export default function DashboardGiftsScreen() {
         "",
     };
 
-    if (isGroupGifting) {
-      if (!canManageSelectedRecipient) {
-        return null;
-      }
-
-      const contactUpdatePayload: {
-        gender?: "male" | "female";
-        ageRange?: string;
-      } = {};
-
-      if (typeof overrides?.gender !== "undefined" && overrides.gender) {
-        contactUpdatePayload.gender = overrides.gender;
-      }
-
-      if (typeof overrides?.ageRange !== "undefined" && overrides.ageRange) {
-        contactUpdatePayload.ageRange = overrides.ageRange;
-      }
-
-      if (Object.keys(contactUpdatePayload).length > 0) {
-        await updateContactMutation.mutateAsync({
-          id: contactId,
-          payload: contactUpdatePayload,
-        });
-      }
-
-      if (
-        typeof overrides?.relationshipId !== "undefined" &&
-        overrides.relationshipId
-      ) {
-        await updateContactConnectionMutation.mutateAsync({
-          id: contactId,
-          payload: {
-            relationshipId: overrides.relationshipId,
-          },
-        });
-      }
-    }
-
     setGiftFlowDraftFields(flowSelectionKey, {
       recipientDetailsByContactId: {
         ...recipientDetailsByContactId,
         [contactId]: {
-          gender: nextDetails.gender,
-          ageRange: nextDetails.ageRange,
+          gender: recipientDetailsByContactId[contactId]?.gender || "",
+          ageRange: recipientDetailsByContactId[contactId]?.ageRange || "",
           relationshipId: nextDetails.relationshipId,
         },
       },
@@ -3199,99 +3081,18 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
-    const missingFields = getMissingGiftContactFields(selectedItem);
+    const selectedRelationshipId =
+      recipientDetailsByContactId[contactId]?.relationshipId ||
+      selectedItem.relationshipId ||
+      "";
 
     setGiftFlowDraftFields(flowSelectionKey, {
       activeRecipientContactId: contactId,
+      recipientRelationshipId: selectedRelationshipId,
     });
 
     setGiftFlowStep(
-      missingFields.includes("gender")
-        ? "gender"
-        : missingFields.includes("ageRange")
-          ? "age-range"
-          : "relationship",
-      mode,
-      eventId,
-      giftingEventId,
-    );
-  };
-
-  const handleGiftGenderNext = async () => {
-    if (!selectedRecipientGender) {
-      toast.error("Please select a gender.");
-      return;
-    }
-
-    try {
-      await persistActiveRecipientDraftDetails({
-        gender: selectedRecipientGender,
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this contact right now.",
-      );
-      return;
-    }
-
-    if (!selectedRecipientAgeRange) {
-      setGiftFlowStep("age-range", mode, eventId, giftingEventId);
-      return;
-    }
-
-    if (!selectedRecipientRelationshipId) {
-      setGiftFlowStep("relationship", mode, eventId, giftingEventId);
-      return;
-    }
-
-    if (isGroupGifting) {
-      setGiftFlowDraftFields(flowSelectionKey, {
-        activeRecipientContactId: "",
-      });
-    }
-
-    setGiftFlowStep(
-      getGiftNextStepAfterContactDetails(),
-      mode,
-      eventId,
-      giftingEventId,
-    );
-  };
-
-  const handleGiftAgeRangeNext = async () => {
-    if (!selectedRecipientAgeRange) {
-      toast.error("Please select an age range.");
-      return;
-    }
-
-    try {
-      await persistActiveRecipientDraftDetails({
-        ageRange: selectedRecipientAgeRange,
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update this contact right now.",
-      );
-      return;
-    }
-
-    if (!selectedRecipientRelationshipId) {
-      setGiftFlowStep("relationship", mode, eventId, giftingEventId);
-      return;
-    }
-
-    if (isGroupGifting) {
-      setGiftFlowDraftFields(flowSelectionKey, {
-        activeRecipientContactId: "",
-      });
-    }
-
-    setGiftFlowStep(
-      getGiftNextStepAfterContactDetails(),
+      "relationship",
       mode,
       eventId,
       giftingEventId,
@@ -3464,11 +3265,22 @@ export default function DashboardGiftsScreen() {
 
     const participants = isGiftingMyself
       ? []
-      : selectedParticipantContactIds.map((contactId, index) => ({
-          clientRef: `p${index + 1}`,
-          contactId,
-          isNotified: true,
-        }));
+      : selectedParticipantContactIds.map((contactId, index) => {
+          const selectedRecord =
+            contactRecordOptions.find((record) => record.id === contactId) ??
+            null;
+          const relationshipId =
+            recipientDetailsByContactId[contactId]?.relationshipId ||
+            selectedRecord?.relationshipId ||
+            undefined;
+
+          return {
+            clientRef: `p${index + 1}`,
+            contactId,
+            isNotified: true,
+            relationshipId,
+          };
+        });
 
     let giftAssignments: GiftingEventGiftAssignmentPayload[];
 
@@ -3572,57 +3384,12 @@ export default function DashboardGiftsScreen() {
     };
   };
 
-  const syncSelectedGiftRecipientDetails = async () => {
-    if (isGiftingMyself || isGroupGifting) {
-      return;
-    }
-
-    for (const selectedContactId of selectedParticipantContactIds) {
-      const localDetails = recipientDetailsByContactId[selectedContactId];
-
-      if (!localDetails) {
-        continue;
-      }
-
-      const contactUpdatePayload: {
-        gender?: "male" | "female";
-        ageRange?: string;
-      } = {};
-
-      if (localDetails.gender) {
-        contactUpdatePayload.gender = localDetails.gender;
-      }
-
-      if (localDetails.ageRange) {
-        contactUpdatePayload.ageRange = localDetails.ageRange;
-      }
-
-      if (Object.keys(contactUpdatePayload).length > 0) {
-        await updateContactMutation.mutateAsync({
-          id: selectedContactId,
-          payload: contactUpdatePayload,
-        });
-      }
-
-      if (localDetails.relationshipId) {
-        await updateContactConnectionMutation.mutateAsync({
-          id: selectedContactId,
-          payload: {
-            relationshipId: localDetails.relationshipId,
-          },
-        });
-      }
-    }
-  };
-
   const saveGiftingSetup = async () => {
     const payload = buildGiftingSetupPayload();
 
     if (!payload) {
       return null;
     }
-
-    await syncSelectedGiftRecipientDetails();
 
     if (mode === "edit") {
       const resolvedGiftingEventId =
@@ -3684,11 +3451,48 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
+    setGiftFlowStep("setup-review", mode, eventId, giftingEventId);
+  };
+
+  const handleGiftSetupReviewNext = () => {
     setIsCompleteGiftingEventConfirmationOpen(true);
   };
 
   const handleOpenGiftAssignmentDrawer = (productId: string) => {
     setActiveGiftAssignmentProductId(productId);
+  };
+
+  const handleEditGiftSetupReviewProduct = (productId: string) => {
+    setPendingGiftReviewEditProductId(productId);
+    setGiftFlowStep("review-gifts", mode, eventId, giftingEventId);
+  };
+
+  const handleDeleteGiftSetupReviewProduct = () => {
+    if (!pendingGiftReviewDeleteProductId) {
+      return;
+    }
+
+    const nextSelectedGiftIds = selectedGiftIds.filter(
+      (giftId) => giftId !== pendingGiftReviewDeleteProductId,
+    );
+    const nextSelectedGiftProductsById = { ...selectedGiftProductsById };
+    const nextGiftRecipientQuantitiesById = { ...giftRecipientQuantitiesById };
+
+    delete nextSelectedGiftProductsById[pendingGiftReviewDeleteProductId];
+    delete nextGiftRecipientQuantitiesById[pendingGiftReviewDeleteProductId];
+
+    setStoredSelectedGiftIds(flowSelectionKey, nextSelectedGiftIds);
+    setSelectedGiftProductsById(flowSelectionKey, nextSelectedGiftProductsById);
+    setGiftRecipientQuantitiesById(
+      flowSelectionKey,
+      nextGiftRecipientQuantitiesById,
+    );
+
+    if (activeGiftAssignmentProductId === pendingGiftReviewDeleteProductId) {
+      setActiveGiftAssignmentProductId(null);
+    }
+
+    setPendingGiftReviewDeleteProductId(null);
   };
 
   const handleUpdateGiftRecipientQuantity = (
@@ -3792,7 +3596,7 @@ export default function DashboardGiftsScreen() {
   };
 
   const handleGiftInviteBack = () => {
-    setGiftFlowStep("review-gifts", mode, eventId, giftingEventId);
+    setGiftFlowStep("setup-review", mode, eventId, giftingEventId);
   };
 
   const handleGiftInviteSendEmail = () => {
@@ -4057,6 +3861,23 @@ export default function DashboardGiftsScreen() {
   ]);
 
   useEffect(() => {
+    if (
+      !isGiftFlowOpen ||
+      currentGiftFlowStep !== "review-gifts" ||
+      !pendingGiftReviewEditProductId
+    ) {
+      return;
+    }
+
+    setActiveGiftAssignmentProductId(pendingGiftReviewEditProductId);
+    setPendingGiftReviewEditProductId(null);
+  }, [
+    currentGiftFlowStep,
+    isGiftFlowOpen,
+    pendingGiftReviewEditProductId,
+  ]);
+
+  useEffect(() => {
     if (!isGiftFlowOpen) {
       return;
     }
@@ -4065,7 +3886,7 @@ export default function DashboardGiftsScreen() {
       return;
     }
 
-    replaceGiftFlowStep("gender", mode, eventId, giftingEventId);
+    replaceGiftFlowStep("relationship", mode, eventId, giftingEventId);
   }, [
     currentGiftFlowStep,
     eventId,
@@ -4090,42 +3911,15 @@ export default function DashboardGiftsScreen() {
     selectedParticipantContactIds,
   ]);
 
-  const hasSelectedGiftRecipientGender = Boolean(
-    (
-      recipientDetailsByContactId[selectedParticipantRecord?.id ?? ""]?.gender ||
-      selectedParticipantRecord?.gender ||
-      ""
-    ).trim(),
-  );
-
-  const hasSelectedGiftRecipientAgeRange = Boolean(
-    (
-      recipientDetailsByContactId[selectedParticipantRecord?.id ?? ""]?.ageRange ||
-      selectedParticipantRecord?.ageRange ||
-      ""
-    ).trim(),
-  );
-
   useEffect(() => {
     if (!selectedParticipantRecord) {
       return;
     }
 
     setGiftFlowDraftFields(flowSelectionKey, {
-      recipientGender:
-        recipientDetailsByContactId[selectedParticipantRecord.id]?.gender ||
-        selectedRecipientGender ||
-        selectedParticipantRecord.gender ||
-        "",
-      recipientAgeRange:
-        recipientDetailsByContactId[selectedParticipantRecord.id]?.ageRange ||
-        selectedRecipientAgeRange ||
-        selectedParticipantRecord.ageRange ||
-        "",
       recipientRelationshipId:
         recipientDetailsByContactId[selectedParticipantRecord.id]
           ?.relationshipId ||
-        selectedRecipientRelationshipId ||
         selectedParticipantRecord.relationshipId ||
         "",
     });
@@ -4133,9 +3927,6 @@ export default function DashboardGiftsScreen() {
     flowSelectionKey,
     recipientDetailsByContactId,
     selectedParticipantRecord,
-    selectedRecipientAgeRange,
-    selectedRecipientGender,
-    selectedRecipientRelationshipId,
     setGiftFlowDraftFields,
   ]);
 
@@ -4368,10 +4159,28 @@ export default function DashboardGiftsScreen() {
     </div>
   );
 
+  const giftSetupReviewStep = (
+    <RecipientGiftSetupReview
+      recipients={giftAssignmentRecipients}
+      products={selectedGiftPreviewProducts}
+      quantitiesByProductId={giftRecipientQuantitiesById}
+      onBack={() =>
+        setGiftFlowStep("review-gifts", mode, eventId, giftingEventId)
+      }
+      onCancel={handleRequestCloseGiftFlow}
+      onConfirm={handleGiftSetupReviewNext}
+      onEditProduct={handleEditGiftSetupReviewProduct}
+      onDeleteProduct={(productId) =>
+        setPendingGiftReviewDeleteProductId(productId)
+      }
+    />
+  );
+
   if (
     isGiftFlowOpen &&
     (currentGiftFlowStep === "gift-selection" ||
-      currentGiftFlowStep === "review-gifts")
+      currentGiftFlowStep === "review-gifts" ||
+      currentGiftFlowStep === "setup-review")
   ) {
     return (
       <div className="space-y-6">
@@ -4408,7 +4217,9 @@ export default function DashboardGiftsScreen() {
           >
             {currentGiftFlowStep === "gift-selection"
               ? giftSelectionStep
-              : giftReviewStep}
+              : currentGiftFlowStep === "review-gifts"
+                ? giftReviewStep
+                : giftSetupReviewStep}
           </div>
         </div>
 
@@ -4429,6 +4240,31 @@ export default function DashboardGiftsScreen() {
             completeGiftingEventMutation.isPending
           }
           isSecondaryLoading={isSavingGiftSetupAsDraft}
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+
+        <ConfirmationModal
+          open={isDiscardGiftFlowConfirmationOpen}
+          onClose={() => setIsDiscardGiftFlowConfirmationOpen(false)}
+          onConfirm={handleConfirmDiscardGiftFlow}
+          action="delete"
+          title="Discard Gifting Setup?"
+          description="If you close this flow now, the records and setup details you have entered locally will be lost."
+          confirmText="Discard"
+          cancelText="Keep Editing"
+          closeOnOverlayClick={false}
+          closeOnEscape={false}
+        />
+
+        <ConfirmationModal
+          open={Boolean(pendingGiftReviewDeleteProductId)}
+          onClose={() => setPendingGiftReviewDeleteProductId(null)}
+          onConfirm={handleDeleteGiftSetupReviewProduct}
+          action="delete"
+          title="Delete Gift"
+          description="Are you sure you want to remove this gift from the list?"
+          confirmText="Delete"
           closeOnOverlayClick={false}
           closeOnEscape={false}
         />
@@ -5385,120 +5221,18 @@ export default function DashboardGiftsScreen() {
           }
           nextLabel="Next"
         />
-        ) : currentGiftFlowStep === "gender" ? (
-          <div className="space-y-8 pt-2">
-            <div className="text-center">
-              <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                What is{" "}
-                {selectedParticipantRecord?.firstName?.trim() || "this person's"}{" "}
-                sex?
-              </p>
-            </div>
-
-            <div className="mx-auto flex max-w-[494px] justify-center">
-              <RadioGroup
-                value={selectedRecipientGender}
-                onValueChange={(value) =>
-                  setGiftFlowDraftFields(flowSelectionKey, {
-                    recipientGender: value as "male" | "female" | "",
-                  })
-                }
-                className="mx-auto inline-flex w-full max-w-[378px] items-center gap-2 rounded-full bg-[#E7EDC7] p-2"
-              >
-                {[
-                  { label: "Male", value: "male" },
-                  { label: "Female", value: "female" },
-                ].map((option) => {
-                  const isActive = selectedRecipientGender === option.value;
-
-                  return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        "relative flex h-[52px] flex-1 cursor-pointer items-center justify-center rounded-full px-4 text-[16px] font-medium transition-colors sm:text-[17px]",
-                        isActive
-                          ? "bg-[#3300C9] text-white shadow-[0_8px_20px_rgba(51,0,201,0.18)]"
-                          : "bg-transparent text-[#3300C9] hover:bg-white/35",
-                      )}
-                    >
-                      <RadioGroupItem
-                        value={option.value}
-                        className="sr-only"
-                        iconClassName="sr-only"
-                      />
-                      {option.label}
-                    </label>
-                  );
-                })}
-              </RadioGroup>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <BackButton
-                onClick={handleGiftGenderBack}
-                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                iconClassName="size-[24px]"
-              />
-              <ModalButton
-                type="button"
-                onClick={handleGiftGenderNext}
-                className="h-[38px] !w-fit min-w-[96px] px-6"
-              >
-                Next
-              </ModalButton>
-            </div>
-          </div>
-        ) : currentGiftFlowStep === "age-range" ? (
-          <div className="space-y-8 pt-2">
-            <div className="text-center">
-              <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                What is{" "}
-                {selectedParticipantRecord?.firstName?.trim() || "this person's"}{" "}
-                age range?
-              </p>
-            </div>
-
-            <div className="mx-auto max-w-[494px]">
-              <OverlaySelect
-                value={selectedRecipientAgeRange}
-                onValueChange={(value) =>
-                  setGiftFlowDraftFields(flowSelectionKey, {
-                    recipientAgeRange: value,
-                  })
-                }
-                options={(contactEnumsResponse?.data.ageRanges ?? []).map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                }))}
-                placeholder="Select age range"
-                panelTitle="Select age range"
-                searchPlaceholder=""
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <BackButton
-                onClick={handleGiftAgeRangeBack}
-                className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                iconClassName="size-[24px]"
-              />
-              <ModalButton
-                type="button"
-                onClick={handleGiftAgeRangeNext}
-                className="h-[38px] !w-fit min-w-[96px] px-6"
-              >
-                Next
-              </ModalButton>
-            </div>
-          </div>
         ) : currentGiftFlowStep === "relationship" ? (
           <div className="space-y-8 pt-2">
             <div className="text-center">
               <p className="mt-2 text-[20px] font-normal text-[#434343]">
-                Set relationship
+                {selectedParticipantRecord?.firstName?.trim()
+                  ? `How is ${selectedParticipantRecord.firstName.trim()} connected to you?`
+                  : "Set relationship"}
               </p>
               <p className="mt-2 text-[16px] font-normal text-[#666666]">
-                Choose how this person is connected to you.
+                {selectedParticipantRecord?.firstName?.trim()
+                  ? `Choose the relationship for ${selectedParticipantRecord.firstName.trim()} so gifting feels more personal.`
+                  : "Choose how this person is connected to you."}
               </p>
             </div>
 
@@ -5757,13 +5491,7 @@ export default function DashboardGiftsScreen() {
         description={
           pendingGiftContactDetailsPrompt
             ? `This contact is missing ${pendingGiftContactDetailsPrompt.missingFields
-                .map((field) =>
-                  field === "ageRange"
-                    ? "age range"
-                    : field === "relationship"
-                      ? "relationship"
-                      : "gender",
-                )
+                .map(() => "relationship")
                 .join(", ")}. Adding them can help improve gifting suggestions.`
             : ""
         }

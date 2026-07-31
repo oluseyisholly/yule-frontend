@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   BellIcon,
   BriefcaseBusinessIcon,
@@ -14,7 +15,14 @@ import {
   XIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  type MouseEventHandler,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import toast from "react-hot-toast";
 import ProfilePhotoCropModal from "@/components/ProfilePhotoCropModal";
 import NotificationDrawer, {
@@ -36,6 +44,7 @@ import { useMarkNotificationReadMutation } from "@/features/notifications/hooks/
 import { useMarkNotificationsReadMutation } from "@/features/notifications/hooks/useMarkNotificationsReadMutation";
 import { useNotificationsInfiniteQuery } from "@/features/notifications/hooks/useNotificationsInfiniteQuery";
 import { useUnreadNotificationCountQuery } from "@/features/notifications/hooks/useUnreadNotificationCountQuery";
+import { getNotificationRoute } from "@/features/notifications/routes";
 import { cn } from "@/lib/utils";
 import { clearStoredAuthSession, useAuthStore } from "@/stores/auth-store";
 import { AUTH_APP_BASE_URL_MANAGE_ACCOUNT } from "@/lib/external-links";
@@ -254,15 +263,15 @@ function HeaderCartButton({ count }: { count: number }) {
   );
 }
 
-function HeaderNotificationButton({
-  count,
-  onClick,
-}: {
-  count: number;
-  onClick: () => void;
-}) {
+const HeaderNotificationButton = forwardRef<
+  HTMLButtonElement,
+  { count: number; onClick?: MouseEventHandler<HTMLButtonElement> }
+>(function HeaderNotificationButton({ count, onClick }, ref) {
+  const displayCount = count > 99 ? "99+" : `${count}`;
+
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={`Notifications${count ? `, ${count} unread` : ""}`}
       onClick={onClick}
@@ -270,11 +279,13 @@ function HeaderNotificationButton({
     >
       <BellIcon className="size-4" />
       {count > 0 ? (
-        <span className="absolute right-2 top-2 size-2 rounded-full bg-[#E04F4F] shadow-[0_3px_8px_rgba(224,79,79,0.18)]" />
+        <span className="absolute -right-0.5 -top-0.5 flex min-w-4.5 items-center justify-center rounded-full bg-[#E04F4F] px-1 py-0.5 text-[9px] font-semibold leading-none text-white shadow-[0_3px_8px_rgba(224,79,79,0.18)]">
+          {displayCount}
+        </span>
       ) : null}
     </button>
   );
-}
+});
 
 function DashboardProfileMenu({
   trigger,
@@ -497,6 +508,7 @@ export default function DashboardHeader({
   onMobileMenuToggle,
 }: DashboardHeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { data: cartCountResponse } = useContactGiftCartCountQuery(Boolean(user));
   const cartItemCount = cartCountResponse?.data.count ?? 0;
@@ -564,6 +576,28 @@ export default function DashboardHeader({
       );
     }
   };
+  const handleNotificationOpen = async (id: string) => {
+    const notification = notificationRecords.find((record) => record.id === id);
+
+    if (!notification) {
+      return;
+    }
+
+    if (!notification.isRead) {
+      try {
+        await markNotificationReadMutation.mutateAsync(id);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to mark this notification as read right now.",
+        );
+      }
+    }
+
+    setIsNotificationDrawerOpen(false);
+    router.push(getNotificationRoute(notification));
+  };
   const activeItem = getDashboardNavItemByPathname(pathname);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const activeBusinessName = "Festa";
@@ -577,7 +611,11 @@ export default function DashboardHeader({
   };
 
   return (
-    <header className="overflow-hidden  border border-white/70 bg-white px-4 py-4  sm:px-6 sm:py-5">
+    <DialogPrimitive.Root
+      open={isNotificationDrawerOpen}
+      onOpenChange={setIsNotificationDrawerOpen}
+    >
+      <header className="overflow-hidden  border border-white/70 bg-white px-4 py-4  sm:px-6 sm:py-5">
       <div className="flex items-center justify-between gap-3 lg:hidden">
         <Button
           type="button"
@@ -618,10 +656,9 @@ export default function DashboardHeader({
 
             <HeaderCartButton count={cartItemCount} />
 
-            <HeaderNotificationButton
-              count={notificationCount}
-              onClick={() => setIsNotificationDrawerOpen(true)}
-            />
+            <DialogPrimitive.Trigger asChild>
+              <HeaderNotificationButton count={notificationCount} />
+            </DialogPrimitive.Trigger>
 
             <DashboardProfileMenu
               profileName={dashboardHeaderProfile.name}
@@ -700,10 +737,9 @@ export default function DashboardHeader({
               }
             />
 
-            <HeaderNotificationButton
-              count={notificationCount}
-              onClick={() => setIsNotificationDrawerOpen(true)}
-            />
+            <DialogPrimitive.Trigger asChild>
+              <HeaderNotificationButton count={notificationCount} />
+            </DialogPrimitive.Trigger>
           </div>
         </div>
       </div>
@@ -723,9 +759,10 @@ export default function DashboardHeader({
         </div>
       </div>
 
+      </header>
+
       <NotificationDrawer
         open={isNotificationDrawerOpen}
-        onOpenChange={setIsNotificationDrawerOpen}
         notifications={notificationItems}
         count={notificationCount}
         isLoading={isNotificationsLoading && !notificationItems.length}
@@ -738,6 +775,7 @@ export default function DashboardHeader({
         }}
         onMarkAllRead={handleMarkNotificationsRead}
         onMarkRead={handleMarkNotificationRead}
+        onItemClick={handleNotificationOpen}
         isMarkingRead={markNotificationsReadMutation.isPending}
         markingReadId={
           typeof markNotificationReadMutation.variables === "string" &&
@@ -746,6 +784,6 @@ export default function DashboardHeader({
             : null
         }
       />
-    </header>
+    </DialogPrimitive.Root>
   );
 }

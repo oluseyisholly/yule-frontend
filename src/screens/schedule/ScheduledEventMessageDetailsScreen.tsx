@@ -18,6 +18,7 @@ import UserAvatar from "@/components/UserAvatar";
 import ConfirmationModal from "@/components/custom/custom-confirmation-modal";
 import CustomCalendarIcon from "@/components/icons/CustomCalendarIcon";
 import { EventDetailScreenSkeleton } from "@/components/ui/context-skeletons";
+import Table, { type TableData } from "@/components/ui/Table";
 import { Button } from "@/components/ui/button";
 import StatusPill from "@/components/ui/status-pill";
 import {
@@ -28,10 +29,10 @@ import {
 } from "@/components/ui/dialog";
 import { useEventGivenGroupedGiftsQuery } from "@/features/gifts/hooks/useEventGivenGroupedGiftsQuery";
 import type { GivenGroupedGift } from "@/features/gifts/types";
+import { useCancelScheduledEventMessageEventMutation } from "@/features/scheduled-event-messages/hooks/useCancelScheduledEventMessageEventMutation";
 import { useDeleteScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useDeleteScheduledEventMessageMutation";
 import { useScheduledEventMessageQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageQuery";
 import type { ScheduledEventMessageRecord } from "@/features/scheduled-event-messages/types";
-import { cn } from "@/lib/utils";
 
 type ScheduledEventMessageDetailsScreenProps = {
   scheduledEventMessageId: string;
@@ -191,6 +192,20 @@ function isEventCompleted(record?: ScheduledEventMessageRecord | null) {
   return normalizeStatus(record?.event?.status) === "completed";
 }
 
+function isUpcomingScheduledMessage(record?: ScheduledEventMessageRecord | null) {
+  if (!record?.scheduledAt) {
+    return false;
+  }
+
+  const scheduledTime = new Date(record.scheduledAt).getTime();
+
+  if (Number.isNaN(scheduledTime)) {
+    return false;
+  }
+
+  return scheduledTime >= Date.now();
+}
+
 function SummaryStat({
   icon,
   label,
@@ -232,103 +247,245 @@ function DetailLine({
   );
 }
 
-function ScheduleGiftCard({
-  gift,
-  scheduleMessageId,
-}: {
-  gift: GivenGroupedGift;
-  scheduleMessageId: string;
-}) {
-  const giftId =
-    gift.participantGiftId?.trim() ||
-    gift.id?.trim() ||
-    gift.productSlug?.trim();
-  const people = gift.people ?? [];
-  const visiblePeople = people.slice(0, 2);
-  const overflowCount = Math.max((gift.recipientCount ?? people.length) - 2, 0);
+type ScheduleGiftRowPerson = {
+  name: string;
+  email?: string;
+};
 
+type ScheduleGiftRow = {
+  id: string;
+  giftId: string;
+  title: string;
+  imageUrl: string;
+  conditionLabel: string;
+  categoryLabel: string;
+  amount: string;
+  status: "Assigned" | "Pending";
+  assignedPeople: ScheduleGiftRowPerson[];
+  recipientCount: number;
+};
+
+type ScheduleRecipientRow = {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+  profileUrl?: string | null;
+  color: string;
+  bg: string;
+  email: string;
+};
+
+function toAssignedPeople(people?: GivenGroupedGift["people"]) {
+  return (people ?? []).reduce<ScheduleGiftRowPerson[]>((accumulator, person) => {
+    const name =
+      `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim() ||
+      person.email?.trim() ||
+      "";
+
+    if (!name) {
+      return accumulator;
+    }
+
+    accumulator.push({
+      name,
+      email: person.email?.trim() || undefined,
+    });
+
+    return accumulator;
+  }, []);
+}
+
+function buildScheduleGiftRows(gifts: GivenGroupedGift[]): ScheduleGiftRow[] {
+  return gifts.map((gift, index) => {
+    const assignedPeople = toAssignedPeople(gift.people);
+    const recipientCount =
+      gift.recipientCount ?? (assignedPeople.length > 0 ? assignedPeople.length : 0);
+    const giftId =
+      gift.participantGiftId?.trim() ||
+      gift.id?.trim() ||
+      gift.productSlug?.trim() ||
+      `${gift.title?.trim() || "gift"}-${index}`;
+
+    return {
+      id: `${giftId}-${index}`,
+      giftId,
+      title: gift.title?.trim() || "Selected gift",
+      imageUrl: gift.imageUrl?.trim() || "",
+      conditionLabel: formatCategoryLabel(gift.condition || "available"),
+      categoryLabel: formatCategoryLabel(
+        gift.subCategorySlug || gift.categorySlug,
+      ),
+      amount: formatCurrency(gift.amount, gift.currency?.trim() || "NGN"),
+      status: recipientCount > 0 ? "Assigned" : "Pending",
+      assignedPeople,
+      recipientCount,
+    };
+  });
+}
+
+function GiftNameCell({ gift }: { gift: ScheduleGiftRow }) {
   return (
-    <article className="group flex min-h-full flex-col gap-3 rounded-[16px] border border-[#EEEAF7] bg-[#FCFBFF] p-3 transition-all hover:border-[#D8CEF8] hover:shadow-[0_10px_28px_rgba(51,0,201,0.08)]">
-      <div className="relative h-[130px] overflow-hidden rounded-[12px] bg-[#F4F2FA]">
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-[#F5F2FF]">
         {gift.imageUrl ? (
           <img
             src={gift.imageUrl}
-            alt={gift.title || "Assigned gift"}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            alt={gift.title}
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A8892]">
-            No image
-          </div>
+          <span className="text-[10px] font-medium text-[#3300C9]">Gift</span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold text-[#1E1E1E]">
-              {gift.title?.trim() || "Selected gift"}
-            </h3>
-            <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#7D7D7D]">
-              {gift.description?.trim() ||
-                "No description available for this gift yet."}
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full border border-[#E8DDFE] bg-white px-2 py-1 text-[10px] font-medium text-[#3300C9]">
-            {formatCategoryLabel(gift.condition || gift.categorySlug)}
-          </span>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-[16px] font-semibold text-[#3300C9]">
-            {formatCurrency(gift.amount, gift.currency?.trim() || "NGN")}
-          </span>
-          <div className="flex min-w-0 items-center -space-x-2">
-            {visiblePeople.map((person, index) => {
-              const name =
-                `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim() ||
-                person.email ||
-                "Recipient";
-
-              return (
-                <UserAvatar
-                  key={`${name}-${index}`}
-                  name={name}
-                  initials={toInitials(name)}
-                  imageUrl={person.profileUrl}
-                  bgColor="#EFE6FD"
-                  textColor="#3300C9"
-                  className="size-7 border border-white text-[9px] font-semibold"
-                  title={name}
-                />
-              );
-            })}
-            {overflowCount > 0 ? (
-              <span className="flex size-7 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
-                +{overflowCount}
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-end">
-          <Link
-            href={
-              giftId
-                ? `/dashboard/schedule/${scheduleMessageId}/gift/${encodeURIComponent(giftId)}`
-                : "#"
-            }
-            aria-disabled={!giftId}
-            className={cn(
-              "rounded-full bg-[#F3EFFB] px-3 py-1 text-[11px] font-medium text-[#3300C9] transition-colors hover:bg-[#ECE6FB]",
-              !giftId && "pointer-events-none opacity-50",
-            )}
-          >
-            View gift
-          </Link>
-        </div>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-medium text-[#1E1E1E]">
+          {gift.title}
+        </p>
+        <span className="mt-1 inline-flex rounded-full border border-[#FFB978] px-2 py-0.5 text-[10px] font-medium text-[#FF8A00]">
+          {gift.conditionLabel}
+        </span>
       </div>
-    </article>
+    </div>
+  );
+}
+
+function AssignedPersonAvatar({ name }: { name: string }) {
+  return (
+    <span
+      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white bg-[#EFE6FD] text-[9px] font-semibold text-[#3300C9]"
+      title={name}
+    >
+      {toInitials(name)}
+    </span>
+  );
+}
+
+function AssignedPeopleCell({
+  people,
+  recipientCount,
+}: {
+  people: ScheduleGiftRowPerson[];
+  recipientCount: number;
+}) {
+  if (people.length === 0 && recipientCount === 0) {
+    return <span className="text-[#9A97A5]">—</span>;
+  }
+
+  if (people.length <= 1) {
+    const person = people[0];
+
+    if (!person) {
+      return (
+        <span className="text-[12px] font-medium text-[#1E1E1E]">
+          {recipientCount} recipient{recipientCount === 1 ? "" : "s"}
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <AssignedPersonAvatar name={person.name} />
+        <span className="truncate text-[12px] font-medium text-[#1E1E1E]">
+          {person.name}
+        </span>
+      </div>
+    );
+  }
+
+  const visiblePeople = people.slice(0, 3);
+  const overflowCount = Math.max(recipientCount - visiblePeople.length, 0);
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center -space-x-2">
+        {visiblePeople.map((person) => (
+          <AssignedPersonAvatar key={person.name} name={person.name} />
+        ))}
+        {overflowCount > 0 ? (
+          <span className="flex size-8 items-center justify-center rounded-full border border-white bg-[#F5F5F7] text-[9px] font-semibold text-[#6F6C75]">
+            +{overflowCount}
+          </span>
+        ) : null}
+      </div>
+      <span className="text-[12px] font-medium text-[#1E1E1E]">
+        {recipientCount} recipient{recipientCount === 1 ? "" : "s"}
+      </span>
+    </div>
+  );
+}
+
+function getParticipantStyle(seed: string) {
+  const palette = [
+    { color: "#3300C9", bg: "#EFE6FD" },
+    { color: "#C28A00", bg: "#FCEEC8" },
+    { color: "#1FAB54", bg: "#D9F4E2" },
+    { color: "#E04F4F", bg: "#FDE0DE" },
+    { color: "#0067C9", bg: "#DDF0FF" },
+  ] as const;
+
+  const hash = Array.from(seed).reduce(
+    (accumulator, character) => accumulator + character.charCodeAt(0),
+    0,
+  );
+
+  return palette[hash % palette.length];
+}
+
+function buildRecipientRows(
+  recipients: NonNullable<ReturnType<typeof getRecipientDetails>["recipients"]>,
+) {
+  return recipients.map<ScheduleRecipientRow>((recipient) => {
+    const { bg, color } = getParticipantStyle(recipient.id || recipient.name);
+
+    return {
+      id: recipient.id,
+      name: recipient.name,
+      role: formatStatus(recipient.role),
+      initials: toInitials(recipient.name),
+      profileUrl: recipient.profileUrl,
+      bg,
+      color,
+      email: recipient.email,
+    };
+  });
+}
+
+function ParticipantAvatar({
+  participant,
+}: {
+  participant: ScheduleRecipientRow;
+}) {
+  return (
+    <UserAvatar
+      name={participant.name}
+      initials={participant.initials}
+      imageUrl={participant.profileUrl}
+      bgColor={participant.bg}
+      textColor={participant.color}
+      className="size-11 text-sm font-semibold"
+      title={participant.name}
+    />
+  );
+}
+
+function SidebarParticipantRow({
+  participant,
+}: {
+  participant: ScheduleRecipientRow;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-[#F1EDF8] py-3 last:border-b-0">
+      <ParticipantAvatar participant={participant} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-[#1E1E1E]">
+          {participant.name}
+        </p>
+        <p className="truncate text-xs text-[#7D7D7D]">{participant.role}</p>
+        <p className="truncate text-xs text-[#A09BAF]">{participant.email}</p>
+      </div>
+    </div>
   );
 }
 
@@ -339,6 +496,8 @@ export default function ScheduledEventMessageDetailsScreen({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const deleteMessageMutation = useDeleteScheduledEventMessageMutation();
+  const cancelScheduledEventMessageEventMutation =
+    useCancelScheduledEventMessageEventMutation();
   const {
     data: scheduledMessageResponse,
     isLoading,
@@ -356,15 +515,23 @@ export default function ScheduledEventMessageDetailsScreen({
     record?.eventId ?? null,
     {
       page: 1,
-      per_page: 8,
+      per_page: 25,
     },
     {
       enabled: Boolean(record?.eventId),
     },
   );
+  const giftRows = useMemo(
+    () => buildScheduleGiftRows(eventGiftsResponse?.data.data ?? []),
+    [eventGiftsResponse?.data.data],
+  );
   const recipient = useMemo(
     () => (record ? getRecipientDetails(record) : null),
     [record],
+  );
+  const recipientRows = useMemo(
+    () => buildRecipientRows(recipient?.recipients ?? []),
+    [recipient?.recipients],
   );
   const recipientSummary = useMemo(() => {
     const recipients = recipient?.recipients ?? [];
@@ -381,7 +548,84 @@ export default function ScheduledEventMessageDetailsScreen({
       recipients.length - 1
     }`;
   }, [recipient]);
+  const giftTableData = useMemo<TableData<ScheduleGiftRow>>(
+    () => ({
+      columns: [
+        {
+          id: "gift",
+          header: "Gift",
+          render: (row) => <GiftNameCell gift={row} />,
+        },
+        {
+          id: "category",
+          header: "Category",
+          accessor: "categoryLabel",
+        },
+        {
+          id: "amount",
+          header: "Price",
+          accessor: "amount",
+        },
+        {
+          id: "recipients",
+          header: "Recipients",
+          render: (row) => (
+            <AssignedPeopleCell
+              people={row.assignedPeople}
+              recipientCount={row.recipientCount}
+            />
+          ),
+        },
+        {
+          id: "status",
+          header: "Status",
+          render: (row) => (
+            <StatusPill
+              status={row.status}
+              className="min-w-[90px] justify-center"
+            />
+          ),
+        },
+        {
+          id: "action",
+          header: "",
+          render: (row) => (
+            <div className="flex justify-end">
+              <Link
+                href={`/dashboard/schedule/${record?.id ?? ""}/gift/${encodeURIComponent(row.giftId)}`}
+                className="rounded-full bg-[#F3EFFB] px-3 py-1 text-[11px] font-medium text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+              >
+                View
+              </Link>
+            </div>
+          ),
+        },
+      ],
+      rows: giftRows,
+      getRowKey: (row) => row.id,
+      headerRowClassName: "border-b border-[#F1EDF8]",
+      headerCellClassName:
+        "px-3 py-3 text-left text-[12px] font-medium text-[#7D7D7D]",
+      bodyCellClassName:
+        "border-b border-[#F5F1FB] px-3 py-4 align-middle text-[12px] text-[#1E1E1E]",
+      rowClassName: "bg-white",
+      emptyState: (
+        <div className="py-10 text-center">
+          <p className="text-sm font-medium text-[#1E1E1E]">
+            No gifts assigned yet.
+          </p>
+          <p className="mt-1 text-sm text-[#7D7D7D]">
+            Gifts connected to this scheduled message will appear here.
+          </p>
+        </div>
+      ),
+    }),
+    [giftRows, record?.id],
+  );
   const canManageRecord = record ? !isEventCompleted(record) : false;
+  const isUpcomingRecord = isUpcomingScheduledMessage(record);
+  const isDraftRecord = record?.event?.status?.toLowerCase() === "draft";
+  const shouldCancelRecord = isUpcomingRecord && !isDraftRecord;
 
   const handleEdit = () => {
     if (!record || !canManageRecord) {
@@ -403,15 +647,24 @@ export default function ScheduledEventMessageDetailsScreen({
     }
 
     try {
-      const response = await deleteMessageMutation.mutateAsync(record.id);
-      toast.success(response.message || "Scheduled message deleted.");
+      const response = shouldCancelRecord
+        ? await cancelScheduledEventMessageEventMutation.mutateAsync(record.eventId)
+        : await deleteMessageMutation.mutateAsync(record.id);
+      toast.success(
+        response.message ||
+          (shouldCancelRecord
+            ? "Scheduled message event cancelled."
+            : "Scheduled message deleted."),
+      );
       setIsDeleteModalOpen(false);
       router.push("/dashboard/schedule");
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to delete this scheduled message right now.",
+          : shouldCancelRecord
+            ? "Unable to cancel this scheduled message event right now."
+            : "Unable to delete this scheduled message right now.",
       );
     }
   };
@@ -495,7 +748,7 @@ export default function ScheduledEventMessageDetailsScreen({
                     className="h-10 rounded-full border-[#F6C8C8] bg-white px-5 text-sm font-medium text-[#E04F4F] hover:bg-[#FFF5F5] hover:text-[#E04F4F]"
                   >
                     <Trash2Icon className="size-4" />
-                    Delete
+                    {shouldCancelRecord ? "Cancel" : "Delete"}
                   </Button>
                 </>
               ) : (
@@ -578,13 +831,8 @@ export default function ScheduledEventMessageDetailsScreen({
               </div>
 
               {isEventGiftsLoading ? (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="h-[286px] animate-pulse rounded-[18px] bg-[#F7F4FF]"
-                    />
-                  ))}
+                <div className="mt-5 overflow-hidden rounded-[18px] border border-[#F0EEFF]">
+                  <div className="h-[260px] animate-pulse bg-[#F7F4FF]" />
                 </div>
               ) : isEventGiftsError ? (
                 <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-8 text-center">
@@ -599,20 +847,13 @@ export default function ScheduledEventMessageDetailsScreen({
                     Retry
                   </button>
                 </div>
-              ) : (eventGiftsResponse?.data.data ?? []).length > 0 ? (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
-                  {(eventGiftsResponse?.data.data ?? []).map((gift, index) => (
-                    <ScheduleGiftCard
-                      key={
-                        gift.id ||
-                        gift.participantGiftId ||
-                        gift.productSlug ||
-                        `${gift.title}-${index}`
-                      }
-                      gift={gift}
-                      scheduleMessageId={record.id}
-                    />
-                  ))}
+              ) : giftRows.length > 0 ? (
+                <div className="mt-5 overflow-hidden rounded-[18px] border border-[#F0EEFF]">
+                  <Table
+                    data={giftTableData}
+                    tableClassName="w-full min-w-[720px]"
+                    wrapperClassName="overflow-x-auto"
+                  />
                 </div>
               ) : (
                 <div className="mt-5 rounded-[18px] border border-[#F0EEFF] bg-[#FBFAFF] px-4 py-10 text-center">
@@ -657,40 +898,18 @@ export default function ScheduledEventMessageDetailsScreen({
                 </div>
 
                 <div className="mt-4 max-h-[260px] overflow-y-auto pr-1">
-                  <div className="space-y-3">
-                    {(recipient.recipients ?? []).map((item, index) => (
-                      <div
-                        key={`${item.id}-${index}`}
-                        className="flex items-center gap-3 rounded-[14px] border border-[#F0EEFF] bg-white px-3 py-3"
-                      >
-                        <UserAvatar
-                          name={item.name}
-                          initials={toInitials(
-                            `${item.firstName} ${item.lastName}`.trim() ||
-                              item.name,
-                          )}
-                          imageUrl={item.profileUrl}
-                          bgColor="#EFE6FD"
-                          textColor="#3300C9"
-                          className="size-10 text-[10px] font-semibold"
-                          title={item.name}
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-[14px] font-medium text-[#1E1E1E]">
-                            {item.name}
-                          </p>
-                          <p className="truncate text-[12px] text-[#7D7D7D]">
-                            {item.email}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {!recipient.recipients?.length ? (
-                      <div className="rounded-[14px] border border-dashed border-[#E8E2FF] bg-white px-3 py-4 text-center text-sm text-[#7D7D7D]">
-                        No additional recipients found.
-                      </div>
-                    ) : null}
-                  </div>
+                  {recipientRows.length ? (
+                    recipientRows.map((item) => (
+                      <SidebarParticipantRow
+                        key={item.id}
+                        participant={item}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-[14px] border border-dashed border-[#E8E2FF] bg-white px-3 py-4 text-center text-sm text-[#7D7D7D]">
+                      No additional recipients found.
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>
@@ -703,10 +922,22 @@ export default function ScheduledEventMessageDetailsScreen({
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
         action="delete"
-        title="Delete Scheduled Message"
-        description={`Are you sure you want to delete "${record.subject || record.event?.title}"?`}
-        confirmText="Delete"
-        isLoading={deleteMessageMutation.isPending}
+        title={
+          shouldCancelRecord
+            ? "Cancel Scheduled Message Event"
+            : "Delete Scheduled Message"
+        }
+        description={
+          shouldCancelRecord
+            ? `Are you sure you want to cancel "${record.subject || record.event?.title}"?`
+            : `Are you sure you want to delete "${record.subject || record.event?.title}"?`
+        }
+        confirmText={shouldCancelRecord ? "Cancel Event" : "Delete"}
+        isLoading={
+          shouldCancelRecord
+            ? cancelScheduledEventMessageEventMutation.isPending
+            : deleteMessageMutation.isPending
+        }
         closeOnOverlayClick={false}
       />
 

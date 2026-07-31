@@ -24,7 +24,7 @@ const OPTIONS: Array<{
   },
   {
     value: "group",
-    label: "Persons",
+    label: "A Group",
     emoji: "🎉",
   },
   {

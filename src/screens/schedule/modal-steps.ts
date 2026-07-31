@@ -8,7 +8,10 @@ export const scheduleMessageFlowSteps = [
   "add-record",
   "review-records",
   "compose",
+  "gift-choice",
   "gift-selection",
+  "review-gifts",
+  "setup-review",
   "success",
 ] as const;
 

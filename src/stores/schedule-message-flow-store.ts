@@ -35,6 +35,7 @@ export type ScheduleMessageFlowSelectionState =
     selectedParticipantRecords: SearchableRecordItem[];
     selectedGiftIds: string[];
     selectedGiftProductsById: Record<string, MarketplaceProduct>;
+    giftRecipientQuantitiesById: Record<string, Record<string, number>>;
     customContactRecordItems: SearchableRecordItem[];
   };
 
@@ -49,6 +50,10 @@ type ScheduleMessageFlowStore = {
   setSelectedGiftProductsById: (
     flowKey: string,
     itemsById: Record<string, MarketplaceProduct>,
+  ) => void;
+  setGiftRecipientQuantitiesById: (
+    flowKey: string,
+    quantitiesById: Record<string, Record<string, number>>,
   ) => void;
   setCustomContactRecordItems: (
     flowKey: string,
@@ -85,6 +90,7 @@ export const EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION: ScheduleMessageFlowSelection
     selectedParticipantRecords: [],
     selectedGiftIds: [],
     selectedGiftProductsById: {},
+    giftRecipientQuantitiesById: {},
     customContactRecordItems: [],
   };
 
@@ -125,6 +131,11 @@ function normalizeScheduleMessageFlowSelection(
       typeof selection.selectedGiftProductsById === "object"
         ? selection.selectedGiftProductsById
         : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.selectedGiftProductsById,
+    giftRecipientQuantitiesById:
+      selection?.giftRecipientQuantitiesById &&
+      typeof selection.giftRecipientQuantitiesById === "object"
+        ? selection.giftRecipientQuantitiesById
+        : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.giftRecipientQuantitiesById,
     customContactRecordItems: Array.isArray(selection?.customContactRecordItems)
       ? selection.customContactRecordItems
       : EMPTY_SCHEDULE_MESSAGE_FLOW_SELECTION.customContactRecordItems,
@@ -189,6 +200,16 @@ export const useScheduleMessageFlowStore = create<ScheduleMessageFlowStore>()(
             [flowKey]: {
               ...getFlowSelection(state.flowSelectionsByKey, flowKey),
               selectedGiftProductsById: itemsById,
+            },
+          },
+        })),
+      setGiftRecipientQuantitiesById: (flowKey, quantitiesById) =>
+        set((state) => ({
+          flowSelectionsByKey: {
+            ...state.flowSelectionsByKey,
+            [flowKey]: {
+              ...getFlowSelection(state.flowSelectionsByKey, flowKey),
+              giftRecipientQuantitiesById: quantitiesById,
             },
           },
         })),

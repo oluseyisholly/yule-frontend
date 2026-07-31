@@ -96,6 +96,12 @@ export async function deleteScheduledEventMessage(id: string) {
   );
 }
 
+export async function cancelScheduledEventMessageEvent(eventId: string) {
+  return patchApi<ScheduledEventMessageDeleteResponse>(
+    `${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/event/${eventId}/cancel`,
+  );
+}
+
 export async function completeScheduledEventMessageSetup(eventId: string) {
   return patchApi<CompleteScheduledEventMessageSetupResponse>(
     `${SCHEDULED_EVENT_MESSAGES_ENDPOINT}/event/${eventId}/complete`,

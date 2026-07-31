@@ -9,12 +9,11 @@ export const VALID_GIFT_MODAL_STEPS = [
   "record",
   "review-records",
   "contact-details",
-  "gender",
-  "age-range",
   "relationship",
   "add-record",
   "gift-selection",
   "review-gifts",
+  "setup-review",
   "invite",
 ] as const;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useEffect,
   useMemo,
@@ -16,6 +17,8 @@ import {
   ChevronDownIcon,
   MailIcon,
   MoreHorizontal,
+  GiftIcon,
+  PackageCheckIcon,
   SendIcon,
   Settings2Icon,
   ShoppingBagIcon,
@@ -45,7 +48,12 @@ import OverlaySelect, {
 } from "@/components/OverlaySelect";
 import Pagination from "@/components/Pagination";
 import WishlistGiftSelectionStep from "@/components/WishlistGiftSelectionStep";
+import RecipientGiftSetupReview, {
+  type GiftSetupReviewRecipient,
+} from "@/components/gifts/RecipientGiftSetupReview";
+import SideDrawer from "@/components/SideDrawer";
 import ContentModal from "@/components/ui/modal";
+import { ModalPanelSkeleton } from "@/components/ui/context-skeletons";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -83,6 +91,7 @@ import type { CreateBulkGiftItemPayload } from "@/features/gifts/types";
 import type { MarketplaceProduct } from "@/features/marketplace/types";
 import { buildSignedInInviteUrl } from "@/lib/invite-links";
 import { useCompleteScheduledEventMessageSetupMutation } from "@/features/scheduled-event-messages/hooks/useCompleteScheduledEventMessageSetupMutation";
+import { useCancelScheduledEventMessageEventMutation } from "@/features/scheduled-event-messages/hooks/useCancelScheduledEventMessageEventMutation";
 import { useDeleteScheduledEventMessageMutation } from "@/features/scheduled-event-messages/hooks/useDeleteScheduledEventMessageMutation";
 import { useScheduledEventMessageQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageQuery";
 import { useScheduledEventMessageMetricsQuery } from "@/features/scheduled-event-messages/hooks/useScheduledEventMessageMetricsQuery";
@@ -190,6 +199,10 @@ function getStartOfToday() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+function getTodayDateInputValue() {
+  return toDateOnlyValue(getStartOfToday().toISOString());
 }
 
 function getDateFromDateTimeLocalValue(value?: string | null) {
@@ -688,13 +701,19 @@ function ScheduleRowActions({
   onView,
   onEdit,
   onDelete,
+  onCancel,
+  isUpcomingTab,
 }: {
   row: ScheduledEventMessageRecord;
   onView: (row: ScheduledEventMessageRecord) => void;
   onEdit: (row: ScheduledEventMessageRecord) => void;
   onDelete: (row: ScheduledEventMessageRecord) => void;
+  onCancel: (row: ScheduledEventMessageRecord) => void;
+  isUpcomingTab: boolean;
 }) {
   const isCompleted = isScheduledEventCompleted(row);
+  const isDraft = row.event?.status?.toLowerCase() === "draft";
+  const shouldShowCancelAction = isUpcomingTab && !isDraft;
 
   return (
     <div className="flex justify-end">
@@ -740,6 +759,11 @@ function ScheduleRowActions({
             disabled={isCompleted}
             onSelect={() => {
               if (!isCompleted) {
+                if (shouldShowCancelAction) {
+                  onCancel(row);
+                  return;
+                }
+
                 onDelete(row);
               }
             }}
@@ -749,7 +773,7 @@ function ScheduleRowActions({
             )}
           >
             <DeleteIcon className="size-4" />
-            Delete
+            {shouldShowCancelAction ? "Cancel" : "Delete"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -767,6 +791,7 @@ export default function ScheduleScreen() {
     pathname.match(/\/dashboard\/schedule\/flow\/([^/?]+)/)?.[1] ?? null;
   const currentStep =
     routeStep && isScheduleMessageFlowStep(routeStep) ? routeStep : null;
+  const editGiftIdFromRoute = searchParams.get("editGiftId") ?? "";
   const mode: ScheduleMessageFlowMode =
     searchParams.get("mode") === "message" ? "message" : "schedule";
   const editingMessageId = searchParams.get("scheduleEventMessageId");
@@ -792,6 +817,9 @@ export default function ScheduleScreen() {
   );
   const setStoredSelectedGiftProductsById = useScheduleMessageFlowStore(
     (state) => state.setSelectedGiftProductsById,
+  );
+  const setGiftRecipientQuantitiesById = useScheduleMessageFlowStore(
+    (state) => state.setGiftRecipientQuantitiesById,
   );
   const setStoredCustomContactRecordItems = useScheduleMessageFlowStore(
     (state) => state.setCustomContactRecordItems,
@@ -831,6 +859,7 @@ export default function ScheduleScreen() {
   const selectedOnedaContactIds = flowSelection.selectedOnedaContactIds;
   const selectedGiftIds = flowSelection.selectedGiftIds;
   const selectedGiftProductsById = flowSelection.selectedGiftProductsById;
+  const giftRecipientQuantitiesById = flowSelection.giftRecipientQuantitiesById;
   const customContactRecordItems = flowSelection.customContactRecordItems;
   const form = flowSelection.form;
   const setSelectedEventTypeId = (value: string) =>
@@ -903,6 +932,8 @@ export default function ScheduleScreen() {
   };
   const [pendingDeleteRow, setPendingDeleteRow] =
     useState<ScheduledEventMessageRecord | null>(null);
+  const [pendingCancelRow, setPendingCancelRow] =
+    useState<ScheduledEventMessageRecord | null>(null);
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] =
     useState(false);
   const [scheduleSetupSaveMode, setScheduleSetupSaveMode] = useState<
@@ -913,6 +944,10 @@ export default function ScheduleScreen() {
   const [isScheduleTimePopoverOpen, setIsScheduleTimePopoverOpen] =
     useState(false);
   const hydratedMessageIdRef = useRef<string | null>(null);
+  const [activeGiftAssignmentProductId, setActiveGiftAssignmentProductId] =
+    useState<string | null>(null);
+  const [pendingGiftDeleteProductId, setPendingGiftDeleteProductId] =
+    useState<string | null>(null);
   const [scheduleMetricsEmblaRef] = useEmblaCarousel({ loop: true }, [
     Autoplay({ delay: 4000, stopOnInteraction: true }),
   ]);
@@ -922,7 +957,10 @@ export default function ScheduleScreen() {
   const isViewing = searchParams.get("view") === "true";
   const hasStoredFlowSelection = Boolean(flowSelectionsByKey[flowSelectionKey]);
   const isInlineGiftSelectionStep =
-    isFlowOpen && currentStep === "gift-selection";
+    isFlowOpen &&
+    (currentStep === "gift-selection" ||
+      currentStep === "review-gifts" ||
+      currentStep === "setup-review");
   const greetingName = authUser?.firstName?.trim() || "there";
   const onedaAccountId =
     authUser?.profile?.accountId?._id?.trim() ||
@@ -1102,6 +1140,8 @@ export default function ScheduleScreen() {
   const updateScheduledEventMessageSetupMutation =
     useUpdateScheduledEventMessageSetupMutation();
   const deleteMessageMutation = useDeleteScheduledEventMessageMutation();
+  const cancelScheduledEventMessageEventMutation =
+    useCancelScheduledEventMessageEventMutation();
   const completeSetupMutation = useCompleteScheduledEventMessageSetupMutation();
   const {
     data: caughtMyEyeGiftIdsResponse,
@@ -1144,6 +1184,26 @@ export default function ScheduleScreen() {
     () => mergeRecordItems(contactRecordOptions, customContactRecordItems),
     [contactRecordOptions, customContactRecordItems],
   );
+  const prioritizedContactRecordOptions = useMemo(() => {
+    if (!selectedParticipantIds.length) {
+      return allContactRecordOptions;
+    }
+
+    const selectedIdSet = new Set(selectedParticipantIds);
+    const selectedItems: SearchableRecordItem[] = [];
+    const unselectedItems: SearchableRecordItem[] = [];
+
+    allContactRecordOptions.forEach((item) => {
+      if (selectedIdSet.has(item.id)) {
+        selectedItems.push(item);
+        return;
+      }
+
+      unselectedItems.push(item);
+    });
+
+    return [...selectedItems, ...unselectedItems];
+  }, [allContactRecordOptions, selectedParticipantIds]);
   const onedaBusinessOptions = useMemo<SearchableRecordItem[]>(
     () =>
       onedaBusinesses
@@ -1181,12 +1241,31 @@ export default function ScheduleScreen() {
       })),
     [selectedParticipantRecords],
   );
-  const composeRecipientEmails = useMemo(
+  const composeRecipients = useMemo(
     () =>
-      selectedParticipantReviewItems
-        .map((item) => item.email?.trim())
-        .filter((email): email is string => Boolean(email)),
+      selectedParticipantReviewItems.map((item) => ({
+        id: item.id,
+        name: item.name?.trim() || "Recipient",
+        email: item.email?.trim() || "",
+      })),
     [selectedParticipantReviewItems],
+  );
+  const scheduleGiftReviewRecipients = useMemo<GiftSetupReviewRecipient[]>(
+    () =>
+      selectedParticipantRecords.map((item) => ({
+        key: item.id,
+        name: item.name?.trim() || "Recipient",
+        email: item.email?.trim() || item.subtitle?.trim() || "",
+        profileUrl: item.profileUrl ?? null,
+      })),
+    [selectedParticipantRecords],
+  );
+  const activeGiftAssignmentProduct = useMemo(
+    () =>
+      activeGiftAssignmentProductId
+        ? selectedGiftProductsById[activeGiftAssignmentProductId] ?? null
+        : null,
+    [activeGiftAssignmentProductId, selectedGiftProductsById],
   );
   useEffect(() => {
     setCurrentPage(1);
@@ -1226,6 +1305,20 @@ export default function ScheduleScreen() {
       lastVisitedStep: currentStep,
     });
   }, [currentStep, flowSelectionKey, setScheduleDraftFields]);
+
+  useEffect(() => {
+    if (currentStep !== "review-gifts" || !editGiftIdFromRoute) {
+      return;
+    }
+
+    setActiveGiftAssignmentProductId(editGiftIdFromRoute);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("editGiftId");
+    router.replace(
+      `/dashboard/schedule/flow/review-gifts?${params.toString()}`,
+    );
+  }, [currentStep, editGiftIdFromRoute, router, searchParams]);
 
   useEffect(() => {
     const record = editingMessageResponse?.data;
@@ -1305,6 +1398,52 @@ export default function ScheduleScreen() {
       setSelectedEventId(routeEventId);
     }
   }, [routeEventId, selectedEventId]);
+
+  useEffect(() => {
+    if (!isFlowOpen) {
+      return;
+    }
+
+    const recipientKeys = scheduleGiftReviewRecipients.map(
+      (recipient) => recipient.key,
+    );
+
+    if (!recipientKeys.length || !selectedGiftIds.length) {
+      return;
+    }
+
+    const nextQuantitiesById: Record<string, Record<string, number>> = {};
+
+    selectedGiftIds.forEach((giftId) => {
+      const currentQuantities = giftRecipientQuantitiesById[giftId] ?? {};
+
+      nextQuantitiesById[giftId] = recipientKeys.reduce<Record<string, number>>(
+        (accumulator, recipientKey) => {
+          const currentQuantity = currentQuantities[recipientKey];
+          accumulator[recipientKey] =
+            typeof currentQuantity === "number" && currentQuantity >= 0
+              ? currentQuantity
+              : 1;
+          return accumulator;
+        },
+        {},
+      );
+    });
+
+    if (
+      JSON.stringify(nextQuantitiesById) !==
+      JSON.stringify(giftRecipientQuantitiesById)
+    ) {
+      setGiftRecipientQuantitiesById(flowSelectionKey, nextQuantitiesById);
+    }
+  }, [
+    flowSelectionKey,
+    giftRecipientQuantitiesById,
+    isFlowOpen,
+    scheduleGiftReviewRecipients,
+    selectedGiftIds,
+    setGiftRecipientQuantitiesById,
+  ]);
 
   const updateRoute = (
     step: ScheduleMessageFlowStep,
@@ -1579,13 +1718,24 @@ export default function ScheduleScreen() {
     }
 
     const eventTitle = form.eventName || selectedEventTypeOption.label;
+    const todayDateValue = getTodayDateInputValue();
 
     setForm((current) => ({
       ...current,
       eventName: current.eventName || eventTitle,
       subject: current.subject || eventTitle,
+      eventDate:
+        mode === "message" ? current.eventDate || todayDateValue : current.eventDate,
+      scheduledAt:
+        mode === "message"
+          ? current.scheduledAt ||
+            mergeDateAndTimeToDateTimeLocalValue(
+              new Date(`${todayDateValue}T00:00:00`),
+              DEFAULT_SCHEDULE_TIME,
+            )
+          : current.scheduledAt,
     }));
-    updateRoute("event-date");
+    updateRoute(mode === "message" ? "source" : "event-date");
   };
 
   const handleEditRow = (row: ScheduledEventMessageRecord) => {
@@ -1722,6 +1872,31 @@ export default function ScheduleScreen() {
     }
   };
 
+  const handleCancelRow = async () => {
+    if (!pendingCancelRow) return;
+
+    if (isScheduledEventCompleted(pendingCancelRow)) {
+      toast.error("Completed message events cannot be cancelled.");
+      setPendingCancelRow(null);
+      return;
+    }
+
+    try {
+      const response =
+        await cancelScheduledEventMessageEventMutation.mutateAsync(
+          pendingCancelRow.eventId,
+        );
+      toast.success(response.message || "Message event cancelled successfully.");
+      setPendingCancelRow(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to cancel this message event right now.",
+      );
+    }
+  };
+
   const tableData: TableData<ScheduledEventMessageRecord> = {
     columns: [
       {
@@ -1790,6 +1965,8 @@ export default function ScheduleScreen() {
             onView={handleViewRow}
             onEdit={handleEditRow}
             onDelete={setPendingDeleteRow}
+            onCancel={setPendingCancelRow}
+            isUpcomingTab={getScheduleEventTiming(activeTab) === "upcoming"}
           />
         ),
       },
@@ -1819,21 +1996,19 @@ export default function ScheduleScreen() {
           Ok... Let&apos;s get started!
         </p>
         <p className="mt-2 text-[20px] font-normal text-[#434343]">
-          What&apos;s the name of your event?
+          What is the event about?
         </p>
       </div>
 
       {isAvailableEventTypesLoading ? (
-        <p className="py-8 text-center text-sm text-[#7D7D7D]">
-          Loading events...
-        </p>
+        <ModalPanelSkeleton />
       ) : (
         <OverlaySelect
           value={selectedEventTypeId}
           onValueChange={setSelectedEventTypeId}
           options={eventTypeOptions}
-          placeholder="Select Event"
-          panelTitle="Select an Event"
+          placeholder="Select event type"
+          panelTitle="Select an event type"
           searchPlaceholder=""
           searchValue={eventTypeSearchValue}
           onSearchValueChange={setEventTypeSearchValue}
@@ -1883,6 +2058,27 @@ export default function ScheduleScreen() {
     updateRoute("source");
   };
 
+  useEffect(() => {
+    if (currentStep !== "event-date" || mode !== "message") {
+      return;
+    }
+
+    const todayDateValue = getTodayDateInputValue();
+
+    setForm((current) => ({
+      ...current,
+      eventDate: current.eventDate || todayDateValue,
+      scheduledAt:
+        current.scheduledAt ||
+        mergeDateAndTimeToDateTimeLocalValue(
+          new Date(`${todayDateValue}T00:00:00`),
+          DEFAULT_SCHEDULE_TIME,
+        ),
+    }));
+
+    updateRoute("source");
+  }, [currentStep, mode]);
+
   const eventDateStep = (
     <EventDateStep
       eventName={form.eventName || selectedEventTypeOption?.label || "Event"}
@@ -1915,9 +2111,6 @@ export default function ScheduleScreen() {
   const sourceStep = (
     <div className="space-y-12 pt-2">
       <div className="text-center">
-        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
-          Who would you like to message?
-        </p>
         <p className="mt-2 text-[20px] font-normal text-[#434343]">
           Choose where your recipients should come from.
         </p>
@@ -1938,8 +2131,8 @@ export default function ScheduleScreen() {
 
       <div className="flex justify-center">
         <BackButton
-          onClick={() => updateRoute("event-date")}
-          className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+          onClick={() => updateRoute(mode === "message" ? "event" : "event-date")}
+          className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
           iconClassName="size-[24px]"
         />
       </div>
@@ -1956,7 +2149,7 @@ export default function ScheduleScreen() {
 
         <div className="mx-auto max-w-[494px]">
           <OverlayRecordPicker
-            items={allContactRecordOptions}
+            items={prioritizedContactRecordOptions}
             selectedIds={selectedParticipantIds}
             onSelectedIdsChange={(ids) => {
               if (!ids.length) {
@@ -1967,7 +2160,9 @@ export default function ScheduleScreen() {
               }
 
               const selectedRecords = ids
-                .map((id) => allContactRecordOptions.find((item) => item.id === id))
+                .map((id) =>
+                  prioritizedContactRecordOptions.find((item) => item.id === id),
+                )
                 .filter((item): item is SearchableRecordItem => Boolean(item));
 
               if (!selectedRecords.length) {
@@ -1994,18 +2189,12 @@ export default function ScheduleScreen() {
             }
             triggerBottomAction={
               <BackButton
-              onClick={() => updateRoute("source")}
-                className="flex h-[45px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                onClick={() => updateRoute("source")}
+                className="flex h-[38px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#F3EFFB] px-5 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
                 iconClassName="size-[24px]"
               />
             }
             footer={
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <BackButton
-                onClick={() => updateRoute("source")}
-                className="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                iconClassName="size-[24px]"
-              />
               <ModalButton
                 onClick={handleRecordNext}
                 disabled={
@@ -2015,7 +2204,6 @@ export default function ScheduleScreen() {
               >
                 Next
               </ModalButton>
-            </div>
             }
             addActionLabel="Add New"
             onAddAction={() => handleOpenAddContact("record")}
@@ -2066,8 +2254,10 @@ export default function ScheduleScreen() {
       greetingName="there"
       prompt="Review the people you want to message."
       items={selectedParticipantReviewItems}
-      onAddNew={() => updateRoute("record")}
-      onBack={() => updateRoute("record")}
+      topActionLabel="Add"
+      topActionIcon="add"
+      onTopAction={() => updateRoute("source")}
+      onBack={() => updateRoute("source")}
       onNext={handleReviewRecordsNext}
       onDelete={(id) => {
         setSelectedParticipantIds((current) =>
@@ -2352,6 +2542,53 @@ export default function ScheduleScreen() {
       const recipientRefs = resolvedParticipantRefs.map(
         (participant) => participant.clientRef,
       );
+      const participantRefByContactId = new Map(
+        resolvedParticipantRefs.map((participant) => [
+          participant.contactId,
+          participant.clientRef,
+        ]),
+      );
+      const selectedGiftAssignments = selectedProducts.reduce<
+        ScheduledEventMessageSetupPayload["giftAssignments"]
+      >((assignments, product) => {
+        const recipientQuantities = giftRecipientQuantitiesById[product._id] ?? {};
+        const activeRecipientRefs = scheduleGiftReviewRecipients.reduce<string[]>(
+          (refs, recipient) => {
+            const quantity = recipientQuantities[recipient.key] ?? 0;
+            const recipientRef = participantRefByContactId.get(recipient.key);
+
+            if (!recipientRef || quantity <= 0) {
+              return refs;
+            }
+
+            refs.push(recipientRef);
+            return refs;
+          },
+          [],
+        );
+
+        if (!activeRecipientRefs.length) {
+          return assignments;
+        }
+
+        const totalQuantity = scheduleGiftReviewRecipients.reduce(
+          (sum, recipient) => sum + Math.max(0, recipientQuantities[recipient.key] ?? 0),
+          0,
+        );
+
+        assignments.push({
+          giverRef: "creator",
+          recipientRefs: activeRecipientRefs,
+          gifts: [
+            {
+              ...mapMarketplaceProductToGiftPayload(product),
+              quantity: totalQuantity,
+            },
+          ],
+        });
+
+        return assignments;
+      }, []);
 
       return {
         event: {
@@ -2381,12 +2618,15 @@ export default function ScheduleScreen() {
           isNotified: true,
         })),
         giftAssignments: selectedProducts.length
-          ? [
-              {
-                recipientRefs,
-                gifts: selectedProducts.map(mapMarketplaceProductToGiftPayload),
-              },
-            ]
+          ? selectedGiftAssignments.length
+            ? selectedGiftAssignments
+            : [
+                {
+                  giverRef: "creator",
+                  recipientRefs,
+                  gifts: selectedProducts.map(mapMarketplaceProductToGiftPayload),
+                },
+              ]
           : [],
         ...(giftUrl ? { giftUrl } : {}),
         ...(form.giftUrlExpiresAt
@@ -2402,9 +2642,123 @@ export default function ScheduleScreen() {
       return;
     }
 
-    setIsSubmitConfirmationOpen(true);
+    if (!selectedProducts.length) {
+      setIsSubmitConfirmationOpen(true);
+      return;
+    }
+
+    updateRoute("review-gifts");
   };
 
+  const handleReviewGiftsNext = () => {
+    if (!scheduleGiftReviewProducts.length) {
+      toast.error("Please select at least one gift before continuing.");
+      return;
+    }
+
+    if (!scheduleGiftReviewRecipients.length) {
+      toast.error("Please select at least one recipient before continuing.");
+      return;
+    }
+
+    const hasInvalidRecipientAssignment = scheduleGiftReviewProducts.some(
+      (product) => {
+        const recipientQuantities = giftRecipientQuantitiesById[product._id] ?? {};
+
+        return !scheduleGiftReviewRecipients.some((recipient) => {
+          const quantity = recipientQuantities[recipient.key] ?? 0;
+          return quantity > 0;
+        });
+      },
+    );
+
+    if (hasInvalidRecipientAssignment) {
+      toast.error(
+        "Please assign at least one unit of each selected gift before continuing.",
+      );
+      return;
+    }
+
+    updateRoute("setup-review");
+  };
+
+  const handleOpenGiftAssignmentDrawer = (productId: string) => {
+    setActiveGiftAssignmentProductId(productId);
+  };
+
+  const handleEditGiftReviewProduct = (productId: string) => {
+    updateRoute("review-gifts", {
+      editGiftId: productId,
+    });
+  };
+
+  const handleDeleteGiftReviewProduct = () => {
+    if (!pendingGiftDeleteProductId) {
+      return;
+    }
+
+    const nextSelectedIds = selectedGiftIds.filter(
+      (giftId) => giftId !== pendingGiftDeleteProductId,
+    );
+    const nextSelectedProductsById = { ...selectedGiftProductsById };
+    const nextGiftRecipientQuantitiesById = { ...giftRecipientQuantitiesById };
+
+    delete nextSelectedProductsById[pendingGiftDeleteProductId];
+    delete nextGiftRecipientQuantitiesById[pendingGiftDeleteProductId];
+
+    setSelectedGiftIds(nextSelectedIds);
+    setStoredSelectedGiftProductsById(flowSelectionKey, nextSelectedProductsById);
+    setGiftRecipientQuantitiesById(
+      flowSelectionKey,
+      nextGiftRecipientQuantitiesById,
+    );
+
+    if (activeGiftAssignmentProductId === pendingGiftDeleteProductId) {
+      setActiveGiftAssignmentProductId(null);
+    }
+
+    setPendingGiftDeleteProductId(null);
+  };
+
+  const handleUpdateGiftRecipientQuantity = (
+    productId: string,
+    recipientKey: string,
+    nextQuantity: number,
+  ) => {
+    const currentQuantities = giftRecipientQuantitiesById[productId] ?? {};
+    const normalizedRequestedQuantity = Math.max(0, nextQuantity);
+
+    let safeQuantity = normalizedRequestedQuantity;
+
+    if (normalizedRequestedQuantity === 0) {
+      const activeRecipientCount = scheduleGiftReviewRecipients.reduce(
+        (count, recipient) =>
+          count + ((currentQuantities[recipient.key] ?? 1) > 0 ? 1 : 0),
+        0,
+      );
+      const currentRecipientQuantity = currentQuantities[recipientKey] ?? 1;
+      const isCurrentRecipientActive = currentRecipientQuantity > 0;
+
+      if (isCurrentRecipientActive && activeRecipientCount <= 1) {
+        safeQuantity = 1;
+      }
+    }
+
+    const nextQuantitiesById = {
+      ...giftRecipientQuantitiesById,
+      [productId]: {
+        ...currentQuantities,
+        [recipientKey]: safeQuantity,
+      },
+    };
+
+    setGiftRecipientQuantitiesById(flowSelectionKey, nextQuantitiesById);
+  };
+
+  const scheduleGiftReviewProducts = useMemo(
+    () => getValidatedSelectedGiftProducts() ?? [],
+    [selectedGiftIds, selectedGiftProductsById],
+  );
   const lockedScheduledDateTimeField = (
     <div className="space-y-2">
       <span className="block text-sm font-medium text-[#434343]">
@@ -2509,14 +2863,19 @@ export default function ScheduleScreen() {
             </span>
 
             <div className="rounded-[18px] border border-[#ECE8F7] bg-[#FCFBFF] p-3">
-              <div className="no-scrollbar flex max-h-[132px] flex-wrap gap-2 overflow-y-auto pr-1">
-                {composeRecipientEmails.length ? (
-                  composeRecipientEmails.map((email) => (
+                <div className="no-scrollbar flex max-h-[132px] flex-wrap gap-2 overflow-y-auto pr-1">
+                {composeRecipients.length ? (
+                  composeRecipients.map((recipient) => (
                     <span
-                      key={email}
-                      className="inline-flex max-w-full items-center rounded-full bg-[#F0F0F3] px-3 py-1.5 text-[12px] font-medium text-[#8A8892]"
+                      key={recipient.id}
+                      className="inline-flex max-w-full flex-col rounded-[14px] bg-[#F0F0F3] px-3 py-2 text-left"
                     >
-                      <span className="truncate">{email}</span>
+                      <span className="truncate text-[12px] font-medium text-[#55525C]">
+                        {recipient.name}
+                      </span>
+                      <span className="truncate text-[11px] text-[#8A8892]">
+                        {recipient.email || "No email available"}
+                      </span>
                     </span>
                   ))
                 ) : (
@@ -2578,7 +2937,7 @@ export default function ScheduleScreen() {
                   return;
                 }
 
-                updateRoute("gift-selection");
+                updateRoute("gift-choice");
               }}
               disabled={
                 !form.subject.trim() ||
@@ -2590,6 +2949,40 @@ export default function ScheduleScreen() {
             </ModalButton>
           )}
         </div>
+      </div>
+    </div>
+  );
+
+  const giftChoiceStep = (
+    <div className="space-y-12 pt-2">
+      <div className="text-center">
+        <p className="text-[20px] font-medium leading-tight text-[#1E1E1E]">
+          Would you like to add gifts?
+        </p>
+        <p className="mt-2 text-[16px] font-normal text-[#434343]">
+          You can attach gifts to this message, or continue without gifts.
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-[494px] space-y-4">
+        <ModalButton onClick={() => updateRoute("gift-selection")} className="w-full">
+          Yes, add gifts
+        </ModalButton>
+        <ModalButton
+          variant="secondary"
+          onClick={() => setIsSubmitConfirmationOpen(true)}
+          className="w-full"
+        >
+          No, continue without gifts
+        </ModalButton>
+      </div>
+
+      <div className="flex justify-center">
+        <BackButton
+          onClick={() => updateRoute("compose")}
+          className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+          iconClassName="size-[24px]"
+        />
       </div>
     </div>
   );
@@ -2608,10 +3001,139 @@ export default function ScheduleScreen() {
       }}
       caughtMyEyeProductIds={caughtMyEyeGiftIds}
       prioritizedProductIds={prioritizedGiftIds}
-      onBack={() => updateRoute("compose")}
+      onBack={() => updateRoute("gift-choice")}
       onNext={handleGiftSelectionNext}
-      nextLabel={selectedGiftIds.length ? "Next" : "Skip"}
+      nextDisabled={!selectedGiftIds.length}
+      nextLabel="Next"
+      disableContentScroll={true}
       enableInfiniteScroll
+      emptyStateText="No gifts matched your current filters."
+      backClassName="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+      nextClassName="h-[38px] !w-fit min-w-[96px] px-6"
+    />
+  );
+
+  const reviewGiftsStep = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="space-y-2 pb-5">
+        <h2 className="text-[26px] font-semibold leading-tight text-[#1E1E1E] sm:text-[32px]">
+          Review selected gifts
+        </h2>
+        <p className="text-[13px] text-[#5F5A6B] sm:text-[14px]">
+          Manage how each selected gift is shared across the people receiving this
+          message before you continue.
+        </p>
+      </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto pr-1 min-[520px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        {scheduleGiftReviewProducts.map((product) => {
+          const recipientQuantities = giftRecipientQuantitiesById[product._id] ?? {};
+          const totalUnits = Object.values(recipientQuantities).reduce(
+            (sum, quantity) => sum + quantity,
+            0,
+          );
+          const activeGiftRecipients = scheduleGiftReviewRecipients.filter(
+            (recipient) => (recipientQuantities[recipient.key] ?? 1) > 0,
+          );
+
+          return (
+            <div
+              key={product._id}
+              className="mx-auto flex h-full w-full max-w-[290px] min-w-0 flex-col overflow-hidden rounded-[16px] border border-gray-100 bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] min-[520px]:max-w-none"
+            >
+              <div className="relative h-[136px] w-full overflow-hidden rounded-[12px] bg-[#F6F2FB] sm:h-[148px] lg:h-[160px]">
+                {product.images[0] ? (
+                  <Image
+                    src={product.images[0]}
+                    alt={product.title}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : null}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col gap-2 px-1 pt-2">
+                <div className="space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="line-clamp-2 text-[15px] font-semibold leading-tight text-[#4E4C4D] sm:text-[16px]">
+                      {product.title}
+                    </h3>
+                    <span className="shrink-0 text-[13px] font-semibold leading-tight tracking-[0.03em] text-darker sm:text-[14px]">
+                      {formatScheduleMetricCurrency(product.amount)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#3300C9]/15 bg-[#F3EFFB] px-2 py-0.5 text-[9px] font-medium text-[#3300C9]">
+                      {totalUnits} unit{totalUnits === 1 ? "" : "s"}
+                    </span>
+                    <span className="inline-flex w-fit max-w-full items-center truncate rounded-[10px] border border-[#E8E1F6] bg-[#F8F6FD] px-2 py-0.5 text-[9px] font-medium text-[#6F6785]">
+                      {activeGiftRecipients.length} recipient
+                      {activeGiftRecipients.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+                  <div className="flex items-center -space-x-2">
+                    {activeGiftRecipients.map((recipient) => (
+                      <UserAvatar
+                        key={`${product._id}-${recipient.key}`}
+                        name={recipient.name}
+                        imageUrl={recipient.profileUrl}
+                        className="size-7 border-2 border-white text-[10px]"
+                        textClassName="text-[10px]"
+                      />
+                    ))}
+                  </div>
+
+                  <ModalButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => handleOpenGiftAssignmentDrawer(product._id)}
+                    className="inline-flex !h-7 !w-fit rounded-full border border-[#3300C9] bg-white px-3 text-[9px] font-semibold text-[#3300C9] hover:bg-[#F6F2FF] sm:!h-8 sm:px-3.5 sm:text-[10px]"
+                  >
+                    Manage Recipients
+                  </ModalButton>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 border-t border-[#F1EDF9] pt-5">
+        <div className="flex items-center justify-center gap-3">
+          <BackButton
+            onClick={() => updateRoute("gift-selection")}
+            className="flex h-[38px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+            iconClassName="size-[24px]"
+          />
+          <ModalButton
+            type="button"
+            onClick={handleReviewGiftsNext}
+            className="h-[38px] !w-fit min-w-[96px] px-6"
+          >
+            Next
+          </ModalButton>
+        </div>
+      </div>
+    </div>
+  );
+
+  const setupReviewStep = (
+    <RecipientGiftSetupReview
+      recipients={scheduleGiftReviewRecipients}
+      products={scheduleGiftReviewProducts}
+      quantitiesByProductId={giftRecipientQuantitiesById}
+      onBack={() => updateRoute("review-gifts")}
+      onCancel={() => setIsDiscardConfirmationOpen(true)}
+      onConfirm={() => setIsSubmitConfirmationOpen(true)}
+      onEditProduct={handleEditGiftReviewProduct}
+      onDeleteProduct={(productId) => setPendingGiftDeleteProductId(productId)}
+      cancelLabel="Cancel"
+      confirmLabel={mode === "message" ? "Send Message" : "Save Setup"}
     />
   );
 
@@ -2634,8 +3156,14 @@ export default function ScheduleScreen() {
   return (
     <div className="space-y-6">
       {isInlineGiftSelectionStep ? (
-        <div className="mx-auto min-h-[760px] w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:h-[calc(100dvh-12rem)] lg:min-h-0 lg:px-8">
-          <div className="h-full min-h-0">{giftSelectionStep}</div>
+        <div className="mx-auto w-full max-w-[1448px] rounded-[24px] border border-[#F1EDF9] bg-white px-4 py-4 shadow-[0_12px_40px_rgba(29,18,68,0.06)] sm:px-6 sm:py-6 lg:min-h-0 lg:px-8">
+          <div className="h-full min-h-0">
+            {currentStep === "gift-selection"
+              ? giftSelectionStep
+              : currentStep === "review-gifts"
+                ? reviewGiftsStep
+                : setupReviewStep}
+          </div>
         </div>
       ) : (
         <>
@@ -2807,7 +3335,7 @@ export default function ScheduleScreen() {
           : currentStep === "event-date"
             ? eventDateStep
             : currentStep === "source"
-              ? sourceStep
+            ? sourceStep
               : currentStep === "oneda-business"
                 ? onedaBusinessStep
           : currentStep === "oneda-contact"
@@ -2820,6 +3348,12 @@ export default function ScheduleScreen() {
                     ? reviewRecordsStep
                     : currentStep === "compose"
                         ? composeStep
+                        : currentStep === "gift-choice"
+                          ? giftChoiceStep
+                        : currentStep === "review-gifts"
+                          ? reviewGiftsStep
+                        : currentStep === "setup-review"
+                          ? setupReviewStep
                         : currentStep === "success"
                           ? successStep
                           : null}
@@ -2840,9 +3374,17 @@ export default function ScheduleScreen() {
           void handleSubmit(false);
         }}
         action="save"
-        title="Save Message Setup"
-        description="Save this setup as a draft, or save and complete it."
-        confirmText="Save"
+        title={
+          mode === "message"
+            ? "Send Message Setup"
+            : "Save Scheduled Message Setup"
+        }
+        description={
+          mode === "message"
+            ? "Save this message setup as a draft, or save and send it now."
+            : "Save this scheduled message setup as a draft, or save and complete it."
+        }
+        confirmText={mode === "message" ? "Send Message" : "Save"}
         secondaryConfirmText="Save as Draft"
         isLoading={
           scheduleSetupSaveMode === "save" &&
@@ -2876,6 +3418,31 @@ export default function ScheduleScreen() {
       />
 
       <ConfirmationModal
+        open={Boolean(pendingCancelRow)}
+        onClose={() => setPendingCancelRow(null)}
+        onConfirm={handleCancelRow}
+        action="delete"
+        title="Cancel Message Event"
+        description="Are you sure you want to cancel this scheduled message event?"
+        confirmText="Cancel Event"
+        isLoading={cancelScheduledEventMessageEventMutation.isPending}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
+        open={Boolean(pendingGiftDeleteProductId)}
+        onClose={() => setPendingGiftDeleteProductId(null)}
+        onConfirm={handleDeleteGiftReviewProduct}
+        action="delete"
+        title="Delete Gift"
+        description="Are you sure you want to remove this gift from the list?"
+        confirmText="Delete"
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+      />
+
+      <ConfirmationModal
         open={isDiscardConfirmationOpen}
         onClose={() => setIsDiscardConfirmationOpen(false)}
         onConfirm={() => {
@@ -2889,6 +3456,130 @@ export default function ScheduleScreen() {
         closeOnOverlayClick={false}
         closeOnEscape={false}
       />
+
+      <SideDrawer
+        open={Boolean(activeGiftAssignmentProduct)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveGiftAssignmentProductId(null);
+          }
+        }}
+        title={activeGiftAssignmentProduct?.title || "Manage Recipients"}
+        description="Adjust how many units of this gift are assigned to each recipient for this message."
+        footer={
+          <ModalButton
+            type="button"
+            onClick={() => setActiveGiftAssignmentProductId(null)}
+            className="h-11 w-full rounded-[16px] text-[14px]"
+          >
+            Done
+          </ModalButton>
+        }
+      >
+        <div className="space-y-3">
+          {scheduleGiftReviewRecipients.map((recipient) => {
+            const quantity =
+              activeGiftAssignmentProduct
+                ? giftRecipientQuantitiesById[activeGiftAssignmentProduct._id]?.[
+                    recipient.key
+                  ] ?? 1
+                : 1;
+            const isRecipientDisabled = quantity === 0;
+
+            return (
+              <div
+                key={recipient.key}
+                className={cn(
+                  "rounded-[18px] border p-4 transition-colors",
+                  isRecipientDisabled
+                    ? "border-[#EEEAF7] bg-[#F5F3FA] opacity-65"
+                    : "border-[#EEEAF7] bg-[#FCFBFF]",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserAvatar
+                      name={recipient.name}
+                      imageUrl={recipient.profileUrl}
+                      className="size-10 shrink-0 text-[12px]"
+                      textClassName="text-[12px]"
+                    />
+
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-semibold text-[#2F2F35]">
+                        {recipient.name}
+                      </p>
+                      <p className="truncate text-[12px] text-[#8A8892]">
+                        {recipient.email || "Recipient"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeGiftAssignmentProduct) {
+                          return;
+                        }
+
+                        handleUpdateGiftRecipientQuantity(
+                          activeGiftAssignmentProduct._id,
+                          recipient.key,
+                          quantity - 1,
+                        );
+                      }}
+                      className="flex size-9 items-center justify-center rounded-full border border-[#E5DFF4] bg-white text-[18px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F6F2FF]"
+                    >
+                      -
+                    </button>
+
+                    <Input
+                      value={String(quantity)}
+                      onChange={(event) => {
+                        if (!activeGiftAssignmentProduct) {
+                          return;
+                        }
+
+                        const nextValue = Number.parseInt(
+                          event.target.value.replace(/[^\d]/g, ""),
+                          10,
+                        );
+
+                        handleUpdateGiftRecipientQuantity(
+                          activeGiftAssignmentProduct._id,
+                          recipient.key,
+                          Number.isNaN(nextValue) ? 0 : nextValue,
+                        );
+                      }}
+                      inputMode="numeric"
+                      className="h-10 w-16 rounded-[12px] border-[#E5DFF4] bg-white px-3 text-center text-[14px] font-semibold text-[#2F2F35]"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeGiftAssignmentProduct) {
+                          return;
+                        }
+
+                        handleUpdateGiftRecipientQuantity(
+                          activeGiftAssignmentProduct._id,
+                          recipient.key,
+                          quantity + 1,
+                        );
+                      }}
+                      className="flex size-9 items-center justify-center rounded-full border border-[#E5DFF4] bg-white text-[18px] font-semibold text-[#3300C9] transition-colors hover:bg-[#F6F2FF]"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SideDrawer>
 
     </div>
   );

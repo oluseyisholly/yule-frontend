@@ -63,6 +63,20 @@ body {
   color: #4d4d4d;
 }
 
+html[data-pending-sso="true"] .landing-shell-hide-on-sso {
+  display: none !important;
+}
+
+html[data-pending-sso="true"] .landing-shell-motion {
+  min-height: 100vh !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+}
+
+html[data-pending-sso="true"] body {
+  background: #ffffff !important;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -403,4 +417,19 @@ html.dark header img[alt="Festa logo"] {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+html[data-pending-sso="true"],
+html[data-pending-sso="true"] body {
+  background: #ffffff !important;
+}
+
+html[data-pending-sso="true"] .landing-shell-hide-on-sso {
+  display: none !important;
+}
+
+html[data-pending-sso="true"] .landing-shell-motion {
+  min-height: 100vh !important;
+  padding: 0 !important;
+  background: #ffffff !important;
 }

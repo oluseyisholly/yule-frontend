@@ -15,7 +15,6 @@ export type NotificationDrawerItem = {
 
 type NotificationDrawerProps = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
   notifications: NotificationDrawerItem[];
   count?: number;
   isLoading?: boolean;
@@ -24,6 +23,7 @@ type NotificationDrawerProps = {
   onLoadMore?: () => void;
   onMarkAllRead?: () => void;
   onMarkRead?: (id: string) => void;
+  onItemClick?: (id: string) => void;
   isMarkingRead?: boolean;
   markingReadId?: string | null;
 };
@@ -39,11 +39,31 @@ function formatNotificationTime(value?: string | null) {
     return "";
   }
 
+  const differenceInSeconds = Math.round((date.getTime() - Date.now()) / 1000);
+  const absoluteDifference = Math.abs(differenceInSeconds);
+
+  if (absoluteDifference < 45) {
+    return "Just now";
+  }
+
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (absoluteDifference < 60 * 60) {
+    return formatter.format(Math.round(differenceInSeconds / 60), "minute");
+  }
+
+  if (absoluteDifference < 60 * 60 * 24) {
+    return formatter.format(Math.round(differenceInSeconds / 3600), "hour");
+  }
+
+  if (absoluteDifference < 60 * 60 * 24 * 7) {
+    return formatter.format(Math.round(differenceInSeconds / 86400), "day");
+  }
+
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
   }).format(date);
 }
 
@@ -66,7 +86,6 @@ function NotificationSkeleton() {
 
 export default function NotificationDrawer({
   open,
-  onOpenChange,
   notifications,
   count = notifications.length,
   isLoading = false,
@@ -75,6 +94,7 @@ export default function NotificationDrawer({
   onLoadMore,
   onMarkAllRead,
   onMarkRead,
+  onItemClick,
   isMarkingRead = false,
   markingReadId = null,
 }: NotificationDrawerProps) {
@@ -106,8 +126,7 @@ export default function NotificationDrawer({
   }, [hasMore, isLoadingMore, onLoadMore, open]);
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
+    <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
             "fixed inset-0 z-[170] bg-[#101014]/45 backdrop-blur-[2px]",
@@ -164,8 +183,21 @@ export default function NotificationDrawer({
                 {notifications.map((notification) => (
                   <article
                     key={notification.id}
+                    role={onItemClick ? "button" : undefined}
+                    tabIndex={onItemClick ? 0 : undefined}
+                    onClick={() => onItemClick?.(notification.id)}
+                    onKeyDown={(event) => {
+                      if (
+                        onItemClick &&
+                        (event.key === "Enter" || event.key === " ")
+                      ) {
+                        event.preventDefault();
+                        onItemClick(notification.id);
+                      }
+                    }}
                     className={cn(
-                      "rounded-[18px] border bg-white p-4 shadow-[0_10px_28px_rgba(35,23,75,0.04)]",
+                      "rounded-[18px] border bg-white p-4 text-left shadow-[0_10px_28px_rgba(35,23,75,0.04)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#3300C9]/30",
+                      onItemClick && "cursor-pointer hover:bg-[#FCFAFF]",
                       notification.isRead
                         ? "border-[#F0ECF7]"
                         : "border-[#DED2FF]",
@@ -192,7 +224,10 @@ export default function NotificationDrawer({
                             {!notification.isRead && onMarkRead ? (
                               <button
                                 type="button"
-                                onClick={() => onMarkRead(notification.id)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onMarkRead(notification.id);
+                                }}
                                 disabled={markingReadId === notification.id}
                                 className="inline-flex size-7 items-center justify-center rounded-full border border-[#F1EAFD] bg-white text-[#7D7888] transition-colors hover:border-[#3300C9] hover:text-[#3300C9] disabled:cursor-not-allowed disabled:opacity-60"
                                 aria-label={`Mark ${notification.title} as read`}
@@ -233,7 +268,6 @@ export default function NotificationDrawer({
             )}
           </div>
         </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </DialogPrimitive.Portal>
   );
 }

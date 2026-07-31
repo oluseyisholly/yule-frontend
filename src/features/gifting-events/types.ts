@@ -23,6 +23,7 @@ export type GiftingEventSetupParticipantPayload = {
   clientRef: string;
   contactId: string;
   isNotified: boolean;
+  relationshipId?: string;
 };
 
 export type GiftingEventGiftAssignmentPayload = {

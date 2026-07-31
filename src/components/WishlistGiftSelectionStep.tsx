@@ -456,6 +456,8 @@ export default function WishlistGiftSelectionStep({
   caughtMyEyeProductIds = [],
   prioritizedProductIds = [],
   deferProductsUntilInitialSelectionResolved = false,
+  nextClassName,
+  backClassName,
 }: WishlistGiftSelectionStepProps) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -1065,8 +1067,13 @@ export default function WishlistGiftSelectionStep({
                 saveAndContinueLabel={saveAndContinueLabel}
                 isSaveAndContinuePending={isSaveAndContinuePending}
                 className="pt-0"
-                backClassName="flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
-                nextClassName="!w-fit min-w-[96px] px-6"
+                backClassName={
+                  backClassName ??
+                  "flex h-[44px] min-w-[82px] items-center justify-center rounded-[16px] bg-[#F3EFFB] px-6 text-[#3300C9] transition-colors hover:bg-[#ECE6FB]"
+                }
+                nextClassName={
+                  nextClassName ?? "!w-fit min-w-[96px] px-6"
+                }
               />
             )}
           </div>

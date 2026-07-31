@@ -79,6 +79,7 @@ export type ScheduledEventMessageSetupParticipant = {
 };
 
 export type ScheduledEventMessageSetupGiftAssignment = {
+  giverRef: string;
   recipientRefs: string[];
   gifts: ScheduledEventMessageSetupGiftItem[];
 };
